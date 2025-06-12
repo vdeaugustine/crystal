@@ -1,0 +1,87 @@
+name: Release Crystal
+
+on:
+  push:
+    tags:
+      - 'v*' # Matches tags like v1.0.0, v2.1.0, etc.
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.15.1'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build main process
+      run: pnpm run build:main
+
+    - name: Rebuild native modules
+      run: pnpm run electron:rebuild
+
+    - name: Build application
+      run: pnpm run build:mac
+      env:
+        # macOS code signing (optional for CI builds)
+        CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+        CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        # macOS notarization (optional for CI builds)
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # Only enable signing when certificates are available
+        CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: crystal-macos-${{ github.ref_name }}
+        path: dist-electron/*.dmg
+        if-no-files-found: error
+        retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: crystal-macos-${{ github.ref_name }}
+        path: ./artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Crystal ${{ github.ref_name }}
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+        generate_release_notes: true
+        files: |
+          ./artifacts/*.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

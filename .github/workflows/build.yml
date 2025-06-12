@@ -1,0 +1,61 @@
+name: Build Crystal
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.15.1'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build main process
+      run: pnpm run build:main
+
+    - name: Rebuild native modules
+      run: pnpm run electron:rebuild
+
+    - name: Build application
+      run: pnpm run build:mac
+      env:
+        # macOS code signing (optional for CI builds)
+        CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+        CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        # macOS notarization (optional for CI builds)
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # Only enable signing when certificates are available
+        CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: crystal-macos
+        path: dist-electron/*.dmg
+        if-no-files-found: error
+        retention-days: 7
+
