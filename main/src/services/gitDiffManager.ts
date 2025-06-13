@@ -99,7 +99,7 @@ export class GitDiffManager {
       // This shows only commits unique to the current branch
       const logFormat = '%H|%s|%ai|%an';
       const logOutput = execSync(
-        `git log --format="${logFormat}" --numstat -n ${limit} HEAD --not ${mainBranch}`,
+        `git log --format="${logFormat}" --numstat -n ${limit} HEAD --not ${mainBranch} --`,
         { cwd: worktreePath, encoding: 'utf8' }
       );
 
@@ -142,7 +142,15 @@ export class GitDiffManager {
 
       return commits;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error('Failed to get commit history', error instanceof Error ? error : undefined);
+      
+      // If it's a git command error, throw it so the caller can handle it appropriately
+      if (errorMessage.includes('fatal:') || errorMessage.includes('error:')) {
+        throw new Error(`Git error: ${errorMessage}`);
+      }
+      
+      // For other errors, return empty array as fallback
       return [];
     }
   }

@@ -1048,7 +1048,8 @@ ipcMain.handle('sessions:get-executions', async (_event, sessionId: string) => {
     return { success: true, data: executions };
   } catch (error) {
     console.error('Failed to get executions:', error);
-    return { success: false, error: 'Failed to get executions' };
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get executions';
+    return { success: false, error: errorMessage };
   }
 });
 
@@ -1075,7 +1076,8 @@ ipcMain.handle('sessions:get-execution-diff', async (_event, sessionId: string, 
     return { success: true, data: diff };
   } catch (error) {
     console.error('Failed to get execution diff:', error);
-    return { success: false, error: 'Failed to get execution diff' };
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get execution diff';
+    return { success: false, error: errorMessage };
   }
 });
 
@@ -1638,7 +1640,8 @@ ipcMain.handle('sessions:get-combined-diff', async (_event, sessionId: string, e
     };
   } catch (error) {
     console.error('Failed to get combined diff:', error);
-    return { success: false, error: 'Failed to get combined diff' };
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get combined diff';
+    return { success: false, error: errorMessage };
   }
 });
 
