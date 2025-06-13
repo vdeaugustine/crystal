@@ -16,6 +16,7 @@ import { VersionChecker, type VersionInfo } from './services/versionChecker';
 import { StravuAuthManager } from './services/stravuAuthManager';
 import { StravuNotebookService } from './services/stravuNotebookService';
 import { Logger } from './utils/logger';
+import { setCrystalDirectory } from './utils/crystalDirectory';
 import type { CreateSessionRequest } from './types/session';
 
 let mainWindow: BrowserWindow | null = null;
@@ -44,6 +45,24 @@ let originalWarn: typeof console.warn;
 let originalInfo: typeof console.info;
 
 const isDevelopment = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+
+// Parse command-line arguments for custom Crystal directory
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  
+  // Support both --crystal-dir=/path and --crystal-dir /path formats
+  if (arg.startsWith('--crystal-dir=')) {
+    const dir = arg.substring('--crystal-dir='.length);
+    setCrystalDirectory(dir);
+    console.log(`[Main] Using custom Crystal directory: ${dir}`);
+  } else if (arg === '--crystal-dir' && i + 1 < args.length) {
+    const dir = args[i + 1];
+    setCrystalDirectory(dir);
+    console.log(`[Main] Using custom Crystal directory: ${dir}`);
+    i++; // Skip the next argument since we've consumed it
+  }
+}
 
 // Install Devtron in development
 if (isDevelopment) {

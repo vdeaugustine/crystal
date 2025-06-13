@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { app } from 'electron';
 import { PermissionManager } from './permissionManager';
+import { getCrystalSubdirectory } from '../utils/crystalDirectory';
 
 export class PermissionIpcServer {
   private server: net.Server | null = null;
@@ -15,8 +16,7 @@ export class PermissionIpcServer {
     // DMG apps can write to user's home directory
     let socketDir: string;
     try {
-      const homeDir = os.homedir();
-      socketDir = path.join(homeDir, '.crystal', 'sockets');
+      socketDir = getCrystalSubdirectory('sockets');
       
       // Ensure the directory exists
       if (!fs.existsSync(socketDir)) {

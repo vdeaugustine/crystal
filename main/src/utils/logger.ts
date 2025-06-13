@@ -1,6 +1,7 @@
 import type { ConfigManager } from '../services/configManager';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getCrystalSubdirectory } from './crystalDirectory';
 
 export class Logger {
   private logDir: string;
@@ -17,8 +18,8 @@ export class Logger {
   };
 
   constructor(private configManager: ConfigManager) {
-    // Always use ~/.crystal/logs for consistency
-    this.logDir = path.join(process.env.HOME || '', '.crystal', 'logs');
+    // Use the centralized Crystal directory
+    this.logDir = getCrystalSubdirectory('logs');
     
     this.currentLogFile = this.getCurrentLogFileName();
     this.initializeLogger();

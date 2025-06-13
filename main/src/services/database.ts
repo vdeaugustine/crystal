@@ -1,7 +1,7 @@
 import { DatabaseService } from '../database/database';
 import { join } from 'path';
-import { homedir } from 'os';
+import { getCrystalDirectory } from '../utils/crystalDirectory';
 
 // Create and export a singleton instance
-const dbPath = join(homedir(), '.crystal', 'sessions.db');
+const dbPath = join(getCrystalDirectory(), 'sessions.db');
 export const databaseService = new DatabaseService(dbPath);

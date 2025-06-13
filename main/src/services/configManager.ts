@@ -3,6 +3,7 @@ import type { AppConfig } from '../types/config';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { getCrystalDirectory } from '../utils/crystalDirectory';
 
 export class ConfigManager extends EventEmitter {
   private config: AppConfig;
@@ -11,7 +12,7 @@ export class ConfigManager extends EventEmitter {
 
   constructor(defaultGitPath?: string) {
     super();
-    this.configDir = path.join(os.homedir(), '.crystal');
+    this.configDir = getCrystalDirectory();
     this.configPath = path.join(this.configDir, 'config.json');
     this.config = {
       gitRepoPath: defaultGitPath || os.homedir(),
