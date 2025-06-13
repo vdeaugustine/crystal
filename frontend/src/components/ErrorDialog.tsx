@@ -1,4 +1,5 @@
-import { AlertCircle, X } from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ErrorDialogProps {
   isOpen: boolean;
@@ -17,7 +18,15 @@ export function ErrorDialog({
   details,
   command 
 }: ErrorDialogProps) {
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+  
   if (!isOpen) return null;
+
+  // Check if details are long enough to warrant collapsing
+  const shouldCollapse = details && details.length > 500;
+  const displayDetails = shouldCollapse && !isDetailsExpanded 
+    ? details.substring(0, 400) + '...' 
+    : details;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -51,9 +60,29 @@ export function ErrorDialog({
           
           {details && (
             <div>
-              <h4 className="text-sm font-medium text-gray-400 mb-1">Error Details:</h4>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-sm font-medium text-gray-400">Error Details:</h4>
+                {shouldCollapse && (
+                  <button
+                    onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
+                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1"
+                  >
+                    {isDetailsExpanded ? (
+                      <>
+                        <span>Show less</span>
+                        <ChevronUp className="w-3 h-3" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Show more</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
               <pre className="bg-gray-900 p-3 rounded text-sm text-red-400 font-mono overflow-x-auto whitespace-pre-wrap">
-                {details}
+                {displayDetails}
               </pre>
             </div>
           )}
