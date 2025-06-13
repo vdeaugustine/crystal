@@ -10,7 +10,7 @@ import { EmptyState } from './EmptyState';
 import CombinedDiffView from './CombinedDiffView';
 import { StravuFileSearch } from './StravuFileSearch';
 import { API } from '../utils/api';
-import { ExternalLink, FolderOpen, ChevronRight, GitBranch, GitPullRequest, Upload, Download, Code2, Inbox } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 
 export function SessionView() {
