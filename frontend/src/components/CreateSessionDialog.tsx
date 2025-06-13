@@ -241,7 +241,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               Permission Mode
             </label>
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
                   name="permissionMode"
@@ -250,13 +250,18 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                   onChange={(e) => setFormData({ ...formData, permissionMode: e.target.value as 'ignore' | 'approve' })}
                   className="text-blue-600"
                 />
-                <div className="flex items-center gap-2">
-                  <ShieldOff className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm text-gray-900">Skip Permissions</span>
-                  <span className="text-xs text-gray-500">(faster, less secure)</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <ShieldOff className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm text-gray-900">Skip Permissions</span>
+                    <span className="text-xs text-gray-500">(recommended)</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1 pl-6 group-hover:text-gray-700">
+                    Claude runs with full permissions. Ideal for trusted environments and faster workflows.
+                  </p>
                 </div>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
                   name="permissionMode"
@@ -265,16 +270,23 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                   onChange={(e) => setFormData({ ...formData, permissionMode: e.target.value as 'ignore' | 'approve' })}
                   className="text-blue-600"
                 />
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-900">Manual Approval</span>
-                  <span className="text-xs text-gray-500">(safer, interactive)</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <span className="text-sm text-gray-900">Manual Approval</span>
+                    <span className="text-xs text-gray-500">(safer)</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1 pl-6 group-hover:text-gray-700">
+                    Claude asks permission for file operations. Use this for sensitive projects or when learning.
+                  </p>
                 </div>
               </label>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              When enabled, Claude will ask for permission before performing potentially dangerous actions.
-            </p>
+            <div className="mt-3 p-2 bg-blue-50 rounded-md">
+              <p className="text-xs text-blue-700">
+                <strong>Note:</strong> This setting only affects new sessions. You can change the default in Settings.
+              </p>
+            </div>
           </div>
           
           <div className="flex justify-end space-x-3 pt-4">
