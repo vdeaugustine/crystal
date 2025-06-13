@@ -239,7 +239,7 @@ export function ProjectTreeView() {
                   ) : (
                     <Folder className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   )}
-                  <span className="text-sm font-medium text-gray-200 truncate">
+                  <span className="text-sm font-medium text-gray-200 truncate text-left">
                     {project.name}
                   </span>
                 </div>

@@ -139,10 +139,10 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     >
       <button
         onClick={() => setActiveSession(session.id)}
-        className="flex items-center space-x-3 flex-1 min-w-0"
+        className="flex items-center justify-start space-x-3 flex-1 min-w-0"
       >
         <StatusIndicator session={session} size="small" />
-        <span className="flex-1 truncate text-sm">
+        <span className="flex-1 truncate text-sm text-left">
           {session.name}
           {session.isMainRepo && (
             <span className="ml-1 text-xs text-blue-400">(main)</span>
