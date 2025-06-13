@@ -45,19 +45,27 @@ function App() {
   const { showNotification } = useNotifications();
 
   useEffect(() => {
-    // Only show welcome screen on first launch when no data exists
+    // Show welcome screen intelligently based on user state
     const checkInitialState = async () => {
       const hideWelcome = localStorage.getItem('crystal-hide-welcome');
+      const hasSeenWelcome = localStorage.getItem('crystal-welcome-shown');
+      
       if (!hideWelcome && isLoaded) {
-        // Check if there are any projects
         try {
           const projectsResponse = await API.projects.getAll();
           const hasProjects = projectsResponse.success && projectsResponse.data && projectsResponse.data.length > 0;
           const hasSessions = sessions.length > 0;
           
-          // Only show welcome if no projects and no sessions exist
-          if (!hasProjects && !hasSessions) {
+          // Show welcome if:
+          // 1. First time user (no projects and never seen welcome)
+          // 2. Returning user with no active data (no projects and no sessions)
+          const isFirstTimeUser = !hasProjects && !hasSeenWelcome;
+          const isReturningUserWithNoData = !hasProjects && !hasSessions && hasSeenWelcome;
+          
+          if (isFirstTimeUser || (isReturningUserWithNoData && !hideWelcome)) {
             setIsWelcomeOpen(true);
+            // Mark that welcome has been shown at least once
+            localStorage.setItem('crystal-welcome-shown', 'true');
           }
         } catch (error) {
           console.error('Error checking initial state:', error);
