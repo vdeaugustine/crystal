@@ -1627,17 +1627,15 @@ export function SessionView() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                // In Terminal view, send on Enter alone (unless Shift is held for multi-line)
-                // In other views, send on Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
-                const isTerminalView = viewMode === 'terminal';
-                const shouldSend = isTerminalView 
-                  ? (e.key === 'Enter' && !e.shiftKey)
-                  : (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
+                // Always use Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux) to send
+                // Use Shift+Enter for new lines
+                const shouldSend = e.key === 'Enter' && (e.metaKey || e.ctrlKey);
                 
                 if (shouldSend) {
                   e.preventDefault();
                   
                   // In terminal view, check if we should run a terminal command
+                  const isTerminalView = viewMode === 'terminal';
                   if (isTerminalView && !activeSession.isRunning && activeSession.status !== 'waiting') {
                     handleTerminalCommand();
                   } else if (activeSession.status === 'waiting') {
@@ -1653,8 +1651,8 @@ export function SessionView() {
                   ? activeSession.isRunning
                     ? "Script is running... (stop it to run commands)"
                     : activeSession.status === 'waiting'
-                      ? "Enter your response... (↵ to send)"
-                      : "Enter terminal command... (↵ to send, Shift+↵ for new line)"
+                      ? "Enter your response... (⌘↵ to send)"
+                      : "Enter terminal command... (⌘↵ to send)"
                   : activeSession.status === 'waiting' 
                     ? "Enter your response... (⌘↵ to send)" 
                     : "Continue conversation with a new message... (⌘↵ to send)"
