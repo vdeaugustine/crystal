@@ -131,8 +131,13 @@ export class SessionManager extends EventEmitter {
   }
 
   getAllSessions(): Session[] {
-    const activeProject = this.getActiveProject();
-    const dbSessions = this.db.getAllSessions(activeProject?.id);
+    // Return all sessions regardless of active project
+    const dbSessions = this.db.getAllSessions();
+    return dbSessions.map(this.convertDbSessionToSession.bind(this));
+  }
+
+  getSessionsForProject(projectId: number): Session[] {
+    const dbSessions = this.db.getAllSessions(projectId);
     return dbSessions.map(this.convertDbSessionToSession.bind(this));
   }
 
@@ -141,19 +146,29 @@ export class SessionManager extends EventEmitter {
     return dbSession ? this.convertDbSessionToSession(dbSession) : undefined;
   }
 
-  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore'): Session {
-    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode);
+  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number): Session {
+    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode, projectId);
   }
 
-  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore'): Session {
+  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number): Session {
     console.log(`[SessionManager] Creating session with ID ${id}: ${name}`);
     
-    const activeProject = this.getActiveProject();
-    console.log(`[SessionManager] Active project:`, activeProject);
+    let targetProject;
     
-    if (!activeProject) {
-      throw new Error('No active project selected');
+    if (projectId) {
+      targetProject = this.getProjectById(projectId);
+      if (!targetProject) {
+        throw new Error(`Project with ID ${projectId} not found`);
+      }
+    } else {
+      // Fall back to active project for backward compatibility
+      targetProject = this.getActiveProject();
+      if (!targetProject) {
+        throw new Error('No project specified and no active project selected');
+      }
     }
+    
+    console.log(`[SessionManager] Target project:`, targetProject);
 
     const sessionData: CreateSessionData = {
       id,
@@ -161,7 +176,7 @@ export class SessionManager extends EventEmitter {
       initial_prompt: prompt,
       worktree_name: worktreeName,
       worktree_path: worktreePath,
-      project_id: activeProject.id,
+      project_id: targetProject.id,
       permission_mode: permissionMode
     };
     console.log(`[SessionManager] Session data:`, sessionData);

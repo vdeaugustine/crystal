@@ -7,9 +7,11 @@ import { Shield, ShieldOff, Sparkles } from 'lucide-react';
 interface CreateSessionDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  projectName?: string;
+  projectId?: number;
 }
 
-export function CreateSessionDialog({ isOpen, onClose }: CreateSessionDialogProps) {
+export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }: CreateSessionDialogProps) {
   const [formData, setFormData] = useState<CreateSessionRequest>({
     prompt: '',
     worktreeTemplate: '',
@@ -92,7 +94,10 @@ export function CreateSessionDialog({ isOpen, onClose }: CreateSessionDialogProp
     setIsSubmitting(true);
     
     try {
-      const response = await API.sessions.create(formData);
+      const response = await API.sessions.create({
+        ...formData,
+        projectId
+      });
       
       if (!response.success) {
         showError({
@@ -127,7 +132,9 @@ export function CreateSessionDialog({ isOpen, onClose }: CreateSessionDialogProp
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div data-testid="create-session-dialog" className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Create New Session</h2>
+        <h2 className="text-xl font-bold mb-4">
+          Create New Session{projectName && ` in ${projectName}`}
+        </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

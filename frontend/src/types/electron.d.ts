@@ -23,6 +23,7 @@ interface ElectronAPI {
   // Session management
   sessions: {
     getAll: () => Promise<IPCResponse>;
+    getAllWithProjects: () => Promise<IPCResponse>;
     get: (sessionId: string) => Promise<IPCResponse>;
     create: (request: any) => Promise<IPCResponse>;
     delete: (sessionId: string) => Promise<IPCResponse>;

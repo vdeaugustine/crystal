@@ -766,14 +766,41 @@ ipcMain.handle('sessions:get', async (_event, sessionId: string) => {
   }
 });
 
+ipcMain.handle('sessions:get-all-with-projects', async () => {
+  try {
+    const allProjects = databaseService.getAllProjects();
+    const projectsWithSessions = allProjects.map(project => {
+      const sessions = sessionManager.getSessionsForProject(project.id);
+      return {
+        ...project,
+        sessions
+      };
+    });
+    return { success: true, data: projectsWithSessions };
+  } catch (error) {
+    console.error('Failed to get sessions with projects:', error);
+    return { success: false, error: 'Failed to get sessions with projects' };
+  }
+});
+
 ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) => {
   console.log('[IPC] sessions:create handler called with request:', request);
   try {
-    const activeProject = sessionManager.getActiveProject();
-    console.log('[IPC] Active project:', activeProject);
-    if (!activeProject) {
-      console.warn('[IPC] No active project found');
-      return { success: false, error: 'No active project. Please select a project first.' };
+    let targetProject;
+    
+    if (request.projectId) {
+      // Use the project specified in the request
+      targetProject = databaseService.getProject(request.projectId);
+      if (!targetProject) {
+        return { success: false, error: 'Project not found' };
+      }
+    } else {
+      // Fall back to active project for backward compatibility
+      targetProject = sessionManager.getActiveProject();
+      if (!targetProject) {
+        console.warn('[IPC] No project specified and no active project found');
+        return { success: false, error: 'No project specified. Please provide a projectId.' };
+      }
     }
 
     if (!taskQueue) {
@@ -786,7 +813,7 @@ ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) 
 
     if (count > 1) {
       console.log('[IPC] Creating multiple sessions...');
-      const jobs = await taskQueue.createMultipleSessions(request.prompt, request.worktreeTemplate || '', count, request.permissionMode);
+      const jobs = await taskQueue.createMultipleSessions(request.prompt, request.worktreeTemplate || '', count, request.permissionMode, targetProject.id);
       console.log(`[IPC] Created ${jobs.length} jobs:`, jobs.map(job => job.id));
       return { success: true, data: { jobIds: jobs.map(job => job.id) } };
     } else {
@@ -794,7 +821,8 @@ ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) 
       const job = await taskQueue.createSession({
         prompt: request.prompt,
         worktreeTemplate: request.worktreeTemplate || '',
-        permissionMode: request.permissionMode
+        permissionMode: request.permissionMode,
+        projectId: targetProject.id
       });
       console.log('[IPC] Created job with ID:', job.id);
       return { success: true, data: { jobId: job.id } };

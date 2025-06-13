@@ -21,6 +21,7 @@ interface CreateSessionJob {
   worktreeTemplate: string;
   index?: number;
   permissionMode?: 'approve' | 'ignore';
+  projectId?: number;
 }
 
 interface ContinueSessionJob {
@@ -105,16 +106,26 @@ export class TaskQueue {
 
   private setupProcessors() {
     this.sessionQueue.process(5, async (job) => {
-      const { prompt, worktreeTemplate, index, permissionMode } = job.data;
+      const { prompt, worktreeTemplate, index, permissionMode, projectId } = job.data;
       const { sessionManager, worktreeManager, claudeCodeManager } = this.options;
 
-      console.log(`[TaskQueue] Processing session creation job ${job.id}`, { prompt, worktreeTemplate, index, permissionMode });
+      console.log(`[TaskQueue] Processing session creation job ${job.id}`, { prompt, worktreeTemplate, index, permissionMode, projectId });
 
       try {
-        const activeProject = sessionManager.getActiveProject();
+        let targetProject;
         
-        if (!activeProject) {
-          throw new Error('No active project selected');
+        if (projectId) {
+          // Use the project specified in the job
+          targetProject = sessionManager.getProjectById(projectId);
+          if (!targetProject) {
+            throw new Error(`Project with ID ${projectId} not found`);
+          }
+        } else {
+          // Fall back to active project for backward compatibility
+          targetProject = sessionManager.getActiveProject();
+          if (!targetProject) {
+            throw new Error('No project specified and no active project selected');
+          }
         }
 
         let worktreeName = worktreeTemplate;
@@ -131,14 +142,14 @@ export class TaskQueue {
         worktreeName = await this.ensureUniqueSessionName(worktreeName, index);
         
         console.log(`[TaskQueue] Creating worktree with name: ${worktreeName}`);
-        console.log(`[TaskQueue] Active project:`, JSON.stringify({
-          id: activeProject.id,
-          name: activeProject.name,
-          build_script: activeProject.build_script,
-          run_script: activeProject.run_script
+        console.log(`[TaskQueue] Target project:`, JSON.stringify({
+          id: targetProject.id,
+          name: targetProject.name,
+          build_script: targetProject.build_script,
+          run_script: targetProject.run_script
         }, null, 2));
 
-        const { worktreePath } = await worktreeManager.createWorktree(activeProject.path, worktreeName, undefined);
+        const { worktreePath } = await worktreeManager.createWorktree(targetProject.path, worktreeName, undefined);
         console.log(`[TaskQueue] Worktree created at: ${worktreePath}`);
         
         const sessionName = worktreeName;
@@ -149,7 +160,8 @@ export class TaskQueue {
           worktreePath,
           prompt,
           worktreeName,
-          permissionMode
+          permissionMode,
+          targetProject.id
         );
         console.log(`[TaskQueue] Session created with ID: ${session.id}`);
 
@@ -177,7 +189,7 @@ export class TaskQueue {
         console.log(`[TaskQueue] Emitted session-created event for session ${session.id}`);
         
         // Run build script after session is visible in UI
-        if (activeProject.build_script) {
+        if (targetProject.build_script) {
           console.log(`[TaskQueue] Running build script for session ${session.id}`);
           
           // Add a "waiting for build" message to output
@@ -188,7 +200,7 @@ export class TaskQueue {
             timestamp: new Date()
           });
           
-          const buildCommands = activeProject.build_script.split('\n').filter(cmd => cmd.trim());
+          const buildCommands = targetProject.build_script.split('\n').filter(cmd => cmd.trim());
           const buildResult = await sessionManager.runBuildScript(session.id, buildCommands, worktreePath);
           console.log(`[TaskQueue] Build script completed. Success: ${buildResult.success}`);
         }
@@ -232,10 +244,10 @@ export class TaskQueue {
     return job;
   }
 
-  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore'): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
+  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
     const jobs = [];
     for (let i = 0; i < count; i++) {
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId }));
     }
     return Promise.all(jobs);
   }

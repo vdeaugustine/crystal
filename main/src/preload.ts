@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Session management
   sessions: {
     getAll: (): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-all'),
+    getAllWithProjects: (): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-all-with-projects'),
     get: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get', sessionId),
     create: (request: any): Promise<IPCResponse> => ipcRenderer.invoke('sessions:create', request),
     delete: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:delete', sessionId),

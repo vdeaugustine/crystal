@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { useSessionStore } from '../stores/sessionStore';
-import { SessionListItem } from './SessionListItem';
-import { CreateSessionButton } from './CreateSessionButton';
 import { Settings } from './Settings';
-import ProjectSelector from './ProjectSelector';
+import { ProjectTreeView } from './ProjectTreeView';
 import crystalLogo from '../assets/crystal-logo.svg';
 
 type ViewMode = 'sessions' | 'prompts';
@@ -16,8 +13,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick }: SidebarProps) {
-  const sessions = useSessionStore((state) => state.sessions);
-  const isLoaded = useSessionStore((state) => state.isLoaded);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
@@ -61,13 +56,6 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick 
           </div>
         </div>
 
-        {/* Project Selector */}
-        <div className="p-4 border-b border-gray-700">
-          <ProjectSelector onProjectChange={() => {
-            // Reload sessions when project changes
-            window.location.reload();
-          }} />
-        </div>
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-700">
@@ -95,16 +83,11 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick 
           </div>
         </div>
 
-        {viewMode === 'sessions' && (
-          <div className="p-4">
-            <CreateSessionButton />
-          </div>
-        )}
 
       {viewMode === 'sessions' && (
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-4 py-2 text-sm text-gray-400 uppercase flex items-center justify-between">
-            <span>Sessions</span>
+            <span>Projects & Sessions</span>
             <div className="group relative">
               <button 
                 className="text-gray-500 hover:text-gray-300 transition-colors"
@@ -146,21 +129,7 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick 
               </div>
             </div>
           </div>
-          <div className="space-y-1 px-2 pb-2">
-            {!isLoaded ? (
-              <div className="px-2 py-4 text-gray-500 text-sm text-center">
-                Loading sessions...
-              </div>
-            ) : sessions.length === 0 ? (
-              <div className="px-2 py-4 text-gray-500 text-sm text-center">
-                No sessions yet
-              </div>
-            ) : (
-              sessions.map((session) => (
-                <SessionListItem key={session.id} session={session} />
-              ))
-            )}
-          </div>
+          <ProjectTreeView />
         </div>
       )}
     </div>

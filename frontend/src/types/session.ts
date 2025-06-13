@@ -22,6 +22,7 @@ export interface CreateSessionRequest {
   worktreeTemplate?: string;
   count?: number;
   permissionMode?: 'approve' | 'ignore';
+  projectId?: number;
 }
 
 export interface SessionOutput {

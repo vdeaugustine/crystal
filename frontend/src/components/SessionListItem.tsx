@@ -6,9 +6,10 @@ import type { Session } from '../types/session';
 
 interface SessionListItemProps {
   session: Session;
+  isNested?: boolean;
 }
 
-export function SessionListItem({ session }: SessionListItemProps) {
+export function SessionListItem({ session, isNested = false }: SessionListItemProps) {
   const { activeSessionId, setActiveSession } = useSessionStore();
   const isActive = activeSessionId === session.id;
   const [isDeleting, setIsDeleting] = useState(false);
@@ -127,11 +128,11 @@ export function SessionListItem({ session }: SessionListItemProps) {
   
   return (
     <div
-      className={`w-full text-left px-3 py-2 rounded-md flex items-center space-x-2 transition-colors group ${
+      className={`w-full text-left ${isNested ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-md flex items-center space-x-2 transition-colors group ${
         isActive 
           ? 'bg-gray-700 text-white' 
           : 'hover:bg-gray-700/50 text-gray-300'
-      }`}
+      } ${isNested ? 'text-sm' : ''}`}
     >
       <button
         onClick={() => setActiveSession(session.id)}
