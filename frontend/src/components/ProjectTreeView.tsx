@@ -163,18 +163,25 @@ export function ProjectTreeView() {
     );
   }
 
-  if (projectsWithSessions.length === 0) {
-    return (
-      <div className="px-2 py-4 text-gray-500 text-sm text-center">
-        No projects yet
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="space-y-1 px-2 pb-2">
-        {projectsWithSessions.map((project) => {
+        {projectsWithSessions.length === 0 ? (
+          <>
+            <div className="py-4 text-gray-500 text-sm text-center">
+              No projects yet
+            </div>
+            <button
+              onClick={() => setShowAddProjectDialog(true)}
+              className="w-full mt-2 px-2 py-1.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Project</span>
+            </button>
+          </>
+        ) : (
+          <>
+            {projectsWithSessions.map((project) => {
           const isExpanded = expandedProjects.has(project.id);
           const sessionCount = project.sessions.length;
           
@@ -255,13 +262,15 @@ export function ProjectTreeView() {
           );
         })}
         
-        <button
-          onClick={() => setShowAddProjectDialog(true)}
-          className="w-full mt-2 px-2 py-1.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Project</span>
-        </button>
+            <button
+              onClick={() => setShowAddProjectDialog(true)}
+              className="w-full mt-2 px-2 py-1.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Project</span>
+            </button>
+          </>
+        )}
       </div>
 
       {showCreateDialog && (
