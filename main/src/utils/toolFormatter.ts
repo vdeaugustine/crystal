@@ -101,6 +101,37 @@ export function formatToolInteraction(
       output += `\x1b[90m│  Replacements: ${toolCall.input.expected_replacements || 1}\x1b[0m\r\n`;
     } else if (toolCall.name === 'Bash' && toolCall.input.command) {
       output += `\x1b[90m│  $ ${toolCall.input.command}\x1b[0m\r\n`;
+    } else if (toolCall.name === 'TodoWrite' && toolCall.input.todos) {
+      output += `\x1b[90m│  Tasks updated:\x1b[0m\r\n`;
+      toolCall.input.todos.forEach((todo: any) => {
+        const status = todo.status === 'completed' ? '✓' : todo.status === 'in_progress' ? '→' : '○';
+        const statusColor = todo.status === 'completed' ? '\x1b[32m' : todo.status === 'in_progress' ? '\x1b[33m' : '\x1b[90m';
+        output += `\x1b[90m│    ${statusColor}${status}\x1b[0m ${todo.content}\x1b[0m\r\n`;
+      });
+    } else if (toolCall.name === 'Write' && toolCall.input.file_path) {
+      output += `\x1b[90m│  File: ${makePathsRelative(toolCall.input.file_path, gitRepoPath)}\x1b[0m\r\n`;
+      const lines = toolCall.input.content?.split('\n') || [];
+      output += `\x1b[90m│  Size: ${lines.length} lines\x1b[0m\r\n`;
+    } else if (toolCall.name === 'Glob' && toolCall.input.pattern) {
+      output += `\x1b[90m│  Pattern: ${toolCall.input.pattern}\x1b[0m\r\n`;
+      if (toolCall.input.path) {
+        output += `\x1b[90m│  Path: ${makePathsRelative(toolCall.input.path, gitRepoPath)}\x1b[0m\r\n`;
+      }
+    } else if (toolCall.name === 'MultiEdit' && toolCall.input.file_path) {
+      output += `\x1b[90m│  File: ${makePathsRelative(toolCall.input.file_path, gitRepoPath)}\x1b[0m\r\n`;
+      output += `\x1b[90m│  Edits: ${toolCall.input.edits?.length || 0} changes\x1b[0m\r\n`;
+    } else if (toolCall.name === 'Task' && toolCall.input.prompt) {
+      const prompt = toolCall.input.prompt;
+      const truncated = prompt.length > 100 ? prompt.substring(0, 100) + '...' : prompt;
+      output += `\x1b[90m│  Description: ${toolCall.input.description || 'Task'}\x1b[0m\r\n`;
+      output += `\x1b[90m│  Prompt: ${truncated}\x1b[0m\r\n`;
+    } else if (toolCall.name === 'LS' && toolCall.input.path) {
+      output += `\x1b[90m│  Path: ${makePathsRelative(toolCall.input.path, gitRepoPath)}\x1b[0m\r\n`;
+      if (toolCall.input.ignore?.length) {
+        output += `\x1b[90m│  Ignoring: ${toolCall.input.ignore.join(', ')}\x1b[0m\r\n`;
+      }
+    } else if (toolCall.name === 'TodoRead') {
+      output += `\x1b[90m│  Reading current task list...\x1b[0m\r\n`;
     } else {
       // Generic parameter display
       const paramStr = JSON.stringify(toolCall.input, null, 2);
@@ -150,6 +181,39 @@ export function formatToolInteraction(
         
         if (lines.length > maxLines) {
           output += `\x1b[90m│  ... (${lines.length - maxLines} more files)\x1b[0m\r\n`;
+        }
+      } else if (toolCall.name === 'Glob' && lines[0]?.startsWith('Found')) {
+        output += `\x1b[37m│  ${lines[0]}\x1b[0m\r\n`;
+        
+        // Show file paths with better formatting
+        lines.slice(1, Math.min(lines.length, maxLines)).forEach(line => {
+          if (line.trim()) {
+            output += `\x1b[90m│  \x1b[0m\x1b[37m• ${line.trim()}\x1b[0m\r\n`;
+          }
+        });
+        
+        if (lines.length > maxLines) {
+          output += `\x1b[90m│  ... (${lines.length - maxLines} more files)\x1b[0m\r\n`;
+        }
+      } else if (toolCall.name === 'TodoRead' && lines.length > 0) {
+        output += `\x1b[37m│  Current Tasks:\x1b[0m\r\n`;
+        lines.forEach(line => {
+          if (line.includes('✓') || line.includes('completed')) {
+            output += `\x1b[90m│  \x1b[32m${line}\x1b[0m\r\n`;
+          } else if (line.includes('→') || line.includes('in_progress')) {
+            output += `\x1b[90m│  \x1b[33m${line}\x1b[0m\r\n`;
+          } else {
+            output += `\x1b[90m│  \x1b[37m${line}\x1b[0m\r\n`;
+          }
+        });
+      } else if (toolCall.name === 'Task') {
+        // Task tool results are usually longer, show more lines
+        const taskMaxLines = 25;
+        lines.slice(0, taskMaxLines).forEach(line => {
+          output += `\x1b[90m│  \x1b[37m${line}\x1b[0m\r\n`;
+        });
+        if (lines.length > taskMaxLines) {
+          output += `\x1b[90m│  ... (${lines.length - taskMaxLines} more lines)\x1b[0m\r\n`;
         }
       } else {
         // Generic result display
@@ -304,8 +368,10 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
       
       if (textContent) {
         const time = new Date(timestamp).toLocaleTimeString();
-        return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[32m👤 User\x1b[0m\r\n` +
-               `\x1b[37m${textContent}\x1b[0m\r\n\r\n`;
+        // Make user prompts more prominent with bright green background and bold text
+        return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
+               `\x1b[1m\x1b[92m${textContent}\x1b[0m\r\n` +
+               `\x1b[90m${'─'.repeat(80)}\x1b[0m\r\n\r\n`;
       }
     }
   }
