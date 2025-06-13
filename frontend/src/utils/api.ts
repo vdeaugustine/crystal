@@ -161,6 +161,11 @@ export class API {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.getGitCommands(sessionId);
     },
+
+    async openIDE(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.openIDE(sessionId);
+    },
   };
 
   // Project management

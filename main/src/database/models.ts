@@ -10,6 +10,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   default_permission_mode?: 'approve' | 'ignore';
+  open_ide_command?: string;
 }
 
 export interface ProjectRunCommand {

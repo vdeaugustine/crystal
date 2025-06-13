@@ -62,6 +62,9 @@ interface ElectronAPI {
     hasChangesToRebase: (sessionId: string) => Promise<IPCResponse>;
     getGitCommands: (sessionId: string) => Promise<IPCResponse>;
     generateName: (prompt: string) => Promise<IPCResponse>;
+    
+    // IDE operations
+    openIDE: (sessionId: string) => Promise<IPCResponse>;
   };
 
   // Project management

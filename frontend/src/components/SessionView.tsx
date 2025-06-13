@@ -1108,6 +1108,19 @@ export function SessionView() {
     }
   };
 
+  const handleOpenIDE = async () => {
+    try {
+      const response = await API.sessions.openIDE(activeSession.id);
+      
+      if (!response.success) {
+        alert(response.error || 'Failed to open IDE');
+      }
+    } catch (error) {
+      console.error('Error opening IDE:', error);
+      alert('Failed to open IDE');
+    }
+  };
+
   const generateDefaultCommitMessage = async () => {
     try {
       const promptsResponse = await API.sessions.getPrompts(activeSession.id);
@@ -1257,6 +1270,31 @@ export function SessionView() {
                       <div className="text-xs text-gray-300 mt-1">
                         Squashes all commits into one, then rebases onto {gitCommands?.mainBranch || 'main'}
                       </div>
+                    </div>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
+                  </div>
+                </div>
+                
+                <div className="group relative">
+                  <button
+                    onClick={handleOpenIDE}
+                    disabled={activeSession.status === 'initializing'}
+                    className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
+                      activeSession.status === 'initializing'
+                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'bg-white border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 hover:shadow-sm'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    <span className="text-sm font-medium">Open IDE</span>
+                  </button>
+                  {/* Tooltip */}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 w-48">
+                    <div className="font-semibold mb-1">Open in IDE</div>
+                    <div className="text-gray-300">
+                      Opens the worktree directory in your configured IDE
                     </div>
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
                   </div>

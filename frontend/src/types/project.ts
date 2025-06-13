@@ -9,6 +9,7 @@ export interface Project {
   active: boolean;
   created_at: string;
   updated_at: string;
+  open_ide_command?: string;
 }
 
 export interface ProjectRunCommand {
@@ -27,6 +28,7 @@ export interface CreateProjectRequest {
   runScript?: string;
   buildScript?: string;
   mainBranch?: string;
+  openIdeCommand?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -37,4 +39,5 @@ export interface UpdateProjectRequest {
   build_script?: string;
   main_branch?: string;
   active?: boolean;
+  open_ide_command?: string;
 }

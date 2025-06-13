@@ -1314,7 +1314,9 @@ ipcMain.handle('projects:create', async (_event, projectData: any) => {
       projectData.systemPrompt,
       projectData.runScript,
       mainBranch,
-      projectData.buildScript
+      projectData.buildScript,
+      undefined, // default_permission_mode
+      projectData.openIdeCommand
     );
 
     // If run_script was provided, also create run commands
@@ -1512,6 +1514,35 @@ ipcMain.handle('sessions:get-prompts', async (_event, sessionId: string) => {
   } catch (error) {
     console.error('Failed to get session prompts:', error);
     return { success: false, error: 'Failed to get session prompts' };
+  }
+});
+
+ipcMain.handle('sessions:open-ide', async (_event, sessionId: string) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session || !session.worktreePath) {
+      return { success: false, error: 'Session or worktree path not found' };
+    }
+
+    const project = sessionManager.getProjectForSession(sessionId);
+    if (!project || !project.open_ide_command) {
+      return { success: false, error: 'No IDE command configured for this project' };
+    }
+
+    // Execute the IDE command in the worktree directory
+    const { exec } = require('child_process');
+    exec(project.open_ide_command, { cwd: session.worktreePath }, (error: Error | null) => {
+      if (error) {
+        console.error('Failed to open IDE:', error);
+      } else {
+        console.log('Successfully opened IDE for session:', sessionId);
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open IDE:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to open IDE' };
   }
 });
 

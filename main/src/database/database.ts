@@ -224,6 +224,13 @@ export class DatabaseService {
       this.db.prepare("ALTER TABLE projects ADD COLUMN default_permission_mode TEXT DEFAULT 'ignore' CHECK(default_permission_mode IN ('approve', 'ignore'))").run();
     }
 
+    // Add open_ide_command column to projects table if it doesn't exist
+    const hasOpenIdeCommandColumn = projectsTableInfo.some((col: any) => col.name === 'open_ide_command');
+    
+    if (!hasOpenIdeCommandColumn) {
+      this.db.prepare("ALTER TABLE projects ADD COLUMN open_ide_command TEXT").run();
+    }
+
     // Create project_run_commands table if it doesn't exist
     const runCommandsTable = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='project_run_commands'").all();
     if (runCommandsTable.length === 0) {
@@ -254,11 +261,11 @@ export class DatabaseService {
   }
 
   // Project operations
-  createProject(name: string, path: string, systemPrompt?: string, runScript?: string, mainBranch?: string, buildScript?: string, defaultPermissionMode?: 'approve' | 'ignore'): Project {
+  createProject(name: string, path: string, systemPrompt?: string, runScript?: string, mainBranch?: string, buildScript?: string, defaultPermissionMode?: 'approve' | 'ignore', openIdeCommand?: string): Project {
     const result = this.db.prepare(`
-      INSERT INTO projects (name, path, system_prompt, run_script, main_branch, build_script, default_permission_mode)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(name, path, systemPrompt || null, runScript || null, mainBranch || null, buildScript || null, defaultPermissionMode || 'ignore');
+      INSERT INTO projects (name, path, system_prompt, run_script, main_branch, build_script, default_permission_mode, open_ide_command)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, path, systemPrompt || null, runScript || null, mainBranch || null, buildScript || null, defaultPermissionMode || 'ignore', openIdeCommand || null);
     
     const project = this.getProject(result.lastInsertRowid as number);
     if (!project) {
@@ -323,6 +330,10 @@ export class DatabaseService {
     if (updates.default_permission_mode !== undefined) {
       fields.push('default_permission_mode = ?');
       values.push(updates.default_permission_mode);
+    }
+    if (updates.open_ide_command !== undefined) {
+      fields.push('open_ide_command = ?');
+      values.push(updates.open_ide_command);
     }
     if (updates.active !== undefined) {
       fields.push('active = ?');

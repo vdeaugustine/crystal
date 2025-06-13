@@ -18,6 +18,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
   const [runScript, setRunScript] = useState('');
   const [buildScript, setBuildScript] = useState('');
   const [mainBranch, setMainBranch] = useState('');
+  const [openIdeCommand, setOpenIdeCommand] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -30,6 +31,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
       setRunScript(project.run_script || '');
       setBuildScript(project.build_script || '');
       setMainBranch(project.main_branch || '');
+      setOpenIdeCommand(project.open_ide_command || '');
       setError(null);
     }
   }, [isOpen, project]);
@@ -45,7 +47,8 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         system_prompt: systemPrompt || null,
         run_script: runScript || null,
         build_script: buildScript || null,
-        main_branch: mainBranch || null
+        main_branch: mainBranch || null,
+        open_ide_command: openIdeCommand || null
       });
 
       if (!response.success) {
@@ -228,6 +231,32 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                     <span className="font-mono text-gray-600">• npx concurrently "npm:server" "npm:client"</span>
                     <br />
                     <span className="font-mono text-gray-600">• npm run dev (if your package.json uses concurrently)</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Open IDE Command
+                  </label>
+                  <input
+                    type="text"
+                    value={openIdeCommand}
+                    onChange={(e) => setOpenIdeCommand(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    placeholder='open -na "PyCharm.app" --args "`pwd`"'
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Command to open the worktree in your IDE. Use `pwd` to reference the worktree directory.
+                    <br />
+                    <span className="text-gray-600">Examples:</span>
+                    <br />
+                    <span className="font-mono text-gray-600">• code . (VS Code)</span>
+                    <br />
+                    <span className="font-mono text-gray-600">• cursor . (Cursor)</span>
+                    <br />
+                    <span className="text-gray-600 italic">Note: You may need to install the shell command separately for VS Code and Cursor</span>
+                    <br />
+                    <span className="font-mono text-gray-600">• open -na "PyCharm.app" --args "`pwd`" (PyCharm on macOS)</span>
                   </p>
                 </div>
               </div>
