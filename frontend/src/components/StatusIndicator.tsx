@@ -1,4 +1,6 @@
+import React from 'react';
 import { Session } from '../types/session';
+import { AlertCircle, CheckCircle, Loader2, PauseCircle, Bell } from 'lucide-react';
 
 interface StatusIndicatorProps {
   session: Session;
@@ -21,9 +23,11 @@ export function StatusIndicator({
           color: 'bg-blue-500',
           textColor: 'text-blue-600',
           bgColor: 'bg-blue-50',
-          icon: '🔄',
+          borderColor: 'border-blue-200',
+          icon: Loader2,
           text: 'Initializing',
           animated: true,
+          spin: true,
         };
       case 'running':
         return {
@@ -31,39 +35,44 @@ export function StatusIndicator({
           color: 'bg-green-500',
           textColor: 'text-green-600',
           bgColor: 'bg-green-50',
-          icon: '▶️',
+          borderColor: 'border-green-200',
+          icon: Loader2,
           text: 'Running',
           animated: true,
+          spin: true,
         };
       case 'waiting':
         return {
           status: 'waiting',
-          color: 'bg-yellow-500',
-          textColor: 'text-yellow-600',
-          bgColor: 'bg-yellow-50',
-          icon: '⏸️',
-          text: 'Waiting',
+          color: 'bg-amber-500',
+          textColor: 'text-amber-600',
+          bgColor: 'bg-amber-50',
+          borderColor: 'border-amber-200',
+          icon: PauseCircle,
+          text: 'Waiting for input',
           animated: true,
           pulse: true,
         };
       case 'stopped':
         return {
           status: 'stopped',
-          color: 'bg-gray-500',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
-          icon: '✅',
-          text: 'Success',
+          color: 'bg-emerald-500',
+          textColor: 'text-emerald-600',
+          bgColor: 'bg-emerald-50',
+          borderColor: 'border-emerald-200',
+          icon: CheckCircle,
+          text: 'Completed',
           animated: false,
         };
       case 'completed_unviewed':
         return {
           status: 'completed_unviewed',
-          color: 'bg-yellow-500',
-          textColor: 'text-yellow-600',
-          bgColor: 'bg-yellow-50',
-          icon: '🔔',
-          text: 'New results',
+          color: 'bg-blue-500',
+          textColor: 'text-blue-600',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          icon: Bell,
+          text: 'New activity',
           animated: true,
           pulse: true,
         };
@@ -73,7 +82,8 @@ export function StatusIndicator({
           color: 'bg-red-500',
           textColor: 'text-red-600',
           bgColor: 'bg-red-50',
-          icon: '❌',
+          borderColor: 'border-red-200',
+          icon: AlertCircle,
           text: 'Error',
           animated: false,
         };
@@ -83,7 +93,8 @@ export function StatusIndicator({
           color: 'bg-gray-400',
           textColor: 'text-gray-600',
           bgColor: 'bg-gray-50',
-          icon: '📝',
+          borderColor: 'border-gray-200',
+          icon: AlertCircle,
           text: 'Unknown',
           animated: false,
         };
@@ -136,17 +147,14 @@ export function StatusIndicator({
         {/* Status Chip */}
         <div 
           className={`
-            inline-flex items-center 
-            px-3 py-1 
+            inline-flex items-center gap-2
+            px-3 py-1.5 
             rounded-full 
             ${config.bgColor} 
             border 
-            ${config.status === 'error' ? 'border-red-200' : 
-              config.status === 'running' ? 'border-green-200' : 
-              config.status === 'waiting' ? 'border-yellow-200' :
-              config.status === 'initializing' ? 'border-blue-200' :
-              'border-gray-200'}
+            ${config.borderColor}
             ${config.animated ? 'relative overflow-hidden' : ''}
+            transition-all duration-200
           `}
         >
           {/* Animated background effect for active states */}
@@ -160,7 +168,7 @@ export function StatusIndicator({
                   animate-pulse
                 `} 
               />
-              {config.status === 'running' && (
+              {(config.status === 'running' || config.status === 'initializing') && (
                 <div 
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"
                   style={{
@@ -172,16 +180,18 @@ export function StatusIndicator({
           )}
           
           {/* Status icon and text */}
-          <span className="text-lg mr-1.5">{config.icon}</span>
-          <span className={`${sizeClasses.text} font-semibold ${config.textColor}`}>
+          {React.createElement(config.icon, {
+            className: `w-4 h-4 ${config.textColor} ${config.spin ? 'animate-spin' : ''}` 
+          })}
+          <span className={`${sizeClasses.text} font-medium ${config.textColor}`}>
             {config.text}
           </span>
           
-          {/* Pulsing dot for waiting status */}
-          {config.status === 'waiting' && (
-            <div className="ml-2 relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+          {/* Pulsing dot for waiting/new activity status */}
+          {config.pulse && (
+            <div className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${config.color} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${config.color}`}></span>
             </div>
           )}
         </div>
