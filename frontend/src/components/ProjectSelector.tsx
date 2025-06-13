@@ -206,8 +206,20 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
       {/* Add Project Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Add New Project</h3>
+          <div className="bg-gray-800 rounded-lg p-6 w-96 relative">
+            <button
+              onClick={() => {
+                setShowAddDialog(false);
+                setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors"
+              title="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-200 mb-4 pr-8">Add New Project</h3>
             
             <div className="space-y-4">
               <div>

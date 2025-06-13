@@ -131,8 +131,20 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div data-testid="create-session-dialog" className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">
+      <div data-testid="create-session-dialog" className="bg-white rounded-lg p-6 w-full max-w-md relative">
+        <button
+          onClick={() => {
+            setWorktreeError(null);
+            onClose();
+          }}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          title="Close"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <h2 className="text-xl font-bold mb-4 pr-8">
           Create New Session{projectName && ` in ${projectName}`}
         </h2>
         
