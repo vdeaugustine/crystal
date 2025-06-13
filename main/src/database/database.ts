@@ -202,6 +202,15 @@ export class DatabaseService {
       }
     }
 
+    // Add is_main_repo column to sessions table if it doesn't exist
+    const sessionTableInfoForMainRepo = this.db.prepare("PRAGMA table_info(sessions)").all();
+    const hasIsMainRepoColumn = sessionTableInfoForMainRepo.some((col: any) => col.name === 'is_main_repo');
+    
+    if (!hasIsMainRepoColumn) {
+      this.db.prepare("ALTER TABLE sessions ADD COLUMN is_main_repo BOOLEAN DEFAULT 0").run();
+      this.db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_is_main_repo ON sessions(is_main_repo, project_id)").run();
+    }
+
     // Add main_branch column to projects table if it doesn't exist
     const projectsTableInfo = this.db.prepare("PRAGMA table_info(projects)").all();
     const hasMainBranchColumn = projectsTableInfo.some((col: any) => col.name === 'main_branch');
@@ -438,9 +447,9 @@ export class DatabaseService {
   // Session operations
   createSession(data: CreateSessionData): Session {
     this.db.prepare(`
-      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
-    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore');
+      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0);
     
     const session = this.getSession(data.id);
     if (!session) {
@@ -455,13 +464,17 @@ export class DatabaseService {
 
   getAllSessions(projectId?: number): Session[] {
     if (projectId !== undefined) {
-      return this.db.prepare('SELECT * FROM sessions WHERE project_id = ? AND (archived = 0 OR archived IS NULL) ORDER BY created_at DESC').all(projectId) as Session[];
+      return this.db.prepare('SELECT * FROM sessions WHERE project_id = ? AND (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY created_at DESC').all(projectId) as Session[];
     }
-    return this.db.prepare('SELECT * FROM sessions WHERE archived = 0 OR archived IS NULL ORDER BY created_at DESC').all() as Session[];
+    return this.db.prepare('SELECT * FROM sessions WHERE (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY created_at DESC').all() as Session[];
   }
 
   getAllSessionsIncludingArchived(): Session[] {
-    return this.db.prepare('SELECT * FROM sessions ORDER BY created_at DESC').all() as Session[];
+    return this.db.prepare('SELECT * FROM sessions WHERE (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY created_at DESC').all() as Session[];
+  }
+
+  getMainRepoSession(projectId: number): Session | undefined {
+    return this.db.prepare('SELECT * FROM sessions WHERE project_id = ? AND is_main_repo = 1 AND (archived = 0 OR archived IS NULL)').get(projectId) as Session | undefined;
   }
 
   updateSession(id: string, data: UpdateSessionData): Session | undefined {

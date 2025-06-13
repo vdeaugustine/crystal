@@ -402,4 +402,107 @@ export class WorktreeManager {
       `git rebase ${branchName}`
     ];
   }
+
+  async gitPull(worktreePath: string): Promise<{ output: string }> {
+    const currentDir = process.cwd();
+    
+    try {
+      process.chdir(worktreePath);
+      
+      // Run git pull
+      const { stdout, stderr } = await execWithShellPath('git pull');
+      const output = stdout || stderr || 'Pull completed successfully';
+      
+      return { output };
+    } catch (error: any) {
+      // Create enhanced error with git details
+      const gitError = new Error(error.message || 'Git pull failed') as any;
+      gitError.gitOutput = error.stderr || error.stdout || error.message || '';
+      gitError.workingDirectory = worktreePath;
+      throw gitError;
+    } finally {
+      process.chdir(currentDir);
+    }
+  }
+
+  async gitPush(worktreePath: string): Promise<{ output: string }> {
+    const currentDir = process.cwd();
+    
+    try {
+      process.chdir(worktreePath);
+      
+      // Run git push
+      const { stdout, stderr } = await execWithShellPath('git push');
+      const output = stdout || stderr || 'Push completed successfully';
+      
+      return { output };
+    } catch (error: any) {
+      // Create enhanced error with git details
+      const gitError = new Error(error.message || 'Git push failed') as any;
+      gitError.gitOutput = error.stderr || error.stdout || error.message || '';
+      gitError.workingDirectory = worktreePath;
+      throw gitError;
+    } finally {
+      process.chdir(currentDir);
+    }
+  }
+
+  async getLastCommits(worktreePath: string, count: number = 20): Promise<any[]> {
+    const currentDir = process.cwd();
+    
+    try {
+      process.chdir(worktreePath);
+      
+      // Get the last N commits with stats
+      const { stdout } = await execWithShellPath(
+        `git log -${count} --pretty=format:'%H|%s|%ai' --shortstat`
+      );
+      
+      // Parse the output
+      const commits: any[] = [];
+      const lines = stdout.split('\n');
+      let i = 0;
+      
+      while (i < lines.length) {
+        const commitLine = lines[i];
+        if (!commitLine || !commitLine.includes('|')) {
+          i++;
+          continue;
+        }
+        
+        const [hash, message, date] = commitLine.split('|');
+        const commit: any = {
+          hash: hash.trim(),
+          message: message.trim(),
+          date: date.trim()
+        };
+        
+        // Check if next line contains stats
+        if (i + 1 < lines.length && lines[i + 1].trim()) {
+          const statsLine = lines[i + 1].trim();
+          const statsMatch = statsLine.match(/(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/);
+          
+          if (statsMatch) {
+            commit.filesChanged = parseInt(statsMatch[1]) || 0;
+            commit.additions = parseInt(statsMatch[2]) || 0;
+            commit.deletions = parseInt(statsMatch[3]) || 0;
+            i++; // Skip the stats line
+          }
+        }
+        
+        commits.push(commit);
+        i++;
+      }
+      
+      return commits;
+    } catch (error: any) {
+      // Create enhanced error with git details
+      const gitError = new Error(error.message || 'Failed to get commits') as any;
+      gitError.gitOutput = error.stderr || error.stdout || error.message || '';
+      gitError.workingDirectory = worktreePath;
+      throw gitError;
+    } finally {
+      process.chdir(currentDir);
+    }
+  }
 }

@@ -103,7 +103,10 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selecting the session
     
-    const confirmed = window.confirm(`Delete session "${session.name}" and its worktree? This action cannot be undone.`);
+    const confirmMessage = session.isMainRepo 
+      ? `Archive main repository session "${session.name}"? This will keep the session history but close the active connection.`
+      : `Delete session "${session.name}" and its worktree? This action cannot be undone.`;
+    const confirmed = window.confirm(confirmMessage);
     if (!confirmed) return;
     
     setIsDeleting(true);
@@ -141,6 +144,9 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         <StatusIndicator session={session} size="small" />
         <span className="flex-1 truncate text-sm">
           {session.name}
+          {session.isMainRepo && (
+            <span className="ml-1 text-xs text-blue-400">(main)</span>
+          )}
         </span>
         {isRunning && (
           <span className="text-green-400 text-xs">▶️ Running</span>

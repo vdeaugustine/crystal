@@ -161,7 +161,8 @@ export class TaskQueue {
           prompt,
           worktreeName,
           permissionMode,
-          targetProject.id
+          targetProject.id,
+          false // isMainRepo = false for regular sessions
         );
         console.log(`[TaskQueue] Session created with ID: ${session.id}`);
 

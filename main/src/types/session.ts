@@ -14,6 +14,7 @@ export interface Session {
   lastViewedAt?: string;
   permissionMode?: 'approve' | 'ignore';
   runStartedAt?: string;
+  isMainRepo?: boolean;
 }
 
 export interface CreateSessionRequest {

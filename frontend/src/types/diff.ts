@@ -44,4 +44,5 @@ export interface CombinedDiffViewProps {
   sessionId: string;
   selectedExecutions: number[];
   isGitOperationRunning?: boolean;
+  isMainRepo?: boolean;
 }

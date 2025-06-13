@@ -100,9 +100,30 @@ export function ProjectTreeView() {
     });
   };
 
-  const handleProjectClick = (project: Project) => {
-    // Just toggle the expand/collapse state
-    toggleProject(project.id);
+  const handleProjectClick = async (project: Project) => {
+    try {
+      // Get or create the main repo session
+      const response = await API.sessions.getOrCreateMainRepoSession(project.id);
+      
+      if (response.success && response.data) {
+        // Navigate to the main repo session
+        const session = response.data;
+        useSessionStore.getState().setActiveSession(session.id);
+        
+        // Don't expand the project - main repo sessions are accessed via folder click only
+      } else {
+        showError({
+          title: 'Failed to open main repository session',
+          error: response.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error handling project click:', error);
+      showError({
+        title: 'Failed to open main repository session',
+        error: error.message || 'Unknown error occurred'
+      });
+    }
   };
 
   const handleCreateSession = (project: Project) => {

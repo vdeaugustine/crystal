@@ -40,6 +40,7 @@ export interface Session {
   claude_session_id?: string;
   permission_mode?: 'approve' | 'ignore';
   run_started_at?: string;
+  is_main_repo?: boolean;
 }
 
 export interface SessionOutput {
@@ -66,6 +67,7 @@ export interface CreateSessionData {
   worktree_path: string;
   project_id: number;
   permission_mode?: 'approve' | 'ignore';
+  is_main_repo?: boolean;
 }
 
 export interface UpdateSessionData {

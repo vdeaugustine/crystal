@@ -15,6 +15,7 @@ export interface Session {
   projectId?: number;
   permissionMode?: 'approve' | 'ignore';
   runStartedAt?: string;
+  isMainRepo?: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -23,6 +24,7 @@ export interface CreateSessionRequest {
   count?: number;
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
+  isMainRepo?: boolean;
 }
 
 export interface SessionOutput {

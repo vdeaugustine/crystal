@@ -96,7 +96,8 @@ export class SessionManager extends EventEmitter {
       isRunning: false,
       lastViewedAt: dbSession.last_viewed_at,
       permissionMode: dbSession.permission_mode,
-      runStartedAt: dbSession.run_started_at
+      runStartedAt: dbSession.run_started_at,
+      isMainRepo: dbSession.is_main_repo
     };
   }
 
@@ -146,11 +147,11 @@ export class SessionManager extends EventEmitter {
     return dbSession ? this.convertDbSessionToSession(dbSession) : undefined;
   }
 
-  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number): Session {
-    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode, projectId);
+  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean): Session {
+    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode, projectId, isMainRepo);
   }
 
-  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number): Session {
+  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean): Session {
     console.log(`[SessionManager] Creating session with ID ${id}: ${name}`);
     
     let targetProject;
@@ -177,7 +178,8 @@ export class SessionManager extends EventEmitter {
       worktree_name: worktreeName,
       worktree_path: worktreePath,
       project_id: targetProject.id,
-      permission_mode: permissionMode
+      permission_mode: permissionMode,
+      is_main_repo: isMainRepo
     };
     console.log(`[SessionManager] Session data:`, sessionData);
 
@@ -192,6 +194,46 @@ export class SessionManager extends EventEmitter {
     // this.emit('session-created', session);
     console.log(`[SessionManager] Session created (event not emitted yet)`);
     
+    return session;
+  }
+
+  getOrCreateMainRepoSession(projectId: number): Session {
+    console.log(`[SessionManager] Getting or creating main repo session for project ${projectId}`);
+    
+    // First check if a main repo session already exists
+    const existingSession = this.db.getMainRepoSession(projectId);
+    if (existingSession) {
+      console.log(`[SessionManager] Found existing main repo session: ${existingSession.id}`);
+      return this.convertDbSessionToSession(existingSession);
+    }
+    
+    // Get the project
+    const project = this.getProjectById(projectId);
+    if (!project) {
+      throw new Error(`Project with ID ${projectId} not found`);
+    }
+    
+    console.log(`[SessionManager] Creating new main repo session for project: ${project.name}`);
+    
+    // Create a new main repo session
+    const sessionId = randomUUID();
+    const sessionName = `${project.name} (Main)`;
+    const worktreePath = project.path; // Use the project path directly
+    const worktreeName = 'main'; // Use 'main' as the worktree name
+    const prompt = ''; // Empty prompt - user hasn't sent anything yet
+    
+    const session = this.createSessionWithId(
+      sessionId,
+      sessionName,
+      worktreePath,
+      prompt,
+      worktreeName,
+      project.default_permission_mode || 'ignore', // Default to 'ignore' if not set
+      projectId,
+      true // isMainRepo = true
+    );
+    
+    console.log(`[SessionManager] Created main repo session: ${session.id}`);
     return session;
   }
 

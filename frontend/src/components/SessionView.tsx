@@ -145,6 +145,14 @@ export function SessionView() {
         return;
       }
       
+      // Clear formatted output if we're switching to a different session
+      if (currentSessionIdForOutput && currentSessionIdForOutput !== sessionId) {
+        console.log(`[formatOutput] Switching from session ${currentSessionIdForOutput} to ${sessionId}, clearing output`);
+        setFormattedOutput('');
+        setCurrentSessionIdForOutput(sessionId);
+        return;
+      }
+      
       // Just concatenate stdout outputs - JSON messages are already formatted
       let formatted = '';
       
@@ -297,6 +305,9 @@ export function SessionView() {
       
       console.log(`[loadOutputContent] Setting ${outputs.length} outputs from database`);
       
+      // Clear existing output first to prevent mixing
+      useSessionStore.getState().clearSessionOutput(sessionId);
+      
       // Use setSessionOutputs for atomic update
       useSessionStore.getState().setSessionOutputs(sessionId, outputs);
       
@@ -381,7 +392,9 @@ export function SessionView() {
     terminalInstance.current.reset();
     lastProcessedOutputLength.current = 0;
     
-    // Don't reset formatted output here - let the formatting effect handle it
+    // Clear formatted output when switching sessions
+    setFormattedOutput('');
+    setCurrentSessionIdForOutput(null);
 
     // Use requestAnimationFrame to ensure terminal is ready
     requestAnimationFrame(() => {
@@ -1020,6 +1033,68 @@ export function SessionView() {
     }
   };
 
+  const handleGitPull = async () => {
+    setIsMerging(true);
+    setMergeError(null);
+
+    try {
+      const response = await API.sessions.gitPull(activeSession.id);
+
+      if (!response.success) {
+        // Check if it's a merge conflict
+        if (response.error?.includes('conflict') || response.error?.includes('merge')) {
+          setGitErrorDetails({
+            title: 'Pull Failed - Merge Conflicts',
+            message: 'There are merge conflicts that need to be resolved manually.',
+            command: 'git pull',
+            output: response.details || response.error || 'No output available',
+            workingDirectory: activeSession.worktreePath
+          });
+          setShowGitErrorDialog(true);
+
+          // Also show a helpful message
+          setMergeError('Merge conflicts detected. You\'ll need to resolve them manually or ask Claude to help.');
+        } else {
+          setMergeError(response.error || 'Failed to pull from remote');
+        }
+        return;
+      }
+
+      setMergeError(null);
+      // Refresh the view to show any new commits
+      if (viewMode === 'changes') {
+        // Trigger a refresh of the changes view
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error pulling from remote:', error);
+      setMergeError(error instanceof Error ? error.message : 'Failed to pull from remote');
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const handleGitPush = async () => {
+    setIsMerging(true);
+    setMergeError(null);
+
+    try {
+      const response = await API.sessions.gitPush(activeSession.id);
+
+      if (!response.success) {
+        setMergeError(response.error || 'Failed to push to remote');
+        return;
+      }
+
+      setMergeError(null);
+    } catch (error) {
+      console.error('Error pushing to remote:', error);
+      setMergeError(error instanceof Error ? error.message : 'Failed to push to remote');
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   const handleRebaseMainIntoWorktree = async () => {
     setIsMerging(true);
     setMergeError(null);
@@ -1111,7 +1186,7 @@ export function SessionView() {
   const handleOpenIDE = async () => {
     try {
       const response = await API.sessions.openIDE(activeSession.id);
-      
+
       if (!response.success) {
         alert(response.error || 'Failed to open IDE');
       }
@@ -1195,86 +1270,156 @@ export function SessionView() {
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <StatusIndicator session={activeSession} size="medium" showText showProgress />
               <div className="flex flex-wrap items-center gap-2 relative z-20">
-                <div className="group relative">
-                  <button
-                    onClick={handleRebaseMainIntoWorktree}
-                    disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hasChangesToRebase}
-                    className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
-                      isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hasChangesToRebase
-                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                        : 'bg-white border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 17l-4 4m0 0l-4-4m4 4V3" />
-                    </svg>
-                    <span className="text-sm font-medium">{isMerging ? 'Rebasing...' : `Rebase from ${gitCommands?.mainBranch || 'main'}`}</span>
-                  </button>
-                  {/* Enhanced Tooltip */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-md w-80">
-                    <div className="font-semibold mb-1">Rebase from {gitCommands?.mainBranch || 'main'}</div>
-                    {!hasChangesToRebase ? (
-                      <div className="text-gray-300">No changes to rebase</div>
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="text-gray-300">Command to run:</div>
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
-                          git rebase {gitCommands?.mainBranch || 'main'}
+                {activeSession.isMainRepo ? (
+                  <>
+                    {/* Pull button for main repo sessions */}
+                    <div className="group relative">
+                      <button
+                        onClick={handleGitPull}
+                        disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'}
+                        className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
+                          isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'
+                            ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 17l-4 4m0 0l-4-4m4 4V3" />
+                        </svg>
+                        <span className="text-sm font-medium">{isMerging ? 'Pulling...' : 'Pull'}</span>
+                      </button>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-md w-80">
+                        <div className="font-semibold mb-1">Pull from Remote</div>
+                        <div className="space-y-1">
+                          <div className="text-gray-300">Command to run:</div>
+                          <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
+                            git pull
+                          </div>
+                          <div className="text-xs text-gray-300 mt-1">
+                            Fetches and merges changes from the remote repository
+                          </div>
+                          <div className="text-xs text-yellow-400 mt-2">
+                            ⚠️ If merge conflicts occur, you'll need to resolve them manually or ask Claude for help
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-300 mt-1">
-                          Replays your commits on top of {gitCommands?.mainBranch || 'main'}
-                        </div>
-                      </div>
-                    )}
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
-                  </div>
-                </div>
-                
-                <div className="group relative">
-                  <button
-                    onClick={handleSquashAndRebaseToMain}
-                    disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'}
-                    className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
-                      isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'
-                        ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
-                        : 'bg-white border-green-300 text-green-600 hover:bg-green-50 hover:border-green-400 hover:shadow-sm'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4m0 0l4 4m-4-4v18" />
-                    </svg>
-                    <span className="text-sm font-medium">{isMerging ? 'Squashing...' : `Rebase to ${gitCommands?.mainBranch || 'main'}`}</span>
-                  </button>
-                  {/* Enhanced Tooltip */}
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-lg w-96">
-                    <div className="font-semibold mb-1">Rebase to {gitCommands?.mainBranch || 'main'}</div>
-                    <div className="space-y-1">
-                      <div className="text-gray-300">Commands to run:</div>
-                      <div className="space-y-1">
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
-                          git merge-base {gitCommands?.mainBranch || 'main'} HEAD
-                        </div>
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
-                          git reset --soft &lt;base-commit&gt;
-                        </div>
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
-                          git commit -m "Your message"
-                        </div>
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
-                          git checkout {gitCommands?.mainBranch || 'main'}
-                        </div>
-                        <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
-                          git rebase {gitCommands?.currentBranch || 'feature-branch'}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-300 mt-1">
-                        Squashes all commits into one, then rebases onto {gitCommands?.mainBranch || 'main'}
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
                       </div>
                     </div>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
-                  </div>
-                </div>
-                
+
+                    {/* Push button for main repo sessions */}
+                    <div className="group relative">
+                      <button
+                        onClick={handleGitPush}
+                        disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'}
+                        className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
+                          isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'
+                            ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-green-300 text-green-600 hover:bg-green-50 hover:border-green-400 hover:shadow-sm'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                        </svg>
+                        <span className="text-sm font-medium">{isMerging ? 'Pushing...' : 'Push'}</span>
+                      </button>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-md w-80">
+                        <div className="font-semibold mb-1">Push to Remote</div>
+                        <div className="space-y-1">
+                          <div className="text-gray-300">Command to run:</div>
+                          <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
+                            git push
+                          </div>
+                          <div className="text-xs text-gray-300 mt-1">
+                            Pushes local commits to the remote repository
+                          </div>
+                        </div>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Rebase buttons for worktree sessions */}
+                    <div className="group relative">
+                      <button
+                        onClick={handleRebaseMainIntoWorktree}
+                        disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hasChangesToRebase}
+                        className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
+                          isMerging || activeSession.status === 'running' || activeSession.status === 'initializing' || !hasChangesToRebase
+                            ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 hover:shadow-sm'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 17l-4 4m0 0l-4-4m4 4V3" />
+                        </svg>
+                        <span className="text-sm font-medium">{isMerging ? 'Rebasing...' : `Rebase from ${gitCommands?.mainBranch || 'main'}`}</span>
+                      </button>
+                      {/* Enhanced Tooltip */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-md w-80">
+                        <div className="font-semibold mb-1">Rebase from {gitCommands?.mainBranch || 'main'}</div>
+                        {!hasChangesToRebase ? (
+                          <div className="text-gray-300">No changes to rebase</div>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="text-gray-300">Command to run:</div>
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded whitespace-nowrap">
+                              git rebase {gitCommands?.mainBranch || 'main'}
+                            </div>
+                            <div className="text-xs text-gray-300 mt-1">
+                              Replays your commits on top of {gitCommands?.mainBranch || 'main'}
+                            </div>
+                          </div>
+                        )}
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
+                      </div>
+                    </div>
+
+                    <div className="group relative">
+                      <button
+                        onClick={handleSquashAndRebaseToMain}
+                        disabled={isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'}
+                        className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
+                          isMerging || activeSession.status === 'running' || activeSession.status === 'initializing'
+                            ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-green-300 text-green-600 hover:bg-green-50 hover:border-green-400 hover:shadow-sm'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                        </svg>
+                        <span className="text-sm font-medium">{isMerging ? 'Squashing...' : `Rebase to ${gitCommands?.mainBranch || 'main'}`}</span>
+                      </button>
+                      {/* Enhanced Tooltip */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-lg w-96">
+                        <div className="font-semibold mb-1">Rebase to {gitCommands?.mainBranch || 'main'}</div>
+                        <div className="space-y-1">
+                          <div className="text-gray-300">Commands to run:</div>
+                          <div className="space-y-1">
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
+                              git merge-base {gitCommands?.mainBranch || 'main'} HEAD
+                            </div>
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
+                              git reset --soft &lt;base-commit&gt;
+                            </div>
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
+                              git commit -m "Your message"
+                            </div>
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
+                              git checkout {gitCommands?.mainBranch || 'main'}
+                            </div>
+                            <div className="font-mono text-xs bg-gray-800 px-2 py-1 rounded">
+                              git rebase {gitCommands?.currentBranch || 'feature-branch'}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-300 mt-1">
+                            Squashes all commits into one, then rebases onto {gitCommands?.mainBranch || 'main'}
+                          </div>
+                        </div>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
+                      </div>
+                    </div>
+
                 <div className="group relative">
                   <button
                     onClick={handleOpenIDE}
@@ -1299,6 +1444,8 @@ export function SessionView() {
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
                   </div>
                 </div>
+                  </>
+                )}
               </div>
             </div>
             {mergeError && (
@@ -1448,6 +1595,7 @@ export function SessionView() {
                 sessionId={activeSession.id} 
                 selectedExecutions={[]} 
                 isGitOperationRunning={isMerging}
+                isMainRepo={activeSession.isMainRepo}
               />
             )}
           </div>

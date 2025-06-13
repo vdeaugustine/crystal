@@ -98,6 +98,12 @@ export class API {
       return window.electronAPI.sessions.getCombinedDiff(sessionId, executionIds);
     },
 
+    // Main repo session
+    async getOrCreateMainRepoSession(projectId: number) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getOrCreateMainRepoSession(projectId);
+    },
+
     // Script operations
     async hasRunScript(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
@@ -160,6 +166,22 @@ export class API {
     async getGitCommands(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.getGitCommands(sessionId);
+    },
+
+    // Git pull/push operations
+    async gitPull(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.gitPull(sessionId);
+    },
+
+    async gitPush(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.gitPush(sessionId);
+    },
+
+    async getLastCommits(sessionId: string, count: number = 20) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.getLastCommits(sessionId, count);
     },
 
     async openIDE(sessionId: string) {

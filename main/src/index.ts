@@ -877,8 +877,8 @@ ipcMain.handle('sessions:delete', async (_event, sessionId: string) => {
     const timestamp = new Date().toLocaleTimeString();
     let archiveMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 📦 ARCHIVING SESSION \x1b[0m\r\n`;
 
-    // Clean up the worktree if session has one
-    if (dbSession.worktree_name && dbSession.project_id) {
+    // Clean up the worktree if session has one (but not for main repo sessions)
+    if (dbSession.worktree_name && dbSession.project_id && !dbSession.is_main_repo) {
       const project = databaseService.getProject(dbSession.project_id);
       if (project) {
         try {
@@ -935,6 +935,32 @@ ipcMain.handle('sessions:input', async (_event, sessionId: string, input: string
   }
 });
 
+ipcMain.handle('sessions:get-or-create-main-repo', async (_event, projectId: number) => {
+  try {
+    console.log('[IPC] sessions:get-or-create-main-repo handler called with projectId:', projectId);
+    
+    // Get or create the main repo session
+    const session = sessionManager.getOrCreateMainRepoSession(projectId);
+    
+    // If it's a newly created session, just emit the created event
+    const dbSession = databaseService.getSession(session.id);
+    if (dbSession && dbSession.status === 'pending') {
+      console.log('[IPC] New main repo session created:', session.id);
+      
+      // Emit session created event
+      sessionManager.emitSessionCreated(session);
+      
+      // Set the status to stopped since Claude Code isn't running yet
+      sessionManager.updateSession(session.id, { status: 'stopped' });
+    }
+    
+    return { success: true, data: session };
+  } catch (error) {
+    console.error('Failed to get or create main repo session:', error);
+    return { success: false, error: 'Failed to get or create main repo session' };
+  }
+});
+
 ipcMain.handle('sessions:continue', async (_event, sessionId: string, prompt?: string) => {
   try {
     // Get session details
@@ -949,18 +975,64 @@ ipcMain.handle('sessions:continue', async (_event, sessionId: string, prompt?: s
     // If no prompt provided, use empty string (for resuming)
     const continuePrompt = prompt || '';
     
+    // Check if this is a main repo session that hasn't started Claude Code yet
+    const dbSession = databaseService.getSession(sessionId);
+    const isMainRepoFirstStart = dbSession?.is_main_repo && conversationHistory.length === 0 && continuePrompt;
+    
     // Update session status to initializing and clear run_started_at
     sessionManager.updateSession(sessionId, { 
       status: 'initializing',
       run_started_at: null // Clear previous run time
     });
-    // Add the prompt to conversation history and prompt markers (if a prompt is provided)
-    if (continuePrompt) {
-      sessionManager.continueConversation(sessionId, continuePrompt);
+    
+    if (isMainRepoFirstStart && continuePrompt) {
+      // First message in main repo session - start Claude Code without --continue
+      console.log(`[IPC] Starting Claude Code for main repo session ${sessionId} with first prompt`);
+      
+      // Add initial prompt marker
+      sessionManager.addInitialPromptMarker(sessionId, continuePrompt);
+      
+      // Add initial prompt to conversation messages
+      sessionManager.addConversationMessage(sessionId, 'user', continuePrompt);
+      
+      // Add the prompt to output so it's visible
+      const timestamp = new Date().toLocaleTimeString();
+      const initialPromptDisplay = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
+                                   `\x1b[1m\x1b[92m${continuePrompt}\x1b[0m\r\n\r\n`;
+      await sessionManager.addSessionOutput(sessionId, {
+        type: 'stdout',
+        data: initialPromptDisplay,
+        timestamp: new Date()
+      });
+      
+      // Run build script if configured
+      const project = dbSession?.project_id ? databaseService.getProject(dbSession.project_id) : null;
+      if (project?.build_script) {
+        console.log(`[IPC] Running build script for main repo session ${sessionId}`);
+        
+        const buildWaitingMessage = `\x1b[36m[${new Date().toLocaleTimeString()}]\x1b[0m \x1b[1m\x1b[33m⏳ Waiting for build script to complete...\x1b[0m\r\n\r\n`;
+        await sessionManager.addSessionOutput(sessionId, {
+          type: 'stdout',
+          data: buildWaitingMessage,
+          timestamp: new Date()
+        });
+        
+        const buildCommands = project.build_script.split('\n').filter(cmd => cmd.trim());
+        const buildResult = await sessionManager.runBuildScript(sessionId, buildCommands, session.worktreePath);
+        console.log(`[IPC] Build script completed. Success: ${buildResult.success}`);
+      }
+      
+      // Start Claude Code with the user's prompt
+      await claudeCodeManager.startSession(sessionId, session.worktreePath, continuePrompt, dbSession?.permission_mode);
+    } else {
+      // Normal continue for existing sessions
+      if (continuePrompt) {
+        sessionManager.continueConversation(sessionId, continuePrompt);
+      }
+      
+      // Continue the session with the existing conversation
+      await claudeCodeManager.continueSession(sessionId, session.worktreePath, continuePrompt, conversationHistory);
     }
-
-    // Continue the session with the existing conversation
-    await claudeCodeManager.continueSession(sessionId, session.worktreePath, continuePrompt, conversationHistory);
 
     // The session manager will update status based on Claude output
     return { success: true };
@@ -972,7 +1044,9 @@ ipcMain.handle('sessions:continue', async (_event, sessionId: string, prompt?: s
 
 ipcMain.handle('sessions:get-output', async (_event, sessionId: string) => {
   try {
+    console.log(`[IPC] sessions:get-output called for session: ${sessionId}`);
     const outputs = await sessionManager.getSessionOutputs(sessionId);
+    console.log(`[IPC] Retrieved ${outputs.length} outputs for session ${sessionId}`);
     
     // Transform JSON messages to formatted stdout on the fly
     const { formatJsonForOutputEnhanced } = await import('./utils/toolFormatter');
@@ -1874,6 +1948,175 @@ ipcMain.handle('sessions:squash-and-rebase-to-main', async (_event, sessionId: s
         projectPath: error.projectPath,
         originalError: error.originalError?.message
       }
+    };
+  }
+});
+
+// Git pull/push operations for main repo sessions
+ipcMain.handle('sessions:git-pull', async (_event, sessionId: string) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (!session.worktreePath) {
+      return { success: false, error: 'Session has no worktree path' };
+    }
+
+    // Add message to session output about starting the pull
+    const timestamp = new Date().toLocaleTimeString();
+    const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
+                        `\x1b[1m\x1b[94mPulling latest changes from remote...\x1b[0m\r\n\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: startMessage,
+      timestamp: new Date()
+    });
+
+    // Run git pull
+    const result = await worktreeManager.gitPull(session.worktreePath);
+    
+    // Add success message to session output
+    const successMessage = `\x1b[32m✓ Successfully pulled latest changes\x1b[0m\r\n` +
+                          (result.output ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${result.output}\r\n` : '') +
+                          `\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: successMessage,
+      timestamp: new Date()
+    });
+    
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error('Failed to pull from remote:', error);
+    
+    // Add error message to session output
+    const errorMessage = `\x1b[31m✗ Pull failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
+                        (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
+                        `\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stderr',
+      data: errorMessage,
+      timestamp: new Date()
+    });
+
+    // Check if it's a merge conflict
+    if (error.message?.includes('CONFLICT') || error.gitOutput?.includes('CONFLICT')) {
+      return {
+        success: false,
+        error: 'Merge conflicts detected. Please resolve conflicts manually or ask Claude to help.',
+        isMergeConflict: true,
+        gitError: {
+          output: error.gitOutput || error.message,
+          workingDirectory: error.workingDirectory || ''
+        }
+      };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to pull from remote',
+      gitError: {
+        output: error.gitOutput || error.message,
+        workingDirectory: error.workingDirectory || ''
+      }
+    };
+  }
+});
+
+ipcMain.handle('sessions:git-push', async (_event, sessionId: string) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (!session.worktreePath) {
+      return { success: false, error: 'Session has no worktree path' };
+    }
+
+    // Add message to session output about starting the push
+    const timestamp = new Date().toLocaleTimeString();
+    const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
+                        `\x1b[1m\x1b[94mPushing changes to remote...\x1b[0m\r\n\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: startMessage,
+      timestamp: new Date()
+    });
+
+    // Run git push
+    const result = await worktreeManager.gitPush(session.worktreePath);
+    
+    // Add success message to session output
+    const successMessage = `\x1b[32m✓ Successfully pushed changes to remote\x1b[0m\r\n` +
+                          (result.output ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${result.output}\r\n` : '') +
+                          `\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: successMessage,
+      timestamp: new Date()
+    });
+    
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error('Failed to push to remote:', error);
+    
+    // Add error message to session output
+    const errorMessage = `\x1b[31m✗ Push failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
+                        (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
+                        `\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stderr',
+      data: errorMessage,
+      timestamp: new Date()
+    });
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to push to remote',
+      gitError: {
+        output: error.gitOutput || error.message,
+        workingDirectory: error.workingDirectory || ''
+      }
+    };
+  }
+});
+
+ipcMain.handle('sessions:get-last-commits', async (_event, sessionId: string, count: number = 20) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (!session.worktreePath) {
+      return { success: false, error: 'Session has no worktree path' };
+    }
+
+    // Get the last N commits from the repository
+    const commits = await worktreeManager.getLastCommits(session.worktreePath, count);
+    
+    // Transform commits to match ExecutionDiff format
+    const executionDiffs = commits.map((commit, index) => ({
+      id: index + 1,
+      session_id: sessionId,
+      prompt_text: commit.message,
+      execution_sequence: commits.length - index,
+      stats_additions: commit.additions || 0,
+      stats_deletions: commit.deletions || 0,
+      stats_files_changed: commit.filesChanged || 0,
+      after_commit_hash: commit.hash,
+      timestamp: commit.date
+    }));
+    
+    return { success: true, data: executionDiffs };
+  } catch (error: any) {
+    console.error('Failed to get last commits:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to get last commits' 
     };
   }
 });

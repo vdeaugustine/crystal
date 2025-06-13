@@ -8,7 +8,8 @@ import type { ExecutionDiff, GitDiffResult } from '../types/diff';
 const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({ 
   sessionId, 
   selectedExecutions: initialSelected,
-  isGitOperationRunning = false 
+  isGitOperationRunning = false,
+  isMainRepo = false
 }) => {
   const [executions, setExecutions] = useState<ExecutionDiff[]>([]);
   const [selectedExecutions, setSelectedExecutions] = useState<number[]>(initialSelected);
@@ -23,7 +24,16 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
       const loadExecutions = async () => {
         try {
           setLoading(true);
-          const response = await API.sessions.getExecutions(sessionId);
+          let response;
+          
+          if (isMainRepo) {
+            // For main repo sessions, get the last 20 commits
+            response = await API.sessions.getLastCommits(sessionId, 20);
+          } else {
+            // For regular sessions, get executions
+            response = await API.sessions.getExecutions(sessionId);
+          }
+          
           if (!response.success) {
             throw new Error(response.error || 'Failed to load executions');
           }
@@ -45,11 +55,17 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, initialSelected]);
+  }, [sessionId, initialSelected, isMainRepo]);
 
   // Load combined diff when selection changes
   useEffect(() => {
     const loadCombinedDiff = async () => {
+      // For main repo sessions, we don't show diffs, just commit history
+      if (isMainRepo) {
+        setCombinedDiff(null);
+        return;
+      }
+      
       if (selectedExecutions.length === 0) {
         setCombinedDiff(null);
         return;
@@ -86,7 +102,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
     };
 
     loadCombinedDiff();
-  }, [selectedExecutions, sessionId, executions.length]);
+  }, [selectedExecutions, sessionId, executions.length, isMainRepo]);
 
   const handleSelectionChange = (newSelection: number[]) => {
     setSelectedExecutions(newSelection);
@@ -170,6 +186,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
           ) : combinedDiff ? (
             <div className="p-4">
               <DiffViewer diff={combinedDiff.diff} />
+            </div>
+          ) : isMainRepo ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <p className="mb-2">Showing last 20 commits from the main repository</p>
+                <p className="text-sm">Select commits to view details</p>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-center h-32 text-gray-500">
