@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from './hooks/useSocket';
 import { useNotifications } from './hooks/useNotifications';
+import { useResizable } from './hooks/useResizable';
 import { Sidebar } from './components/Sidebar';
 import { SessionView } from './components/SessionView';
 import { PromptHistory } from './components/PromptHistory';
@@ -32,6 +33,13 @@ function App() {
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
+  
+  const { width: sidebarWidth, startResize } = useResizable({
+    defaultWidth: 320,  // Increased from 256px (w-64)
+    minWidth: 200,
+    maxWidth: 600,
+    storageKey: 'crystal-sidebar-width'
+  });
   
   useSocket();
   const { showNotification } = useNotifications();
@@ -124,6 +132,8 @@ function App() {
         onViewModeChange={setViewMode} 
         onHelpClick={() => setIsHelpOpen(true)}
         onAboutClick={() => setIsAboutOpen(true)}
+        width={sidebarWidth}
+        onResize={startResize}
       />
       {viewMode === 'sessions' ? <SessionView /> : <PromptHistory />}
       <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
