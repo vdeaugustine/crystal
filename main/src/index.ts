@@ -1457,6 +1457,26 @@ ipcMain.handle('sessions:stop-script', async () => {
   }
 });
 
+ipcMain.handle('sessions:run-terminal-command', async (_event, sessionId: string, command: string) => {
+  try {
+    await sessionManager.runTerminalCommand(sessionId, command);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to run terminal command:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to run terminal command' };
+  }
+});
+
+ipcMain.handle('sessions:resize-terminal', async (_event, sessionId: string, cols: number, rows: number) => {
+  try {
+    sessionManager.resizeTerminal(sessionId, cols, rows);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to resize terminal:', error);
+    return { success: false, error: 'Failed to resize terminal' };
+  }
+});
+
 ipcMain.handle('sessions:get-prompts', async (_event, sessionId: string) => {
   try {
     const prompts = sessionManager.getSessionPrompts(sessionId);

@@ -5,15 +5,23 @@ import type { Session, SessionUpdate, SessionOutput } from '../types/session';
 import type { DatabaseService } from '../database/database';
 import type { Session as DbSession, CreateSessionData, UpdateSessionData, ConversationMessage, PromptMarker, ExecutionDiff, CreateExecutionDiffData, Project } from '../database/models';
 import { getShellPath } from '../utils/shellPath';
+import { TerminalSessionManager } from './terminalSessionManager';
 
 export class SessionManager extends EventEmitter {
   private activeSessions: Map<string, Session> = new Map();
   private runningScriptProcess: ChildProcess | null = null;
   private currentRunningSessionId: string | null = null;
   private activeProject: Project | null = null;
+  private terminalSessionManager: TerminalSessionManager;
 
   constructor(private db: DatabaseService) {
     super();
+    this.terminalSessionManager = new TerminalSessionManager();
+    
+    // Forward terminal output events
+    this.terminalSessionManager.on('terminal-output', ({ sessionId, data, type }) => {
+      this.addScriptOutput(sessionId, data, type);
+    });
   }
 
   setActiveProject(project: Project): void {
@@ -301,6 +309,9 @@ export class SessionManager extends EventEmitter {
       throw new Error(`Session ${id} not found`);
     }
 
+    // Close terminal session if it exists
+    this.terminalSessionManager.closeTerminalSession(id);
+    
     this.activeSessions.delete(id);
     this.emit('session-deleted', { id }); // Keep the same event name for frontend compatibility
   }
@@ -627,11 +638,11 @@ export class SessionManager extends EventEmitter {
     });
   }
 
-  addScriptOutput(sessionId: string, data: string): void {
+  addScriptOutput(sessionId: string, data: string, type: 'stdout' | 'stderr' = 'stdout'): void {
     // Emit script output event that will be handled by the frontend
     this.emit('script-output', { 
       sessionId, 
-      type: 'stdout', 
+      type, 
       data 
     });
   }
@@ -701,5 +712,43 @@ export class SessionManager extends EventEmitter {
 
   cleanup(): void {
     this.stopRunningScript();
+    this.terminalSessionManager.cleanup();
+  }
+
+  async runTerminalCommand(sessionId: string, command: string): Promise<void> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    // Don't allow running commands while a script is active
+    if (this.currentRunningSessionId === sessionId && this.runningScriptProcess) {
+      throw new Error('Cannot run terminal commands while a script is running');
+    }
+
+    const worktreePath = session.worktreePath;
+
+    try {
+      // Create terminal session if it doesn't exist
+      if (!this.terminalSessionManager.hasSession(sessionId)) {
+        await this.terminalSessionManager.createTerminalSession(sessionId, worktreePath);
+        // Give the terminal a moment to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Send the command to the persistent terminal session
+      this.terminalSessionManager.sendCommand(sessionId, command);
+    } catch (error) {
+      this.addScriptOutput(sessionId, `\nError: ${error}\n`, 'stderr');
+      throw error;
+    }
+  }
+
+  closeTerminalSession(sessionId: string): void {
+    this.terminalSessionManager.closeTerminalSession(sessionId);
+  }
+
+  resizeTerminal(sessionId: string, cols: number, rows: number): void {
+    this.terminalSessionManager.resizeTerminal(sessionId, cols, rows);
   }
 }

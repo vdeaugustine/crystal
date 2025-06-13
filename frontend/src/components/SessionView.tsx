@@ -664,9 +664,14 @@ export function SessionView() {
       let resizeTimer: NodeJS.Timeout;
       resizeObserver = new ResizeObserver(() => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
+        resizeTimer = setTimeout(async () => {
           if (scriptFitAddon.current && scriptTerminalInstance.current && viewMode === 'terminal') {
             scriptFitAddon.current.fit();
+            // Notify backend about terminal resize
+            const { cols, rows } = scriptTerminalInstance.current;
+            if (activeSession) {
+              await API.sessions.resizeTerminal(activeSession.id, cols, rows);
+            }
           }
         }, 100);
       });
@@ -983,6 +988,22 @@ export function SessionView() {
       }, 500);
     } catch (error) {
       console.error('Error continuing conversation:', error);
+    }
+  };
+
+  const handleTerminalCommand = async () => {
+    if (!input.trim()) return;
+    
+    try {
+      const response = await API.sessions.runTerminalCommand(activeSession.id, input);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to run terminal command');
+      }
+      
+      setInput('');
+    } catch (error) {
+      console.error('Error running terminal command:', error);
     }
   };
 
@@ -1405,6 +1426,14 @@ export function SessionView() {
       </div>
       
       <div className="border-t border-gray-300 p-4 bg-white flex-shrink-0">
+        {viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting' && (
+          <div className="mb-2 flex items-center text-sm text-gray-600">
+            <svg className="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Terminal mode: Commands will execute in the worktree directory
+          </div>
+        )}
         <div className="flex space-x-2">
           <div className="flex-1 relative">
             <textarea
@@ -1412,10 +1441,20 @@ export function SessionView() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                // Send on Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                // In Terminal view, send on Enter alone (unless Shift is held for multi-line)
+                // In other views, send on Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+                const isTerminalView = viewMode === 'terminal';
+                const shouldSend = isTerminalView 
+                  ? (e.key === 'Enter' && !e.shiftKey)
+                  : (e.key === 'Enter' && (e.metaKey || e.ctrlKey));
+                
+                if (shouldSend) {
                   e.preventDefault();
-                  if (activeSession.status === 'waiting') {
+                  
+                  // In terminal view, check if we should run a terminal command
+                  if (isTerminalView && !activeSession.isRunning && activeSession.status !== 'waiting') {
+                    handleTerminalCommand();
+                  } else if (activeSession.status === 'waiting') {
                     handleSendInput();
                   } else {
                     handleContinueConversation();
@@ -1424,9 +1463,15 @@ export function SessionView() {
               }}
               className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white resize-none overflow-y-auto"
               placeholder={
-                activeSession.status === 'waiting' 
-                  ? "Enter your response... (⌘↵ to send)" 
-                  : "Continue conversation with a new message... (⌘↵ to send)"
+                viewMode === 'terminal'
+                  ? activeSession.isRunning
+                    ? "Script is running... (stop it to run commands)"
+                    : activeSession.status === 'waiting'
+                      ? "Enter your response... (↵ to send)"
+                      : "Enter terminal command... (↵ to send, Shift+↵ for new line)"
+                  : activeSession.status === 'waiting' 
+                    ? "Enter your response... (⌘↵ to send)" 
+                    : "Continue conversation with a new message... (⌘↵ to send)"
               }
               style={{ minHeight: '42px', maxHeight: '200px' }}
             />
@@ -1443,13 +1488,25 @@ export function SessionView() {
             )}
           </div>
           <button
-            onClick={activeSession.status === 'waiting' ? handleSendInput : handleContinueConversation}
+            onClick={() => {
+              if (viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting') {
+                handleTerminalCommand();
+              } else if (activeSession.status === 'waiting') {
+                handleSendInput();
+              } else {
+                handleContinueConversation();
+              }
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
-            {activeSession.status === 'waiting' ? 'Send' : 'Continue'}
+            {viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting'
+              ? 'Run'
+              : activeSession.status === 'waiting' 
+                ? 'Send' 
+                : 'Continue'}
           </button>
         </div>
-        {activeSession.status !== 'waiting' && (
+        {activeSession.status !== 'waiting' && !(viewMode === 'terminal' && !activeSession.isRunning) && (
           <p className="text-sm text-gray-500 mt-2">
             This will interrupt the current session if running and restart with conversation history.
           </p>

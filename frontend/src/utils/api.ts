@@ -114,6 +114,16 @@ export class API {
       return window.electronAPI.sessions.stopScript();
     },
 
+    async runTerminalCommand(sessionId: string, command: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.runTerminalCommand(sessionId, command);
+    },
+
+    async resizeTerminal(sessionId: string, cols: number, rows: number) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.resizeTerminal(sessionId, cols, rows);
+    },
+
     // Prompt operations
     async getPrompts(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');

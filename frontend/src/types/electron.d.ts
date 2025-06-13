@@ -45,6 +45,8 @@ interface ElectronAPI {
     getRunningSession: () => Promise<IPCResponse>;
     runScript: (sessionId: string) => Promise<IPCResponse>;
     stopScript: () => Promise<IPCResponse>;
+    runTerminalCommand: (sessionId: string, command: string) => Promise<IPCResponse>;
+    resizeTerminal: (sessionId: string, cols: number, rows: number) => Promise<IPCResponse>;
     
     // Prompt operations
     getPrompts: (sessionId: string) => Promise<IPCResponse>;
