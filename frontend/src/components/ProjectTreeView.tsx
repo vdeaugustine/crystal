@@ -5,6 +5,8 @@ import { useErrorStore } from '../stores/errorStore';
 import { SessionListItem } from './SessionListItem';
 import { CreateSessionDialog } from './CreateSessionDialog';
 import ProjectSettings from './ProjectSettings';
+import { EmptyState } from './EmptyState';
+import { LoadingSpinner } from './LoadingSpinner';
 import { API } from '../utils/api';
 import type { Session } from '../types/session';
 import type { Project } from '../types/project';
@@ -178,8 +180,8 @@ export function ProjectTreeView() {
 
   if (isLoading) {
     return (
-      <div className="px-2 py-4 text-gray-500 text-sm text-center">
-        Loading projects...
+      <div className="flex items-center justify-center py-8">
+        <LoadingSpinner text="Loading projects..." size="small" />
       </div>
     );
   }
@@ -188,18 +190,16 @@ export function ProjectTreeView() {
     <>
       <div className="space-y-1 px-2 pb-2">
         {projectsWithSessions.length === 0 ? (
-          <>
-            <div className="py-4 text-gray-500 text-sm text-center">
-              No projects yet
-            </div>
-            <button
-              onClick={() => setShowAddProjectDialog(true)}
-              className="w-full mt-2 px-2 py-1.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Project</span>
-            </button>
-          </>
+          <EmptyState
+            icon={Folder}
+            title="No Projects Yet"
+            description="Add your first project to start managing Claude Code sessions."
+            action={{
+              label: 'Add Project',
+              onClick: () => setShowAddProjectDialog(true)
+            }}
+            className="py-8"
+          />
         ) : (
           <>
             {projectsWithSessions.map((project) => {

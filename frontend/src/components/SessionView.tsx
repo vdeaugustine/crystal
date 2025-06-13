@@ -5,9 +5,12 @@ import { FitAddon } from '@xterm/addon-fit';
 import { JsonMessageView } from './JsonMessageView';
 import { StatusIndicator } from './StatusIndicator';
 import { PromptNavigation } from './PromptNavigation';
+import { LoadingSpinner } from './LoadingSpinner';
+import { EmptyState } from './EmptyState';
 import CombinedDiffView from './CombinedDiffView';
 import { StravuFileSearch } from './StravuFileSearch';
 import { API } from '../utils/api';
+import { ExternalLink, FolderOpen, ChevronRight, GitBranch, GitPullRequest, Upload, Download, Code2, Inbox } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 
 export function SessionView() {
@@ -1234,6 +1237,19 @@ export function SessionView() {
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
     }
   };
+  
+  if (!activeSession) {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+        <EmptyState
+          icon={Inbox}
+          title="No Session Selected"
+          description="Select a session from the sidebar to view its output, or create a new session to get started."
+          className="flex-1"
+        />
+      </div>
+    );
+  }
   
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
