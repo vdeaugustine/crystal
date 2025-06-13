@@ -74,6 +74,21 @@ pnpm run electron-dev
 pnpm build:mac
 ```
 
+### Developing Crystal with Crystal
+
+If you're using Crystal to develop Crystal itself, you need to use a separate data directory to avoid conflicts with your main Crystal instance:
+
+```bash
+# Set the run script in your Crystal project settings to:
+pnpm run setup && CRYSTAL_DIR=~/.crystal_test pnpm electron-dev
+```
+
+This ensures:
+- Your development Crystal instance uses `~/.crystal_test` for its data
+- Your main Crystal instance continues using `~/.crystal` 
+- Worktrees won't conflict between the two instances
+- You can safely test changes without affecting your primary Crystal setup
+
 ## 📖 How to Use
 
 ### 1. Create a Project
