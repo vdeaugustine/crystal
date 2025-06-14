@@ -119,10 +119,25 @@ export class GitDiffManager {
 
           // Start new commit
           const [hash, message, date, author] = line.split('|');
+          
+          // Validate and parse the date
+          let parsedDate: Date;
+          try {
+            parsedDate = new Date(date);
+            // Check if the date is valid
+            if (isNaN(parsedDate.getTime())) {
+              throw new Error('Invalid date');
+            }
+          } catch {
+            // Fall back to current date if parsing fails
+            parsedDate = new Date();
+            this.logger?.warn(`Invalid date format in git log: "${date}". Using current date as fallback.`);
+          }
+          
           currentCommit = {
             hash,
             message,
-            date: new Date(date),
+            date: parsedDate,
             author,
             stats: { additions: 0, deletions: 0, filesChanged: 0 }
           };

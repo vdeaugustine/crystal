@@ -1,5 +1,16 @@
 export function formatJsonForOutput(jsonMessage: any): string {
-  const timestamp = new Date(jsonMessage.timestamp || new Date()).toLocaleTimeString();
+  // Safely parse timestamp
+  let timestamp: string;
+  try {
+    const dateValue = jsonMessage.timestamp || new Date();
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid timestamp');
+    }
+    timestamp = date.toLocaleTimeString();
+  } catch {
+    timestamp = new Date().toLocaleTimeString();
+  }
   
   if (jsonMessage.type === 'system') {
     if (jsonMessage.subtype === 'init') {

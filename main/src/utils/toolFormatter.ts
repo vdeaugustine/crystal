@@ -73,7 +73,17 @@ export function formatToolInteraction(
   resultTimestamp?: string,
   gitRepoPath?: string
 ): string {
-  const timestamp = new Date(callTimestamp).toLocaleTimeString();
+  // Safely parse timestamp
+  let timestamp: string;
+  try {
+    const date = new Date(callTimestamp);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid timestamp');
+    }
+    timestamp = date.toLocaleTimeString();
+  } catch {
+    timestamp = new Date().toLocaleTimeString();
+  }
   
   // Format the tool call header
   let output = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[33m🔧 Tool: ${toolCall.name}\x1b[0m\r\n`;
@@ -150,7 +160,18 @@ export function formatToolInteraction(
   
   // Add the result if available
   if (toolResult) {
-    const resultTime = resultTimestamp ? ` (${new Date(resultTimestamp).toLocaleTimeString()})` : '';
+    // Safely parse result timestamp
+    let resultTime = '';
+    if (resultTimestamp) {
+      try {
+        const date = new Date(resultTimestamp);
+        if (!isNaN(date.getTime())) {
+          resultTime = ` (${date.toLocaleTimeString()})`;
+        }
+      } catch {
+        // Ignore invalid timestamp
+      }
+    }
     output += `\x1b[90m├─ Result${resultTime}:\x1b[0m\r\n`;
     
     if (toolResult.content) {
@@ -288,7 +309,24 @@ export function formatToolInteraction(
  * Enhanced JSON to output formatter that unifies tool calls and responses
  */
 export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: string): string {
-  const timestamp = jsonMessage.timestamp || new Date().toISOString();
+  // Ensure we have a valid timestamp
+  let timestamp: string;
+  try {
+    if (jsonMessage.timestamp) {
+      // Validate the provided timestamp
+      const date = new Date(jsonMessage.timestamp);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid timestamp');
+      }
+      timestamp = jsonMessage.timestamp;
+    } else {
+      // Use current time if no timestamp provided
+      timestamp = new Date().toISOString();
+    }
+  } catch {
+    // Fallback to current time if timestamp is invalid
+    timestamp = new Date().toISOString();
+  }
   
   // Handle tool calls from assistant
   if (jsonMessage.type === 'assistant' && jsonMessage.message?.content) {
@@ -321,7 +359,14 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
         .join('\n\n');
       
       if (textContent) {
-        const time = new Date(timestamp).toLocaleTimeString();
+        const time = (() => {
+          try {
+            const date = new Date(timestamp);
+            return !isNaN(date.getTime()) ? date.toLocaleTimeString() : new Date().toLocaleTimeString();
+          } catch {
+            return new Date().toLocaleTimeString();
+          }
+        })();
         return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[35m🤖 Assistant\x1b[0m\r\n` +
                `\x1b[37m${textContent}\x1b[0m\r\n\r\n`;
       }
@@ -353,7 +398,14 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
             }
             
             // Orphaned tool result
-            const time = new Date(timestamp).toLocaleTimeString();
+            const time = (() => {
+              try {
+                const date = new Date(timestamp);
+                return !isNaN(date.getTime()) ? date.toLocaleTimeString() : new Date().toLocaleTimeString();
+              } catch {
+                return new Date().toLocaleTimeString();
+              }
+            })();
             return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[90m📥 Tool Result [${result.tool_use_id}]\x1b[0m\r\n` +
                    `\x1b[37m${makePathsRelative(result.content || '', gitRepoPath)}\x1b[0m\r\n\r\n`;
           })
@@ -367,7 +419,14 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
         .join(' ');
       
       if (textContent) {
-        const time = new Date(timestamp).toLocaleTimeString();
+        const time = (() => {
+          try {
+            const date = new Date(timestamp);
+            return !isNaN(date.getTime()) ? date.toLocaleTimeString() : new Date().toLocaleTimeString();
+          } catch {
+            return new Date().toLocaleTimeString();
+          }
+        })();
         // Make user prompts more prominent with bright green background and bold text
         return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
                `\x1b[1m\x1b[92m${textContent}\x1b[0m\r\n` +
@@ -379,7 +438,14 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
   // Handle session messages (like errors)
   if (jsonMessage.type === 'session') {
     const data = jsonMessage.data || {};
-    const time = new Date(timestamp).toLocaleTimeString();
+    const time = (() => {
+      try {
+        const date = new Date(timestamp);
+        return !isNaN(date.getTime()) ? date.toLocaleTimeString() : new Date().toLocaleTimeString();
+      } catch {
+        return new Date().toLocaleTimeString();
+      }
+    })();
     
     if (data.status === 'error') {
       return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[31m❌ Session Error\x1b[0m\r\n` +
