@@ -164,10 +164,10 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
         <div className="flex items-center space-x-3">
           {getStatusIndicator()}
           <div>
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-gray-100">
               Stravu Integration
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-400">
               {getStatusText()}
             </div>
           </div>
@@ -178,7 +178,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
             <button
               onClick={handleConnect}
               disabled={false}
-              className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-medium text-blue-400 bg-blue-900/20 border border-blue-800 rounded-md hover:bg-blue-900/30 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {connectionState.status === 'expired' ? 'Reconnect' : 'Connect'}
             </button>
@@ -186,7 +186,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
             <>
               <button
                 onClick={checkConnectionStatus}
-                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                className="p-1.5 text-gray-400 hover:text-gray-300 rounded-md hover:bg-gray-700"
                 title="Refresh connection status"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,7 +195,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
               </button>
               <button
                 onClick={handleDisconnect}
-                className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="px-3 py-1.5 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800 rounded-md hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Disconnect
               </button>
@@ -205,13 +205,13 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
       </div>
 
       {connectionState.error && (
-        <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
+        <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-md p-2">
           {connectionState.error}
         </div>
       )}
 
       {connectionState.status === 'connecting' && (
-        <div className="mt-2 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-md p-2">
+        <div className="mt-2 text-xs text-blue-400 bg-blue-900/20 border border-blue-800 rounded-md p-2">
           Please complete authentication in your browser. This may take a few moments...
         </div>
       )}

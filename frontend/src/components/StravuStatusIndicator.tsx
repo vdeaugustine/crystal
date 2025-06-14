@@ -118,15 +118,15 @@ export function StravuStatusIndicator() {
   const getStatusColor = () => {
     switch (connectionState.status) {
       case 'connected':
-        return 'text-green-600';
+        return 'text-green-600 dark:text-green-400';
       case 'connecting':
-        return 'text-blue-600';
+        return 'text-blue-600 dark:text-blue-400';
       case 'expired':
-        return 'text-yellow-600';
+        return 'text-yellow-600 dark:text-yellow-400';
       case 'error':
-        return 'text-red-600';
+        return 'text-red-600 dark:text-red-400';
       default:
-        return 'text-gray-400';
+        return 'text-gray-400 dark:text-gray-500';
     }
   };
 
@@ -177,7 +177,7 @@ export function StravuStatusIndicator() {
         onClick={handleConnect}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className={`p-2 rounded-lg hover:bg-gray-100 transition-colors ${getStatusColor()}`}
+        className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${getStatusColor()}`}
         disabled={connectionState.status === 'connecting'}
       >
         {renderIcon()}

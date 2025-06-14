@@ -96,15 +96,15 @@ export function PromptHistory() {
     switch (status) {
       case 'completed':
       case 'stopped':
-        return 'text-green-600 bg-green-50';
+        return 'text-green-400 bg-green-900/20';
       case 'error':
-        return 'text-red-600 bg-red-50';
+        return 'text-red-400 bg-red-900/20';
       case 'running':
-        return 'text-blue-600 bg-blue-50';
+        return 'text-blue-400 bg-blue-900/20';
       case 'waiting':
-        return 'text-yellow-600 bg-yellow-50';
+        return 'text-yellow-400 bg-yellow-900/20';
       default:
-        return 'text-gray-600 bg-gray-50';
+        return 'text-gray-400 bg-gray-700';
     }
   };
 
@@ -113,17 +113,17 @@ export function PromptHistory() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="border-b border-gray-200 p-6 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Prompt History</h1>
+      <div className="border-b border-gray-700 p-6 flex-shrink-0">
+        <h1 className="text-2xl font-bold text-gray-100 mb-4">Prompt History</h1>
         <div className="relative">
           <input
             type="text"
             placeholder="Search prompts or session names..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 pl-10 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-400"
           />
           <svg
             className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -145,11 +145,11 @@ export function PromptHistory() {
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <div className="text-gray-500">Loading prompt history...</div>
+            <div className="text-gray-400">Loading prompt history...</div>
           </div>
         ) : filteredPrompts.length === 0 ? (
           <div className="flex items-center justify-center h-32">
-            <div className="text-center text-gray-500">
+            <div className="text-center text-gray-400">
               <div className="text-lg mb-2">
                 {searchTerm ? 'No prompts found' : 'No prompt history yet'}
               </div>
@@ -168,15 +168,15 @@ export function PromptHistory() {
                 key={promptItem.id}
                 className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
                   selectedPromptId === promptItem.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200'
+                    ? 'border-blue-500 bg-blue-900/20'
+                    : 'border-gray-700 bg-gray-800'
                 }`}
                 onClick={() => handlePromptClick(promptItem)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-medium text-gray-900 truncate">
+                      <h3 className="text-lg font-medium text-gray-100 truncate">
                         {promptItem.sessionName}
                       </h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(promptItem.status)}`}>
@@ -184,11 +184,11 @@ export function PromptHistory() {
                       </span>
                     </div>
                     
-                    <p className="text-gray-700 mb-3 leading-relaxed">
+                    <p className="text-gray-300 mb-3 leading-relaxed">
                       {truncatePrompt(promptItem.prompt, 200)}
                     </p>
                     
-                    <div className="flex items-center justify-between text-sm text-gray-500">
+                    <div className="flex items-center justify-between text-sm text-gray-400">
                       <span>
                         Created {new Date(promptItem.createdAt).toLocaleDateString()} at{' '}
                         {new Date(promptItem.createdAt).toLocaleTimeString()}
@@ -205,7 +205,7 @@ export function PromptHistory() {
                     </button>
                     <button
                       onClick={() => navigator.clipboard.writeText(promptItem.prompt)}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200 transition-colors"
+                      className="px-3 py-1 bg-gray-700 text-gray-200 text-sm rounded-md hover:bg-gray-600 transition-colors"
                     >
                       Copy
                     </button>
@@ -214,10 +214,10 @@ export function PromptHistory() {
                 
                 {promptItem.prompt.length > 200 && (
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-blue-600 text-sm hover:text-blue-800">
+                    <summary className="cursor-pointer text-blue-400 text-sm hover:text-blue-300">
                       Show full prompt
                     </summary>
-                    <p className="mt-2 text-gray-700 whitespace-pre-wrap">
+                    <p className="mt-2 text-gray-300 whitespace-pre-wrap">
                       {promptItem.prompt}
                     </p>
                   </details>

@@ -19,11 +19,11 @@ function JsonMessageItem({ message }: JsonMessageItemProps) {
   
   const getMessageTypeColor = (type: string, subtype?: string) => {
     if (type === 'system') {
-      return subtype === 'init' ? 'bg-blue-100 border-blue-300' : 'bg-gray-100 border-gray-300';
+      return subtype === 'init' ? 'bg-blue-900/20 border-blue-700' : 'bg-gray-800 border-gray-700';
     }
-    if (type === 'user') return 'bg-green-100 border-green-300';
-    if (type === 'assistant') return 'bg-purple-100 border-purple-300';
-    return 'bg-gray-100 border-gray-300';
+    if (type === 'user') return 'bg-green-900/20 border-green-700';
+    if (type === 'assistant') return 'bg-purple-900/20 border-purple-700';
+    return 'bg-gray-800 border-gray-700';
   };
 
   const getMessageTypeIcon = (type: string, subtype?: string) => {
@@ -76,14 +76,14 @@ function JsonMessageItem({ message }: JsonMessageItemProps) {
         <div className="flex items-center space-x-3">
           <span className="text-lg">{getMessageTypeIcon(message.type, message.subtype)}</span>
           <div>
-            <h4 className="font-medium text-gray-800">{getMessageTitle(message)}</h4>
+            <h4 className="font-medium text-gray-200">{getMessageTitle(message)}</h4>
             {isCollapsed && (
-              <p className="text-sm text-gray-600 mt-1">{getMessagePreview(message)}</p>
+              <p className="text-sm text-gray-400 mt-1">{getMessagePreview(message)}</p>
             )}
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500">{formatTimestamp(message.timestamp)}</span>
+          <span className="text-xs text-gray-400">{formatTimestamp(message.timestamp)}</span>
           <span className={`transform transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}>
             ▼
           </span>
@@ -91,19 +91,19 @@ function JsonMessageItem({ message }: JsonMessageItemProps) {
       </div>
       
       {!isCollapsed && (
-        <div className="border-t bg-white bg-opacity-50 p-4">
+        <div className="border-t bg-gray-900/50 p-4">
           {message.content && (
             <div className="mb-4">
-              <h5 className="font-medium text-gray-700 mb-2">Content:</h5>
-              <div className="bg-white rounded p-3 text-sm font-mono whitespace-pre-wrap border">
+              <h5 className="font-medium text-gray-300 mb-2">Content:</h5>
+              <div className="bg-gray-800 rounded p-3 text-sm font-mono whitespace-pre-wrap border border-gray-700 text-gray-200">
                 {message.content}
               </div>
             </div>
           )}
           
           <details>
-            <summary className="cursor-pointer font-medium text-gray-700 mb-2">Raw JSON Data</summary>
-            <pre className="bg-gray-100 rounded p-3 text-xs overflow-auto max-h-64 border">
+            <summary className="cursor-pointer font-medium text-gray-300 mb-2">Raw JSON Data</summary>
+            <pre className="bg-gray-800 rounded p-3 text-xs overflow-auto max-h-64 border border-gray-700 text-gray-200">
               {JSON.stringify(message, null, 2)}
             </pre>
           </details>
@@ -120,17 +120,17 @@ interface JsonMessageViewProps {
 export function JsonMessageView({ messages }: JsonMessageViewProps) {
   if (messages.length === 0) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500">
+      <div className="flex items-center justify-center h-32 text-gray-400">
         No messages yet
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-900 overflow-hidden">
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-4xl mx-auto">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          <h3 className="text-lg font-semibold text-gray-200 mb-4">
             Claude Code Messages ({messages.length})
           </h3>
           {messages.map((message, index) => (

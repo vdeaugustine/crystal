@@ -12,6 +12,8 @@ html, body, #root {
 /* Prevent overflow on the body */
 body {
   overflow: hidden;
+  background-color: #111827; /* gray-900 */
+  color: #f3f4f6; /* gray-100 */
 }
 
 ::-webkit-scrollbar {
@@ -20,16 +22,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #1f2937; /* gray-800 */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
+  background: #4b5563; /* gray-600 */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #6b7280; /* gray-500 */
 }
 
 /* Custom animations for the working indicator */

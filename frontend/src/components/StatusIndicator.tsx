@@ -21,9 +21,9 @@ export function StatusIndicator({
         return {
           status: 'initializing',
           color: 'bg-blue-500',
-          textColor: 'text-blue-600',
-          bgColor: 'bg-blue-50',
-          borderColor: 'border-blue-200',
+          textColor: 'text-blue-400',
+          bgColor: 'bg-blue-900/20',
+          borderColor: 'border-blue-800',
           icon: Loader2,
           text: 'Initializing',
           animated: true,
@@ -33,9 +33,9 @@ export function StatusIndicator({
         return {
           status: 'running',
           color: 'bg-green-500',
-          textColor: 'text-green-600',
-          bgColor: 'bg-green-50',
-          borderColor: 'border-green-200',
+          textColor: 'text-green-400',
+          bgColor: 'bg-green-900/20',
+          borderColor: 'border-green-800',
           icon: Loader2,
           text: 'Running',
           animated: true,
@@ -45,9 +45,9 @@ export function StatusIndicator({
         return {
           status: 'waiting',
           color: 'bg-amber-500',
-          textColor: 'text-amber-600',
-          bgColor: 'bg-amber-50',
-          borderColor: 'border-amber-200',
+          textColor: 'text-amber-400',
+          bgColor: 'bg-amber-900/20',
+          borderColor: 'border-amber-800',
           icon: PauseCircle,
           text: 'Waiting for input',
           animated: true,
@@ -57,9 +57,9 @@ export function StatusIndicator({
         return {
           status: 'stopped',
           color: 'bg-emerald-500',
-          textColor: 'text-emerald-600',
-          bgColor: 'bg-emerald-50',
-          borderColor: 'border-emerald-200',
+          textColor: 'text-emerald-400',
+          bgColor: 'bg-emerald-900/20',
+          borderColor: 'border-emerald-800',
           icon: CheckCircle,
           text: 'Completed',
           animated: false,
@@ -68,9 +68,9 @@ export function StatusIndicator({
         return {
           status: 'completed_unviewed',
           color: 'bg-blue-500',
-          textColor: 'text-blue-600',
-          bgColor: 'bg-blue-50',
-          borderColor: 'border-blue-200',
+          textColor: 'text-blue-400',
+          bgColor: 'bg-blue-900/20',
+          borderColor: 'border-blue-800',
           icon: Bell,
           text: 'New activity',
           animated: true,
@@ -80,9 +80,9 @@ export function StatusIndicator({
         return {
           status: 'error',
           color: 'bg-red-500',
-          textColor: 'text-red-600',
-          bgColor: 'bg-red-50',
-          borderColor: 'border-red-200',
+          textColor: 'text-red-400',
+          bgColor: 'bg-red-900/20',
+          borderColor: 'border-red-800',
           icon: AlertCircle,
           text: 'Error',
           animated: false,
@@ -91,9 +91,9 @@ export function StatusIndicator({
         return {
           status: 'unknown',
           color: 'bg-gray-400',
-          textColor: 'text-gray-600',
-          bgColor: 'bg-gray-50',
-          borderColor: 'border-gray-200',
+          textColor: 'text-gray-400',
+          bgColor: 'bg-gray-800',
+          borderColor: 'border-gray-700',
           icon: AlertCircle,
           text: 'Unknown',
           animated: false,
@@ -199,7 +199,7 @@ export function StatusIndicator({
         {/* Progress Bar */}
         {showProgress && (
           <div className="flex-1 ml-2">
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className="w-full bg-gray-700 rounded-full h-1.5">
               <div
                 className={`${config.color} h-1.5 rounded-full transition-all duration-1000 ease-out`}
                 style={{ width: `${estimateProgress()}%` }}
