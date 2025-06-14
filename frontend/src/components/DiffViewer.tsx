@@ -125,6 +125,15 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
         ))}
 
         <style dangerouslySetInnerHTML={{__html: `
+          /* Ensure all text in dark mode is visible */
+          .dark .diff-viewer {
+            color: #ffffff !important;
+          }
+          
+          .dark .diff-viewer * {
+            color: inherit;
+          }
+          
           .diff-viewer .diff-content {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
             font-size: 12px;
@@ -145,7 +154,21 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           
           .dark .diff-viewer .diff-line-normal {
             background-color: #1f2937;
-            color: #e5e7eb;
+            color: #ffffff;
+          }
+          
+          /* Target the actual code content more specifically */
+          .dark .diff-viewer .diff-code-cell {
+            color: #ffffff !important;
+          }
+          
+          .dark .diff-viewer .diff-line-content {
+            color: #ffffff !important;
+          }
+          
+          /* Ensure all text in diff lines is visible */
+          .dark .diff-viewer .diff-line {
+            color: #ffffff !important;
           }
 
           .diff-viewer .diff-line-insert {
@@ -155,7 +178,13 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           
           .dark .diff-viewer .diff-line-insert {
             background-color: #064e3b;
-            color: #6ee7b7;
+            color: #10b981;
+          }
+          
+          /* Override for insert line content */
+          .dark .diff-viewer .diff-line-insert .diff-code-cell,
+          .dark .diff-viewer .diff-line-insert .diff-line-content {
+            color: #10b981 !important;
           }
 
           .diff-viewer .diff-line-delete {
@@ -165,7 +194,13 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           
           .dark .diff-viewer .diff-line-delete {
             background-color: #7f1d1d;
-            color: #fca5a5;
+            color: #ef4444;
+          }
+          
+          /* Override for delete line content */
+          .dark .diff-viewer .diff-line-delete .diff-code-cell,
+          .dark .diff-viewer .diff-line-delete .diff-line-content {
+            color: #ef4444 !important;
           }
 
           .diff-viewer .diff-line-number {
