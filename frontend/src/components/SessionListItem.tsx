@@ -133,8 +133,8 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     <div
       className={`w-full text-left ${isNested ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-md flex items-center space-x-2 transition-colors group ${
         isActive 
-          ? 'bg-gray-700 text-white' 
-          : 'hover:bg-gray-700/50 text-gray-300'
+          ? 'bg-blue-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
+          : 'hover:bg-gray-100 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
       } ${isNested ? 'text-sm' : ''}`}
     >
       <button
@@ -145,11 +145,11 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         <span className="flex-1 truncate text-sm text-left">
           {session.name}
           {session.isMainRepo && (
-            <span className="ml-1 text-xs text-blue-400">(main)</span>
+            <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">(main)</span>
           )}
         </span>
         {isRunning && (
-          <span className="text-green-400 text-xs">▶️ Running</span>
+          <span className="text-green-600 dark:text-green-400 text-xs">▶️ Running</span>
         )}
       </button>
       <div className="flex items-center space-x-1">
@@ -158,8 +158,8 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
             onClick={isRunning ? handleStopScript : handleRunScript}
             className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${
               isRunning 
-                ? 'hover:bg-red-600/20 text-red-400 hover:text-red-300' 
-                : 'hover:bg-green-600/20 text-green-400 hover:text-green-300'
+                ? 'hover:bg-red-100 dark:hover:bg-red-600/20 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300' 
+                : 'hover:bg-green-100 dark:hover:bg-green-600/20 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
             }`}
             title={isRunning ? 'Stop script' : 'Run script'}
           >
@@ -169,15 +169,15 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-600/20 ${
+          className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 dark:hover:bg-red-600/20 ${
             isDeleting ? 'cursor-not-allowed' : ''
           }`}
           title="Delete session and worktree"
         >
           {isDeleting ? (
-            <span className="text-gray-400">⏳</span>
+            <span className="text-gray-600 dark:text-gray-400">⏳</span>
           ) : (
-            <span className="text-red-400 hover:text-red-300">🗑️</span>
+            <span className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">🗑️</span>
           )}
         </button>
       </div>

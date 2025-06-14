@@ -111,15 +111,15 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
   if (loading && executions.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-gray-400">Loading executions...</div>
+        <div className="text-gray-600 dark:text-gray-400">Loading executions...</div>
       </div>
     );
   }
 
   if (error && executions.length === 0) {
     return (
-      <div className="p-4 text-red-400 bg-red-900/20 border border-red-800 rounded">
-        <h3 className="font-medium mb-2 text-red-400">Error</h3>
+      <div className="p-4 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+        <h3 className="font-medium mb-2">Error</h3>
         <p>{error}</p>
       </div>
     );
@@ -128,8 +128,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
   return (
     <div className="combined-diff-view h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800">
-        <h2 className="text-xl font-semibold text-gray-100">File Changes</h2>
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">File Changes</h2>
         <div className="flex items-center space-x-4">
           {isGitOperationRunning && (
             <div className="flex items-center space-x-2 text-sm text-blue-600">
@@ -152,7 +152,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Commits selection sidebar */}
-        <div className="w-1/3 border-r border-gray-700 bg-gray-800 overflow-hidden flex flex-col">
+        <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex flex-col">
           <ExecutionList
             sessionId={sessionId}
             executions={executions}
@@ -162,25 +162,25 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
         </div>
 
         {/* Diff preview */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto bg-gray-900 min-w-0">
+        <div className="flex-1 overflow-x-auto overflow-y-auto bg-white dark:bg-gray-900 min-w-0">
           {isGitOperationRunning ? (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <div className="text-gray-400 text-center">
+              <div className="text-gray-600 dark:text-gray-400 text-center">
                 <p className="font-medium">Git operation in progress</p>
-                <p className="text-sm text-gray-400 mt-1">Please wait while the operation completes...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Please wait while the operation completes...</p>
               </div>
             </div>
           ) : loading && combinedDiff === null ? (
             <div className="flex items-center justify-center h-32">
-              <div className="text-gray-400">Loading diff...</div>
+              <div className="text-gray-600 dark:text-gray-400">Loading diff...</div>
             </div>
           ) : error ? (
-            <div className="p-4 text-red-400 bg-red-900/20 border border-red-800 rounded m-4">
-              <h3 className="font-medium mb-2 text-red-400">Error loading diff</h3>
+            <div className="p-4 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded m-4">
+              <h3 className="font-medium mb-2">Error loading diff</h3>
               <p>{error}</p>
             </div>
           ) : combinedDiff ? (
@@ -188,14 +188,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
               <DiffViewer diff={combinedDiff.diff} />
             </div>
           ) : isMainRepo ? (
-            <div className="flex items-center justify-center h-full text-gray-400">
+            <div className="flex items-center justify-center h-full text-gray-600 dark:text-gray-400">
               <div className="text-center">
                 <p className="mb-2">Showing last 20 commits from the main repository</p>
                 <p className="text-sm">Select commits to view details</p>
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-32 text-gray-400">
+            <div className="flex items-center justify-center h-32 text-gray-600 dark:text-gray-400">
               Select commits to view changes
             </div>
           )}

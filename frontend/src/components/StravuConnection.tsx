@@ -139,7 +139,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
       case 'error':
         return <div className="w-3 h-3 bg-red-500 rounded-full" />;
       default:
-        return <div className="w-3 h-3 bg-gray-400 rounded-full" />;
+        return <div className="w-3 h-3 bg-gray-400 dark:bg-gray-500 rounded-full" />;
     }
   };
 
@@ -164,10 +164,10 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
         <div className="flex items-center space-x-3">
           {getStatusIndicator()}
           <div>
-            <div className="text-sm font-medium text-gray-100">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
               Stravu Integration
             </div>
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-gray-600 dark:text-gray-400">
               {getStatusText()}
             </div>
           </div>
@@ -178,7 +178,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
             <button
               onClick={handleConnect}
               disabled={false}
-              className="px-3 py-1.5 text-sm font-medium text-blue-400 bg-blue-900/20 border border-blue-800 rounded-md hover:bg-blue-900/30 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-800 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/30 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {connectionState.status === 'expired' ? 'Reconnect' : 'Connect'}
             </button>
@@ -186,7 +186,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
             <>
               <button
                 onClick={checkConnectionStatus}
-                className="p-1.5 text-gray-400 hover:text-gray-300 rounded-md hover:bg-gray-700"
+                className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Refresh connection status"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,7 +195,7 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
               </button>
               <button
                 onClick={handleDisconnect}
-                className="px-3 py-1.5 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800 rounded-md hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-md hover:bg-red-200 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Disconnect
               </button>
@@ -205,13 +205,13 @@ export function StravuConnection({ className = '' }: StravuConnectionProps) {
       </div>
 
       {connectionState.error && (
-        <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-md p-2">
+        <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-md p-2">
           {connectionState.error}
         </div>
       )}
 
       {connectionState.status === 'connecting' && (
-        <div className="mt-2 text-xs text-blue-400 bg-blue-900/20 border border-blue-800 rounded-md p-2">
+        <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-800 rounded-md p-2">
           Please complete authentication in your browser. This may take a few moments...
         </div>
       )}

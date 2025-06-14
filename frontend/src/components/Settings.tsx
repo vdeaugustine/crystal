@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { StravuConnection } from './StravuConnection';
 import { useNotifications } from '../hooks/useNotifications';
+import { useTheme } from '../contexts/ThemeContext';
 import { API } from '../utils/api';
 import type { AppConfig } from '../types/config';
-import { Shield, ShieldOff } from 'lucide-react';
+import { Shield, ShieldOff, Sun, Moon } from 'lucide-react';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'stravu'>('general');
   const { settings, updateSettings } = useNotifications();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -80,12 +82,12 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Settings</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-300"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -94,13 +96,13 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-700 mb-6">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('general')}
             className={`px-4 py-2 text-sm font-medium ${
               activeTab === 'general'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
             }`}
           >
             General
@@ -109,8 +111,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             onClick={() => setActiveTab('notifications')}
             className={`px-4 py-2 text-sm font-medium ${
               activeTab === 'notifications'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
             }`}
           >
             Notifications
@@ -119,8 +121,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             onClick={() => setActiveTab('stravu')}
             className={`px-4 py-2 text-sm font-medium ${
               activeTab === 'stravu'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
             }`}
           >
             Stravu Integration
@@ -138,15 +140,41 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 onChange={(e) => setVerbose(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-gray-300">Enable verbose logging</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable verbose logging</span>
             </label>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Shows detailed logs for debugging session creation and Claude Code execution
             </p>
           </div>
 
           <div>
-            <label htmlFor="anthropicApiKey" className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Theme
+            </label>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex items-center space-x-3 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              {theme === 'light' ? (
+                <>
+                  <Sun className="w-5 h-5 text-yellow-400" />
+                  <span className="text-gray-700 dark:text-gray-100">Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-5 h-5 text-blue-400" />
+                  <span className="text-gray-700 dark:text-gray-100">Dark Mode</span>
+                </>
+              )}
+            </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Toggle between light and dark theme
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="anthropicApiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Anthropic API Key (Optional)
             </label>
             <input
@@ -154,33 +182,33 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               type="password"
               value={anthropicApiKey}
               onChange={(e) => setAnthropicApiKey(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 bg-gray-700"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
               placeholder="sk-ant-..."
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Used for auto-generating session names with AI (NOT for Claude Code itself). If not provided, fallback names will be used.
             </p>
           </div>
 
           <div>
-            <label htmlFor="globalSystemPrompt" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="globalSystemPrompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Global System Prompt (Optional)
             </label>
             <textarea
               id="globalSystemPrompt"
               value={globalSystemPrompt}
               onChange={(e) => setGlobalSystemPrompt(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 bg-gray-700"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
               placeholder="Additional instructions to append to every prompt..."
               rows={3}
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               This text will be automatically appended to every initial prompt sent to Claude Code across ALL projects. For project-specific prompts, use the project settings.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Default Permission Mode
             </label>
             <div className="space-y-2">
@@ -194,9 +222,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   className="text-blue-600"
                 />
                 <div className="flex items-center gap-2">
-                  <ShieldOff className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-200">Skip Permissions</span>
-                  <span className="text-xs text-gray-400">(faster, less secure)</span>
+                  <ShieldOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Skip Permissions</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">(faster, less secure)</span>
                 </div>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -210,18 +238,18 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 />
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-gray-200">Manual Approval</span>
-                  <span className="text-xs text-gray-400">(safer, interactive)</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Manual Approval</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">(safer, interactive)</span>
                 </div>
               </label>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-600 dark:text-gray-500 mt-2">
               When enabled, Claude will ask for permission before performing potentially dangerous actions. This sets the default for new sessions.
             </p>
           </div>
 
           <div>
-            <label htmlFor="claudeExecutablePath" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="claudeExecutablePath" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Claude Executable Path (Optional)
             </label>
             <div className="flex gap-2">
@@ -248,12 +276,12 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     setClaudeExecutablePath(result.data);
                   }
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Browse
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Full path to the claude executable. Leave empty to use the claude command from PATH. This is useful if Claude is installed in a non-standard location.
             </p>
           </div>
@@ -266,9 +294,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 onChange={(e) => setAutoCheckUpdates(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-gray-300">Check for updates automatically</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Check for updates automatically</span>
             </label>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Automatically check for new Crystal releases on GitHub every 24 hours. You'll be notified when updates are available.
             </p>
           </div>
@@ -282,7 +310,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-300 border border-gray-600 rounded-md hover:bg-gray-700"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -314,17 +342,17 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 className="w-16 h-16 object-contain flex-shrink-0"
               />
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-gray-100 mb-2">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                   Stravu - The way AI-first teams collaborate
                 </h2>
-                <p className="text-sm text-gray-400 mb-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                   Connect Crystal to your Stravu workspace to seamlessly integrate your team's knowledge and documentation into your AI-powered development workflow.
                 </p>
                 <a 
                   href="https://stravu.com/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 text-sm font-medium inline-flex items-center gap-1"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium inline-flex items-center gap-1"
                 >
                   Learn more about Stravu
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

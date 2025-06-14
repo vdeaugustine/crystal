@@ -209,21 +209,21 @@ export function ProjectTreeView() {
           return (
             <div key={project.id}>
               <div 
-                className="group flex items-center space-x-1 px-2 py-1.5 rounded cursor-pointer transition-colors hover:bg-gray-700"
+                className="group flex items-center space-x-1 px-2 py-1.5 rounded cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleProject(project.id);
                   }}
-                  className="p-0.5 hover:bg-gray-600 rounded transition-colors"
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                   disabled={sessionCount === 0}
                 >
                   {sessionCount > 0 ? (
                     isExpanded ? (
-                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                      <ChevronDown className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                     ) : (
-                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                      <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                     )
                   ) : (
                     <div className="w-3 h-3" />
@@ -235,11 +235,11 @@ export function ProjectTreeView() {
                   onClick={() => handleProjectClick(project)}
                 >
                   {isExpanded ? (
-                    <FolderOpen className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <FolderOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                   ) : (
-                    <Folder className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                   )}
-                  <span className="text-sm font-medium text-gray-200 truncate text-left">
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate text-left">
                     {project.name}
                   </span>
                 </div>
@@ -249,10 +249,10 @@ export function ProjectTreeView() {
                     e.stopPropagation();
                     handleCreateSession(project);
                   }}
-                  className="p-1 hover:bg-gray-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors opacity-0 group-hover:opacity-100"
                   title="Create new session"
                 >
-                  <Plus className="w-4 h-4 text-gray-400 hover:text-gray-200" />
+                  <Plus className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" />
                 </button>
                 
                 <button
@@ -261,10 +261,10 @@ export function ProjectTreeView() {
                     setSelectedProjectForSettings(project);
                     setShowProjectSettings(true);
                   }}
-                  className="p-1 hover:bg-gray-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors opacity-0 group-hover:opacity-100"
                   title="Project settings"
                 >
-                  <Settings className="w-3 h-3 text-gray-400 hover:text-gray-200" />
+                  <Settings className="w-3 h-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" />
                 </button>
               </div>
               
@@ -285,7 +285,7 @@ export function ProjectTreeView() {
         
             <button
               onClick={() => setShowAddProjectDialog(true)}
-              className="w-full mt-2 px-2 py-1.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
+              className="w-full mt-2 px-2 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center justify-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>New Project</span>
@@ -326,25 +326,25 @@ export function ProjectTreeView() {
       {/* Add Project Dialog */}
       {showAddProjectDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Add New Project</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 shadow-xl border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-200 mb-4">Add New Project</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Project Name
                 </label>
                 <input
                   type="text"
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="My Project"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Repository Path
                 </label>
                 <div className="flex gap-2">
@@ -355,7 +355,7 @@ export function ProjectTreeView() {
                       setNewProject({ ...newProject, path: e.target.value });
                       detectCurrentBranch(e.target.value);
                     }}
-                    className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="/path/to/repository"
                   />
                   <button
@@ -370,7 +370,7 @@ export function ProjectTreeView() {
                         detectCurrentBranch(result.data);
                       }
                     }}
-                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Browse
                   </button>
@@ -378,15 +378,15 @@ export function ProjectTreeView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Main Branch <span className="text-red-400">*</span>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Main Branch <span className="text-red-600 dark:text-red-400">*</span>
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newProject.mainBranch}
                     onChange={(e) => setNewProject({ ...newProject, mainBranch: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="main"
                     required
                   />
@@ -394,7 +394,7 @@ export function ProjectTreeView() {
                     type="button"
                     onClick={() => detectCurrentBranch(newProject.path)}
                     disabled={!newProject.path}
-                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Auto-detect
                   </button>
@@ -405,14 +405,14 @@ export function ProjectTreeView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Build Script <span className="text-gray-500">(optional)</span>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Build Script <span className="text-gray-500 dark:text-gray-500">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={newProject.buildScript}
                   onChange={(e) => setNewProject({ ...newProject, buildScript: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="e.g., pnpm build or npm run build"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -427,7 +427,7 @@ export function ProjectTreeView() {
                   setShowAddProjectDialog(false);
                   setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
                 }}
-                className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
                 Cancel
               </button>

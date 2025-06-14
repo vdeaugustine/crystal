@@ -11,7 +11,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header with gradient */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
           <div className="flex items-center justify-between">
@@ -19,7 +19,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
               <img src={crystalLogo} alt="Crystal" className="h-10 w-10 mr-3" />
               <div>
                 <h1 className="text-2xl font-bold">Welcome to Crystal</h1>
-                <p className="text-blue-100">Multi-Session Claude Code Manager</p>
+                <p className="text-blue-50">Multi-Session Claude Code Manager</p>
               </div>
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   </li>
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
-                    <span>Crystal runs Claude Code with <code className="bg-amber-800 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
+                    <span>Crystal runs Claude Code with <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded text-sm">--dangerously-ignore-permissions</code></span>
                   </li>
                 </ul>
               </div>
@@ -59,7 +59,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
               {/* Steps */}
               <div className="space-y-4">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-blue-300 font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-900 rounded-full flex items-center justify-center text-white dark:text-blue-300 font-semibold">
                     1
                   </div>
                   <div className="ml-4 flex-1">
@@ -72,7 +72,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                 </div>
 
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-blue-300 font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-900 rounded-full flex items-center justify-center text-white dark:text-blue-300 font-semibold">
                     2
                   </div>
                   <div className="ml-4 flex-1">
@@ -86,7 +86,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                 </div>
 
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-blue-300 font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 dark:bg-blue-900 rounded-full flex items-center justify-center text-white dark:text-blue-300 font-semibold">
                     3
                   </div>
                   <div className="ml-4 flex-1">
@@ -129,11 +129,11 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
           </div>
         </div>
         
-        <div className="p-4 border-t dark:border-gray-700 flex justify-between items-center">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <label className="flex items-center text-sm text-gray-600 dark:text-gray-400">
             <input
               type="checkbox"
-              className="mr-2 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+              className="mr-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 dark:focus:ring-offset-gray-800"
               onChange={(e) => {
                 if (e.target.checked) {
                   localStorage.setItem('crystal-hide-welcome', 'true');

@@ -84,13 +84,13 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-200">Project Settings</h2>
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-200">Project Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 transition-colors"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -99,7 +99,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-900 bg-opacity-50 border border-red-700 rounded-md text-red-200">
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 dark:bg-opacity-50 border border-red-300 dark:border-red-700 rounded-md text-red-700 dark:text-red-200">
               {error}
             </div>
           )}
@@ -107,23 +107,23 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
           <div className="space-y-6">
             {/* Basic Information */}
             <div>
-              <h3 className="text-lg font-medium text-gray-200 mb-4">Basic Information</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">Basic Information</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Project Name
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
                     placeholder="My Project"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Repository Path
                   </label>
                   <div className="flex gap-2">
@@ -131,7 +131,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                       type="text"
                       value={path}
                       onChange={(e) => setPath(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
                       placeholder="/path/to/repository"
                     />
                     <button
@@ -145,28 +145,28 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                           setPath(result.data);
                         }
                       }}
-                      className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Browse
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     The local path to the git repository for this project
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Main Branch
                   </label>
                   <input
                     type="text"
                     value={mainBranch}
                     onChange={(e) => setMainBranch(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
                     placeholder="main"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     The main branch name for git operations (e.g., main, master, develop)
                   </p>
                 </div>
@@ -175,96 +175,96 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
             {/* Project-Specific Settings */}
             <div>
-              <h3 className="text-lg font-medium text-gray-200 mb-4">Project-Specific Settings</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">Project-Specific Settings</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Project System Prompt
                   </label>
                   <textarea
                     value={systemPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
                     rows={6}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
                     placeholder="Enter project-specific instructions for Claude..."
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     This prompt will be appended to the global system prompt for all sessions in this project
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Build Script
                   </label>
                   <textarea
                     value={buildScript}
                     onChange={(e) => setBuildScript(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
                     placeholder="npm install&#10;npm run build"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     Commands to run once when creating a new worktree (e.g., install dependencies, build assets).
                     One command per line. These run in the worktree directory before Claude starts.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Run Commands
                   </label>
                   <textarea
                     value={runScript}
                     onChange={(e) => setRunScript(e.target.value)}
                     rows={4}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
                     placeholder="npm run dev&#10;npm test --watch"
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     Commands to run continuously while Claude is working (e.g., dev server, test watcher).
                     One command per line. Commands run sequentially - each must complete successfully before the next starts.
                     All commands are automatically stopped when the session ends. Output appears in the Terminal tab.
                     <br />
-                    <span className="text-gray-600">Tip: To run multiple servers together, use a process manager like concurrently:</span>
+                    <span className="text-gray-700 dark:text-gray-600">Tip: To run multiple servers together, use a process manager like concurrently:</span>
                     <br />
-                    <span className="font-mono text-gray-600">• npx concurrently "npm:server" "npm:client"</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-600">• npx concurrently "npm:server" "npm:client"</span>
                     <br />
-                    <span className="font-mono text-gray-600">• npm run dev (if your package.json uses concurrently)</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-600">• npm run dev (if your package.json uses concurrently)</span>
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Open IDE Command
                   </label>
                   <input
                     type="text"
                     value={openIdeCommand}
                     onChange={(e) => setOpenIdeCommand(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 font-mono text-sm"
                     placeholder='open -na "PyCharm.app" --args "`pwd`"'
                   />
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     Command to open the worktree in your IDE. Use `pwd` to reference the worktree directory.
                     <br />
-                    <span className="text-gray-600">Examples:</span>
+                    <span className="text-gray-700 dark:text-gray-600">Examples:</span>
                     <br />
-                    <span className="font-mono text-gray-600">• code . (VS Code)</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-600">• code . (VS Code)</span>
                     <br />
-                    <span className="font-mono text-gray-600">• cursor . (Cursor)</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-600">• cursor . (Cursor)</span>
                     <br />
-                    <span className="text-gray-600 italic">Note: You may need to install the shell command separately for VS Code and Cursor</span>
+                    <span className="text-gray-700 dark:text-gray-600 italic">Note: You may need to install the shell command separately for VS Code and Cursor</span>
                     <br />
-                    <span className="font-mono text-gray-600">• open -na "PyCharm.app" --args "`pwd`" (PyCharm on macOS)</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-600">• open -na "PyCharm.app" --args "`pwd`" (PyCharm on macOS)</span>
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Danger Zone */}
-            <div className="border-t border-gray-700 pt-6">
-              <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h3 className="text-lg font-medium text-red-600 dark:text-red-400 mb-4">Danger Zone</h3>
               {!showDeleteConfirm ? (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
@@ -275,7 +275,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                 </button>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-300">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
                     Are you sure you want to delete this project? This action cannot be undone.
                   </p>
                   <div className="flex space-x-3">
@@ -287,7 +287,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-md transition-colors"
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors"
                     >
                       Cancel
                     </button>
@@ -299,10 +299,10 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-700">
+        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
           >
             Cancel
           </button>

@@ -81,14 +81,14 @@ const ExecutionList: React.FC<ExecutionListProps> = ({
         </h3>
         <button
           onClick={handleSelectAll}
-          className="text-sm px-3 py-1 border border-gray-600 rounded hover:bg-gray-700 transition-colors text-gray-300"
+          className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
         >
           Select All Commits
         </button>
       </div>
 
       {/* Instructions */}
-      <div className="px-4 py-2 bg-gray-700 text-xs text-gray-400 border-b border-gray-600">
+      <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-300 dark:border-gray-600">
         Click to select a single commit, Shift+Click to select a range
       </div>
 
@@ -102,9 +102,9 @@ const ExecutionList: React.FC<ExecutionListProps> = ({
             <div
               key={execution.id}
               className={`
-                flex items-center p-4 border-b border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors
-                ${isSelected ? 'bg-blue-900/20 border-l-4 border-l-blue-500' : ''}
-                ${isUncommitted ? 'bg-yellow-900/20' : ''}
+                flex items-center p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors
+                ${isSelected ? 'bg-blue-100 dark:bg-blue-900/20 border-l-4 border-l-blue-500' : ''}
+                ${isUncommitted ? 'bg-yellow-100 dark:bg-yellow-900/20' : ''}
               `}
               onClick={(e) => handleCommitClick(execution.id, e)}
             >
@@ -147,7 +147,7 @@ const ExecutionList: React.FC<ExecutionListProps> = ({
 
       {/* Selection summary */}
       {selectedExecutions.length > 0 && (
-        <div className="p-4 bg-blue-900/20 border-t border-blue-800">
+        <div className="p-4 bg-blue-100 dark:bg-blue-900/20 border-t border-blue-300 dark:border-blue-800">
           <div className="text-sm text-blue-800 dark:text-blue-200">
             {selectedExecutions.length === 1 ? (
               `1 commit selected`

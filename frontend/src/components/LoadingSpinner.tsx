@@ -22,7 +22,7 @@ export function LoadingSpinner({ text = 'Loading...', size = 'medium', className
   return (
     <div className={`flex items-center justify-center gap-3 ${className}`}>
       <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-500`} />
-      <span className={`text-gray-400 ${textSizeClasses[size]}`}>{text}</span>
+      <span className={`text-gray-600 dark:text-gray-400 ${textSizeClasses[size]}`}>{text}</span>
     </div>
   );
 }

@@ -12,26 +12,49 @@ html, body, #root {
 /* Prevent overflow on the body */
 body {
   overflow: hidden;
-  background-color: #111827; /* gray-900 */
-  color: #f3f4f6; /* gray-100 */
 }
 
+/* Light mode body colors */
+body {
+  @apply bg-white text-gray-900;
+}
+
+/* Dark mode body colors */
+body.dark {
+  @apply bg-gray-900 text-gray-100;
+}
+
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
+/* Light mode scrollbar */
 ::-webkit-scrollbar-track {
-  background: #1f2937; /* gray-800 */
+  @apply bg-gray-200;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b5563; /* gray-600 */
+  @apply bg-gray-400;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280; /* gray-500 */
+  @apply bg-gray-500;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
 }
 
 /* Custom animations for the working indicator */

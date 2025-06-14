@@ -10,8 +10,8 @@ export default function Help({ isOpen, onClose }: HelpProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Crystal Help</h2>
           <button
             onClick={onClose}
@@ -30,12 +30,12 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                 Quick Start
               </h3>
               <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                   <p className="font-medium text-blue-900 dark:text-blue-200 mb-2">Prerequisites</p>
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>Claude Code must be installed with credentials configured</li>
                     <li>We recommend using a MAX plan for best performance</li>
-                    <li>Crystal runs Claude Code with <code className="bg-gray-700 px-1 rounded">--dangerously-ignore-permissions</code></li>
+                    <li>Crystal runs Claude Code with <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">--dangerously-ignore-permissions</code></li>
                   </ul>
                 </div>
                 
@@ -86,18 +86,18 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                 <div>
                   <h4 className="font-medium text-gray-800 dark:text-gray-200">Session States</h4>
                   <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mt-1 space-y-1">
-                    <li><span className="text-yellow-600">Initializing</span> - Setting up git worktree</li>
-                    <li><span className="text-blue-600">Running</span> - Claude is processing</li>
-                    <li><span className="text-green-600">Waiting</span> - Waiting for your input</li>
-                    <li><span className="text-gray-600">Stopped</span> - Session completed or stopped</li>
-                    <li><span className="text-red-600">Error</span> - Something went wrong</li>
+                    <li><span className="text-yellow-600 dark:text-yellow-500">Initializing</span> - Setting up git worktree</li>
+                    <li><span className="text-blue-600 dark:text-blue-500">Running</span> - Claude is processing</li>
+                    <li><span className="text-green-600 dark:text-green-500">Waiting</span> - Waiting for your input</li>
+                    <li><span className="text-gray-600 dark:text-gray-400">Stopped</span> - Session completed or stopped</li>
+                    <li><span className="text-red-600 dark:text-red-500">Error</span> - Something went wrong</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-800 dark:text-gray-200">Continuing Conversations</h4>
                   <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mt-1 space-y-1">
                     <li>Click on a stopped session to resume it</li>
-                    <li>Use <kbd className="px-2 py-1 bg-gray-700 rounded text-sm">Cmd/Ctrl + Enter</kbd> to send input</li>
+                    <li>Use <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">Cmd/Ctrl + Enter</kbd> to send input</li>
                     <li>Full conversation history is preserved</li>
                   </ul>
                 </div>
@@ -226,7 +226,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-700 dark:text-gray-300">Send Input / Continue Conversation</span>
-                  <kbd className="px-2 py-1 bg-gray-700 rounded text-sm">Cmd/Ctrl + Enter</kbd>
+                  <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">Cmd/Ctrl + Enter</kbd>
                 </div>
               </div>
             </section>
@@ -249,7 +249,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
           </div>
         </div>
         
-        <div className="p-4 border-t dark:border-gray-700 text-center text-sm text-gray-600 dark:text-gray-400">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 text-center text-sm text-gray-600 dark:text-gray-400">
           Crystal - Manage multiple Claude Code instances with git worktrees
         </div>
       </div>

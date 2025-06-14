@@ -14,6 +14,8 @@ export interface AppConfig {
   // Stravu MCP integration
   stravuApiKey?: string;
   stravuServerUrl?: string;
+  // Theme preference
+  theme?: 'light' | 'dark';
 }
 
 export interface UpdateConfigRequest {
@@ -25,4 +27,5 @@ export interface UpdateConfigRequest {
   autoCheckUpdates?: boolean;
   stravuApiKey?: string;
   stravuServerUrl?: string;
+  theme?: 'light' | 'dark';
 }

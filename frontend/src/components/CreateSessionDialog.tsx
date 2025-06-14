@@ -131,33 +131,33 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div data-testid="create-session-dialog" className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl relative">
+      <div data-testid="create-session-dialog" className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl relative shadow-xl border border-gray-200 dark:border-gray-700">
         <button
           onClick={() => {
             setWorktreeError(null);
             onClose();
           }}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors"
+          className="absolute top-4 right-4 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
           title="Close"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <h2 className="text-xl font-bold mb-4 pr-8 text-white">
+        <h2 className="text-xl font-bold mb-4 pr-8 text-gray-900 dark:text-white">
           Create New Session{projectName && ` in ${projectName}`}
         </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Prompt
             </label>
             <textarea
               id="prompt"
               value={formData.prompt}
               onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 bg-gray-700"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
               rows={4}
               required
               placeholder="Enter the prompt for Claude Code..."
@@ -165,7 +165,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
           </div>
           
           <div>
-            <label htmlFor="worktreeTemplate" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="worktreeTemplate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Session Name (Optional)
             </label>
             <div className="flex gap-2">
@@ -180,10 +180,10 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                   const error = validateWorktreeName(value);
                   setWorktreeError(error);
                 }}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-100 bg-gray-700 ${
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 ${
                   worktreeError 
                     ? 'border-red-400 focus:ring-red-500' 
-                    : 'border-gray-600 focus:ring-blue-500'
+                    : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
                 }`}
                 placeholder="Leave empty for AI-generated name"
                 disabled={isGeneratingName}
@@ -213,7 +213,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                       setIsGeneratingName(false);
                     }
                   }}
-                  className="px-3 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-gray-300 dark:border-gray-600"
                   disabled={isGeneratingName || !formData.prompt.trim()}
                   title="Generate name from prompt"
                 >
@@ -223,15 +223,15 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               )}
             </div>
             {worktreeError && (
-              <p className="text-xs text-red-400 mt-1">{worktreeError}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">{worktreeError}</p>
             )}
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {!worktreeError && 'The name that will be used to label your session and create your worktree folder.'}
             </p>
           </div>
           
           <div>
-            <label htmlFor="count" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="count" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Number of Sessions
             </label>
             <input
@@ -241,15 +241,15 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               max="10"
               value={formData.count}
               onChange={(e) => setFormData({ ...formData, count: parseInt(e.target.value) || 1 })}
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 bg-gray-700"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Creates multiple sessions with numbered suffixes
             </p>
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Permission Mode
             </label>
             <div className="space-y-2">
@@ -264,11 +264,11 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <ShieldOff className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-200">Skip Permissions</span>
-                    <span className="text-xs text-gray-400">(recommended)</span>
+                    <ShieldOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">Skip Permissions</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">(recommended)</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 pl-6 group-hover:text-gray-300">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-6 group-hover:text-gray-600 dark:group-hover:text-gray-300">
                     Claude runs with full permissions. Ideal for trusted environments and faster workflows.
                   </p>
                 </div>
@@ -284,18 +284,18 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-gray-200">Manual Approval</span>
-                    <span className="text-xs text-gray-400">(safer)</span>
+                    <Shield className="w-4 h-4 text-green-600 dark:text-green-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">Manual Approval</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">(safer)</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 pl-6 group-hover:text-gray-300">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-6 group-hover:text-gray-600 dark:group-hover:text-gray-300">
                     Claude asks permission for file operations. Use this for sensitive projects or when learning.
                   </p>
                 </div>
               </label>
             </div>
-            <div className="mt-3 p-2 bg-blue-900/20 rounded-md border border-blue-800">
-              <p className="text-xs text-blue-400">
+            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-600 dark:text-blue-400">
                 <strong>Note:</strong> This setting only affects new sessions. You can change the default in Settings.
               </p>
             </div>
@@ -308,7 +308,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                 setWorktreeError(null);
                 onClose();
               }}
-              className="px-4 py-2 text-gray-300 hover:text-gray-100 font-medium transition-colors"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 font-medium transition-colors"
               disabled={isSubmitting}
             >
               Cancel

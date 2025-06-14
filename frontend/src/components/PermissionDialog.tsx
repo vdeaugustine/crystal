@@ -85,13 +85,13 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
     
     if (toolName.includes('Bash')) {
       return (
-        <div className="bg-gray-900 p-3 rounded font-mono text-sm">
-          <div className="text-gray-400 text-xs mb-1">Command:</div>
-          <div className="text-white">{input.command || 'No command specified'}</div>
+        <div className="bg-gray-100 dark:bg-gray-900 p-3 rounded font-mono text-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-gray-600 dark:text-gray-400 text-xs mb-1">Command:</div>
+          <div className="text-gray-900 dark:text-white">{input.command || 'No command specified'}</div>
           {input.description && (
             <>
-              <div className="text-gray-400 text-xs mt-2 mb-1">Description:</div>
-              <div className="text-gray-300">{input.description}</div>
+              <div className="text-gray-600 dark:text-gray-400 text-xs mt-2 mb-1">Description:</div>
+              <div className="text-gray-700 dark:text-gray-300">{input.description}</div>
             </>
           )}
         </div>
@@ -100,13 +100,13 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
     
     if (toolName.includes('Write') || toolName.includes('Edit')) {
       return (
-        <div className="bg-gray-900 p-3 rounded font-mono text-sm">
-          <div className="text-gray-400 text-xs mb-1">File Path:</div>
-          <div className="text-white">{input.file_path || input.path || 'No path specified'}</div>
+        <div className="bg-gray-100 dark:bg-gray-900 p-3 rounded font-mono text-sm border border-gray-200 dark:border-gray-700">
+          <div className="text-gray-600 dark:text-gray-400 text-xs mb-1">File Path:</div>
+          <div className="text-gray-900 dark:text-white">{input.file_path || input.path || 'No path specified'}</div>
           {input.content && (
             <>
-              <div className="text-gray-400 text-xs mt-2 mb-1">Content Preview:</div>
-              <div className="text-gray-300 max-h-32 overflow-y-auto whitespace-pre-wrap">
+              <div className="text-gray-600 dark:text-gray-400 text-xs mt-2 mb-1">Content Preview:</div>
+              <div className="text-gray-700 dark:text-gray-300 max-h-32 overflow-y-auto whitespace-pre-wrap">
                 {input.content.length > 500 ? input.content.substring(0, 500) + '...' : input.content}
               </div>
             </>
@@ -118,20 +118,20 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
     // Default JSON view
     return (
       <div className="bg-gray-900 p-3 rounded font-mono text-sm">
-        <pre className="text-white overflow-x-auto">{JSON.stringify(input, null, 2)}</pre>
+        <pre className="text-gray-900 dark:text-white overflow-x-auto">{JSON.stringify(input, null, 2)}</pre>
       </div>
     );
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <Shield className={`w-6 h-6 ${isHighRisk(request.toolName) ? 'text-red-400' : 'text-yellow-400'}`} />
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-white">Permission Required</h2>
-              <p className="text-sm text-gray-400 mt-1">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Permission Required</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Claude wants to {getToolDescription(request.toolName)} in session: {session?.name || request.sessionId}
               </p>
             </div>
@@ -142,20 +142,20 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Code className="w-4 h-4 text-gray-400" />
-              <h3 className="text-sm font-medium text-gray-300">Tool</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Tool</h3>
               {isHighRisk(request.toolName) && (
                 <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">High Risk</span>
               )}
             </div>
-            <p className="text-white font-mono">{formatToolName(request.toolName)}</p>
+            <p className="text-gray-900 dark:text-white font-mono">{formatToolName(request.toolName)}</p>
           </div>
           
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-300">Input Parameters</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Input Parameters</h3>
               <button
                 onClick={() => setEditMode(!editMode)}
-                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 <Edit className="w-3 h-3" />
                 {editMode ? 'Preview' : 'Edit'}
@@ -166,7 +166,7 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
               <textarea
                 value={editedInput}
                 onChange={(e) => setEditedInput(e.target.value)}
-                className="w-full h-48 bg-gray-900 text-white p-3 rounded font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-48 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white p-3 rounded font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300 dark:border-gray-700"
                 spellCheck={false}
               />
             ) : (
@@ -175,22 +175,22 @@ export const PermissionDialog: React.FC<PermissionDialogProps> = ({ request, onR
           </div>
           
           {isHighRisk(request.toolName) && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded p-3">
+            <div className="bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/30 rounded p-3">
               <div className="flex items-center gap-2 text-red-400">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-sm font-medium">High Risk Action</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 This action could modify your system or files. Review carefully before approving.
               </p>
             </div>
           )}
         </div>
         
-        <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={handleDeny}
-            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
           >
             <X className="w-4 h-4" />
             Deny
