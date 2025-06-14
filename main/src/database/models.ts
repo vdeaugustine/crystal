@@ -11,6 +11,7 @@ export interface Project {
   updated_at: string;
   default_permission_mode?: 'approve' | 'ignore';
   open_ide_command?: string;
+  display_order?: number;
 }
 
 export interface ProjectRunCommand {
@@ -41,6 +42,7 @@ export interface Session {
   permission_mode?: 'approve' | 'ignore';
   run_started_at?: string;
   is_main_repo?: boolean;
+  display_order?: number;
 }
 
 export interface SessionOutput {
@@ -68,6 +70,7 @@ export interface CreateSessionData {
   project_id: number;
   permission_mode?: 'approve' | 'ignore';
   is_main_repo?: boolean;
+  display_order?: number;
 }
 
 export interface UpdateSessionData {

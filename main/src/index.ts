@@ -1616,6 +1616,26 @@ ipcMain.handle('projects:delete', async (_event, projectId: string) => {
   }
 });
 
+ipcMain.handle('projects:reorder', async (_event, projectOrders: Array<{ id: number; displayOrder: number }>) => {
+  try {
+    databaseService.reorderProjects(projectOrders);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to reorder projects:', error);
+    return { success: false, error: 'Failed to reorder projects' };
+  }
+});
+
+ipcMain.handle('sessions:reorder', async (_event, sessionOrders: Array<{ id: string; displayOrder: number }>) => {
+  try {
+    databaseService.reorderSessions(sessionOrders);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to reorder sessions:', error);
+    return { success: false, error: 'Failed to reorder sessions' };
+  }
+});
+
 ipcMain.handle('projects:detect-branch', async (_event, path: string) => {
   try {
     const branch = await worktreeManager.detectMainBranch(path);

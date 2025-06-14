@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // IDE operations
     openIDE: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:open-ide', sessionId),
+    
+    // Reorder operations
+    reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>): Promise<IPCResponse> => ipcRenderer.invoke('sessions:reorder', sessionOrders),
   },
 
   // Project management
@@ -91,6 +94,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (projectId: string, updates: any): Promise<IPCResponse> => ipcRenderer.invoke('projects:update', projectId, updates),
     delete: (projectId: string): Promise<IPCResponse> => ipcRenderer.invoke('projects:delete', projectId),
     detectBranch: (path: string): Promise<IPCResponse> => ipcRenderer.invoke('projects:detect-branch', path),
+    reorder: (projectOrders: Array<{ id: number; displayOrder: number }>): Promise<IPCResponse> => ipcRenderer.invoke('projects:reorder', projectOrders),
   },
 
   // Configuration

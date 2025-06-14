@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings } from './Settings';
-import { ProjectTreeView } from './ProjectTreeView';
+import { DraggableProjectTreeView } from './DraggableProjectTreeView';
 import { Info } from 'lucide-react';
 import crystalLogo from '../assets/crystal-logo.svg';
 
@@ -174,7 +174,7 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick,
               </div>
             </div>
           </div>
-          <ProjectTreeView />
+          <DraggableProjectTreeView />
         </div>
       )}
     </div>

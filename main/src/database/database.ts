@@ -267,14 +267,65 @@ export class DatabaseService {
         }
       }
     }
+    
+    // Check if display_order columns exist
+    const projectsTableInfo2 = this.db.prepare("PRAGMA table_info(projects)").all();
+    const sessionsTableInfo2 = this.db.prepare("PRAGMA table_info(sessions)").all();
+    const hasProjectsDisplayOrder = projectsTableInfo2.some((col: any) => col.name === 'display_order');
+    const hasSessionsDisplayOrder = sessionsTableInfo2.some((col: any) => col.name === 'display_order');
+    
+    if (!hasProjectsDisplayOrder) {
+      // Add display_order to projects
+      this.db.prepare("ALTER TABLE projects ADD COLUMN display_order INTEGER").run();
+      
+      // Initialize display_order for existing projects
+      this.db.prepare(`
+        UPDATE projects 
+        SET display_order = (
+          SELECT COUNT(*) 
+          FROM projects p2 
+          WHERE p2.created_at <= projects.created_at OR (p2.created_at = projects.created_at AND p2.id <= projects.id)
+        ) - 1
+        WHERE display_order IS NULL
+      `).run();
+      
+      this.db.prepare("CREATE INDEX IF NOT EXISTS idx_projects_display_order ON projects(display_order)").run();
+    }
+    
+    if (!hasSessionsDisplayOrder) {
+      // Add display_order to sessions
+      this.db.prepare("ALTER TABLE sessions ADD COLUMN display_order INTEGER").run();
+      
+      // Initialize display_order for existing sessions within each project
+      this.db.prepare(`
+        UPDATE sessions 
+        SET display_order = (
+          SELECT COUNT(*) 
+          FROM sessions s2 
+          WHERE s2.project_id = sessions.project_id 
+          AND (s2.created_at < sessions.created_at OR (s2.created_at = sessions.created_at AND s2.id <= sessions.id))
+        ) - 1
+        WHERE display_order IS NULL
+      `).run();
+      
+      this.db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_display_order ON sessions(project_id, display_order)").run();
+    }
   }
 
   // Project operations
   createProject(name: string, path: string, systemPrompt?: string, runScript?: string, mainBranch?: string, buildScript?: string, defaultPermissionMode?: 'approve' | 'ignore', openIdeCommand?: string): Project {
+    // Get the max display_order for projects
+    const maxOrderResult = this.db.prepare(`
+      SELECT MAX(display_order) as max_order 
+      FROM projects
+    `).get() as { max_order: number | null };
+    
+    const displayOrder = (maxOrderResult?.max_order ?? -1) + 1;
+    
     const result = this.db.prepare(`
-      INSERT INTO projects (name, path, system_prompt, run_script, main_branch, build_script, default_permission_mode, open_ide_command)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, path, systemPrompt || null, runScript || null, mainBranch || null, buildScript || null, defaultPermissionMode || 'ignore', openIdeCommand || null);
+      INSERT INTO projects (name, path, system_prompt, run_script, main_branch, build_script, default_permission_mode, open_ide_command, display_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name, path, systemPrompt || null, runScript || null, mainBranch || null, buildScript || null, defaultPermissionMode || 'ignore', openIdeCommand || null, displayOrder);
     
     const project = this.getProject(result.lastInsertRowid as number);
     if (!project) {
@@ -305,7 +356,7 @@ export class DatabaseService {
   }
 
   getAllProjects(): Project[] {
-    return this.db.prepare('SELECT * FROM projects ORDER BY name ASC').all() as Project[];
+    return this.db.prepare('SELECT * FROM projects ORDER BY display_order ASC, created_at ASC').all() as Project[];
   }
 
   updateProject(id: number, updates: Partial<Omit<Project, 'id' | 'created_at'>>): Project | undefined {
@@ -446,10 +497,19 @@ export class DatabaseService {
 
   // Session operations
   createSession(data: CreateSessionData): Session {
+    // Get the max display_order for sessions in this project
+    const maxOrderResult = this.db.prepare(`
+      SELECT MAX(display_order) as max_order 
+      FROM sessions 
+      WHERE project_id = ? AND (archived = 0 OR archived IS NULL)
+    `).get(data.project_id) as { max_order: number | null };
+    
+    const displayOrder = (maxOrderResult?.max_order ?? -1) + 1;
+    
     this.db.prepare(`
-      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
-    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0);
+      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo, display_order)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0, displayOrder);
     
     const session = this.getSession(data.id);
     if (!session) {
@@ -464,9 +524,9 @@ export class DatabaseService {
 
   getAllSessions(projectId?: number): Session[] {
     if (projectId !== undefined) {
-      return this.db.prepare('SELECT * FROM sessions WHERE project_id = ? AND (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY created_at DESC').all(projectId) as Session[];
+      return this.db.prepare('SELECT * FROM sessions WHERE project_id = ? AND (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY display_order ASC, created_at DESC').all(projectId) as Session[];
     }
-    return this.db.prepare('SELECT * FROM sessions WHERE (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY created_at DESC').all() as Session[];
+    return this.db.prepare('SELECT * FROM sessions WHERE (archived = 0 OR archived IS NULL) AND (is_main_repo = 0 OR is_main_repo IS NULL) ORDER BY display_order ASC, created_at DESC').all() as Session[];
   }
 
   getAllSessionsIncludingArchived(): Session[] {
@@ -707,6 +767,55 @@ export class DatabaseService {
       after_commit_hash: row.after_commit_hash,
       timestamp: row.timestamp
     };
+  }
+
+  // Display order operations
+  updateProjectDisplayOrder(projectId: number, displayOrder: number): void {
+    this.db.prepare(`
+      UPDATE projects 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).run(displayOrder, projectId);
+  }
+
+  updateSessionDisplayOrder(sessionId: string, displayOrder: number): void {
+    this.db.prepare(`
+      UPDATE sessions 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).run(displayOrder, sessionId);
+  }
+
+  reorderProjects(projectOrders: Array<{ id: number; displayOrder: number }>): void {
+    const stmt = this.db.prepare(`
+      UPDATE projects 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    
+    const updateMany = this.db.transaction((orders: Array<{ id: number; displayOrder: number }>) => {
+      for (const { id, displayOrder } of orders) {
+        stmt.run(displayOrder, id);
+      }
+    });
+    
+    updateMany(projectOrders);
+  }
+
+  reorderSessions(sessionOrders: Array<{ id: string; displayOrder: number }>): void {
+    const stmt = this.db.prepare(`
+      UPDATE sessions 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    
+    const updateMany = this.db.transaction((orders: Array<{ id: string; displayOrder: number }>) => {
+      for (const { id, displayOrder } of orders) {
+        stmt.run(displayOrder, id);
+      }
+    });
+    
+    updateMany(sessionOrders);
   }
 
   close(): void {

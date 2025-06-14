@@ -198,6 +198,11 @@ export class API {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.openIDE(sessionId);
     },
+
+    async reorder(sessionOrders: Array<{ id: string; displayOrder: number }>) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.reorder(sessionOrders);
+    },
   };
 
   // Project management
@@ -235,6 +240,11 @@ export class API {
     async detectBranch(path: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.projects.detectBranch(path);
+    },
+
+    async reorder(projectOrders: Array<{ id: number; displayOrder: number }>) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.projects.reorder(projectOrders);
     },
   };
 

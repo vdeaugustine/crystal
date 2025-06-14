@@ -10,6 +10,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   open_ide_command?: string;
+  displayOrder?: number;
 }
 
 export interface ProjectRunCommand {
