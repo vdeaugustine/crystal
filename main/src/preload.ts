@@ -11,10 +11,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Basic app info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+  isPackaged: () => ipcRenderer.invoke('is-packaged'),
 
   // Version checking
   checkForUpdates: (): Promise<IPCResponse> => ipcRenderer.invoke('version:check-for-updates'),
   getVersionInfo: (): Promise<IPCResponse> => ipcRenderer.invoke('version:get-info'),
+  
+  // Auto-updater
+  updater: {
+    checkAndDownload: (): Promise<IPCResponse> => ipcRenderer.invoke('updater:check-and-download'),
+    downloadUpdate: (): Promise<IPCResponse> => ipcRenderer.invoke('updater:download-update'),
+    installUpdate: (): Promise<IPCResponse> => ipcRenderer.invoke('updater:install-update'),
+  },
 
   // System utilities
   openExternal: (url: string): Promise<IPCResponse> => ipcRenderer.invoke('openExternal', url),
@@ -167,6 +175,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onVersionUpdateAvailable: (callback: (versionInfo: any) => void) => {
       ipcRenderer.on('version:update-available', (_event, versionInfo) => callback(versionInfo));
       return () => ipcRenderer.removeAllListeners('version:update-available');
+    },
+    
+    // Auto-updater events
+    onUpdaterCheckingForUpdate: (callback: () => void) => {
+      ipcRenderer.on('updater:checking-for-update', (_event) => callback());
+      return () => ipcRenderer.removeAllListeners('updater:checking-for-update');
+    },
+    onUpdaterUpdateAvailable: (callback: (info: any) => void) => {
+      ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
+      return () => ipcRenderer.removeAllListeners('updater:update-available');
+    },
+    onUpdaterUpdateNotAvailable: (callback: (info: any) => void) => {
+      ipcRenderer.on('updater:update-not-available', (_event, info) => callback(info));
+      return () => ipcRenderer.removeAllListeners('updater:update-not-available');
+    },
+    onUpdaterDownloadProgress: (callback: (progressInfo: any) => void) => {
+      ipcRenderer.on('updater:download-progress', (_event, progressInfo) => callback(progressInfo));
+      return () => ipcRenderer.removeAllListeners('updater:download-progress');
+    },
+    onUpdaterUpdateDownloaded: (callback: (info: any) => void) => {
+      ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
+      return () => ipcRenderer.removeAllListeners('updater:update-downloaded');
+    },
+    onUpdaterError: (callback: (error: any) => void) => {
+      ipcRenderer.on('updater:error', (_event, error) => callback(error));
+      return () => ipcRenderer.removeAllListeners('updater:error');
     },
   },
 });

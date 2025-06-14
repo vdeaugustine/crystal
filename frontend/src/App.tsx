@@ -8,6 +8,7 @@ import { PromptHistory } from './components/PromptHistory';
 import Help from './components/Help';
 import Welcome from './components/Welcome';
 import { AboutDialog } from './components/AboutDialog';
+import { UpdateDialog } from './components/UpdateDialog';
 import { MainProcessLogger } from './components/MainProcessLogger';
 import { ErrorDialog } from './components/ErrorDialog';
 import { PermissionDialog } from './components/PermissionDialog';
@@ -30,6 +31,8 @@ function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [updateVersionInfo, setUpdateVersionInfo] = useState<any>(null);
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
@@ -96,9 +99,11 @@ function App() {
     // Set up version update listener
     const handleVersionUpdate = (versionInfo: any) => {
       console.log('[App] Version update available:', versionInfo);
+      setUpdateVersionInfo(versionInfo);
+      setIsUpdateDialogOpen(true);
       showNotification(
         `🚀 Update Available - Crystal v${versionInfo.latest}`,
-        'A new version of Crystal is available. Click the About dialog to learn more.',
+        'A new version of Crystal is available!',
         '/favicon.ico'
       );
     };
@@ -147,6 +152,11 @@ function App() {
       <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <Welcome isOpen={isWelcomeOpen} onClose={() => setIsWelcomeOpen(false)} />
       <AboutDialog isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+      <UpdateDialog 
+        isOpen={isUpdateDialogOpen} 
+        onClose={() => setIsUpdateDialogOpen(false)}
+        versionInfo={updateVersionInfo}
+      />
       <ErrorDialog 
         isOpen={!!currentError}
         onClose={clearError}

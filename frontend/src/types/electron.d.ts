@@ -12,10 +12,18 @@ interface ElectronAPI {
   // Basic app info
   getAppVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;
+  isPackaged: () => Promise<boolean>;
 
   // Version checking
   checkForUpdates: () => Promise<IPCResponse>;
   getVersionInfo: () => Promise<IPCResponse>;
+  
+  // Auto-updater
+  updater: {
+    checkAndDownload: () => Promise<IPCResponse>;
+    downloadUpdate: () => Promise<IPCResponse>;
+    installUpdate: () => Promise<IPCResponse>;
+  };
 
   // System utilities
   openExternal: (url: string) => Promise<void>;
@@ -133,6 +141,15 @@ interface ElectronAPI {
     onScriptOutput: (callback: (output: any) => void) => () => void;
     onMainLog: (callback: (level: string, message: string) => void) => () => void;
     onVersionUpdateAvailable: (callback: (versionInfo: any) => void) => () => void;
+    
+    // Auto-updater events
+    onUpdaterCheckingForUpdate: (callback: () => void) => () => void;
+    onUpdaterUpdateAvailable: (callback: (info: any) => void) => () => void;
+    onUpdaterUpdateNotAvailable: (callback: (info: any) => void) => () => void;
+    onUpdaterDownloadProgress: (callback: (progressInfo: any) => void) => () => void;
+    onUpdaterUpdateDownloaded: (callback: (info: any) => void) => () => void;
+    onUpdaterError: (callback: (error: any) => void) => () => void;
+    
     removeAllListeners: (channel: string) => void;
   };
 }

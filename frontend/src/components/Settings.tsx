@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { NotificationSettings } from './NotificationSettings';
 import { StravuConnection } from './StravuConnection';
 import { useNotifications } from '../hooks/useNotifications';
-import { useTheme } from '../contexts/ThemeContext';
 import { API } from '../utils/api';
 import type { AppConfig } from '../types/config';
-import { Shield, ShieldOff, Sun, Moon } from 'lucide-react';
+import { Shield, ShieldOff } from 'lucide-react';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -24,7 +23,6 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'stravu'>('general');
   const { settings, updateSettings } = useNotifications();
-  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -288,18 +286,43 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
           </div>
 
           <div>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={autoCheckUpdates}
-                onChange={(e) => setAutoCheckUpdates(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Check for updates automatically</span>
-            </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Automatically check for new Crystal releases on GitHub every 24 hours. You'll be notified when updates are available.
-            </p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={autoCheckUpdates}
+                    onChange={(e) => setAutoCheckUpdates(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Check for updates automatically</span>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Automatically check for new Crystal releases on GitHub every 24 hours. You'll be notified when updates are available.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await API.checkForUpdates();
+                    if (response.success && response.data) {
+                      if (response.data.hasUpdate) {
+                        // Update will be shown via the version update event
+                      } else {
+                        alert('You are running the latest version of Crystal!');
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Failed to check for updates:', error);
+                    alert('Failed to check for updates. Please try again later.');
+                  }
+                }}
+                className="ml-4 px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 focus:outline-none"
+              >
+                Check Now
+              </button>
+            </div>
           </div>
 
 

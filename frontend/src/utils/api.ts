@@ -290,6 +290,17 @@ export class API {
     },
   };
 
+  // Version and updates
+  static async checkForUpdates() {
+    if (!isElectron()) throw new Error('Electron API not available');
+    return window.electronAPI.checkForUpdates();
+  }
+
+  static async getVersionInfo() {
+    if (!isElectron()) throw new Error('Electron API not available');
+    return window.electronAPI.getVersionInfo();
+  }
+
   // Stravu MCP integration with OAuth
   static stravu = {
     async getConnectionStatus() {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, ExternalLink, Download, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { UpdateDialog } from './UpdateDialog';
 
 interface VersionInfo {
   current: string;
@@ -19,6 +20,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -50,6 +52,10 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
       const result = await window.electronAPI.checkForUpdates();
       if (result.success) {
         setVersionInfo(result.data);
+        // If update is available, automatically show the update dialog
+        if (result.data.hasUpdate) {
+          setShowUpdateDialog(true);
+        }
       } else {
         setError(result.error || 'Failed to check for updates');
       }
@@ -140,26 +146,37 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
                   <Download className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Update Available: v{versionInfo.latest}
-                    </p>
-                    {versionInfo.publishedAt && (
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        Released {formatDate(versionInfo.publishedAt)}
+                  <div className="flex-1 space-y-3">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Update Available: v{versionInfo.latest}
                       </p>
-                    )}
-                    {versionInfo.releaseUrl && (
-                      <a
-                        href={versionInfo.releaseUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      {versionInfo.publishedAt && (
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          Released {formatDate(versionInfo.publishedAt)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => setShowUpdateDialog(true)}
+                        className="inline-flex items-center justify-center space-x-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
                       >
-                        <span>View Release Notes</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                        <Download className="w-4 h-4" />
+                        <span>Download Update</span>
+                      </button>
+                      {versionInfo.releaseUrl && (
+                        <a
+                          href={versionInfo.releaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center space-x-1 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <span>View Release Notes</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -230,6 +247,15 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
           </div>
         </div>
       </div>
+      
+      {/* Update Dialog */}
+      {showUpdateDialog && versionInfo && (
+        <UpdateDialog
+          isOpen={showUpdateDialog}
+          onClose={() => setShowUpdateDialog(false)}
+          versionInfo={versionInfo}
+        />
+      )}
     </div>
   );
 }

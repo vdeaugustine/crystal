@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import { execSync } from './utils/commandExecutor';
 import { TaskQueue } from './services/taskQueue';
@@ -340,6 +341,9 @@ app.whenReady().then(async () => {
   console.log('[Main] Services initialized, creating window...');
   await createWindow();
   console.log('[Main] Window created successfully');
+  
+  // Configure auto-updater
+  setupAutoUpdater();
   
   // Check for updates after window is created
   setTimeout(async () => {
@@ -685,24 +689,83 @@ function setupEventListeners() {
   // Listen for version update events
   process.on('version-update-available', (versionInfo: VersionInfo) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      // Send to renderer for notification
+      // Only send to renderer for custom dialog - no native dialogs
       mainWindow.webContents.send('version:update-available', versionInfo);
-      
-      // Show native dialog popup
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Update Available',
-        message: `Crystal v${versionInfo.latest} is now available!`,
-        detail: `You're currently running v${versionInfo.current}. Would you like to view the release notes and download the update?`,
-        buttons: ['View Release', 'Remind Me Later'],
-        defaultId: 0,
-        cancelId: 1
-      }).then((result) => {
-        if (result.response === 0 && versionInfo.releaseUrl) {
-          // Open release page in default browser
-          shell.openExternal(versionInfo.releaseUrl);
-        }
+    }
+  });
+}
+
+// Set up auto-updater
+function setupAutoUpdater() {
+  // Only setup auto-updater for packaged apps (not development)
+  if (!app.isPackaged && !process.env.TEST_UPDATES) {
+    console.log('[AutoUpdater] App is not packaged, skipping auto-updater setup');
+    return;
+  }
+
+  // TEST MODE: Use local server for testing
+  if (process.env.TEST_UPDATES === 'true') {
+    const { setupTestUpdater } = require('./test-updater');
+    setupTestUpdater();
+    console.log('[AutoUpdater] Using test update server at:', process.env.UPDATE_SERVER_URL || 'http://localhost:8080');
+  } else {
+    // Configure electron-updater for production
+    autoUpdater.autoDownload = false; // We'll manually trigger downloads
+    autoUpdater.autoInstallOnAppQuit = true;
+    
+    // The publish configuration in package.json will be used automatically
+    // No need to manually set feed URL with electron-updater
+  }
+
+  // Error handling
+  autoUpdater.on('error', (error) => {
+    console.error('[AutoUpdater] Error:', error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:error', {
+        message: error.message,
+        stack: error.stack
       });
+    }
+  });
+
+  // Update checking
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdater] Checking for updates...');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:checking-for-update');
+    }
+  });
+
+  // Update available
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdater] Update available:', info);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:update-available', info);
+    }
+  });
+
+  // No update available
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdater] No update available:', info);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:update-not-available', info);
+    }
+  });
+
+  // Download progress
+  autoUpdater.on('download-progress', (progressInfo) => {
+    console.log('[AutoUpdater] Download progress:', progressInfo.percent);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:download-progress', progressInfo);
+    }
+  });
+
+  // Update downloaded
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdater] Update downloaded:', info);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:update-downloaded', info);
+      // Let the renderer handle the UI - no native dialog
     }
   });
 }
@@ -714,6 +777,10 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('get-platform', () => {
   return process.platform;
+});
+
+ipcMain.handle('is-packaged', () => {
+  return app.isPackaged;
 });
 
 // Version checking handlers
@@ -739,6 +806,55 @@ ipcMain.handle('version:get-info', () => {
   } catch (error) {
     console.error('Failed to get version info:', error);
     return { success: false, error: 'Failed to get version info' };
+  }
+});
+
+// Auto-updater handlers
+ipcMain.handle('updater:check-and-download', async () => {
+  try {
+    if (!app.isPackaged && !process.env.TEST_UPDATES) {
+      return { success: false, error: 'Auto-update is only available in packaged apps' };
+    }
+    
+    // Check for updates using autoUpdater
+    const result = await autoUpdater.checkForUpdatesAndNotify();
+    
+    return { success: true, message: 'Checking for updates...', data: result };
+  } catch (error) {
+    console.error('Failed to check for updates with autoUpdater:', error);
+    return { success: false, error: 'Failed to check for updates' };
+  }
+});
+
+ipcMain.handle('updater:download-update', async () => {
+  try {
+    if (!app.isPackaged && !process.env.TEST_UPDATES) {
+      return { success: false, error: 'Auto-update is only available in packaged apps' };
+    }
+    
+    // Start downloading the update
+    const result = await autoUpdater.downloadUpdate();
+    
+    return { success: true, message: 'Downloading update...', data: result };
+  } catch (error) {
+    console.error('Failed to download update:', error);
+    return { success: false, error: 'Failed to download update' };
+  }
+});
+
+ipcMain.handle('updater:install-update', () => {
+  try {
+    if (!app.isPackaged && !process.env.TEST_UPDATES) {
+      return { success: false, error: 'Auto-update is only available in packaged apps' };
+    }
+    
+    // Quit and install the update
+    autoUpdater.quitAndInstall(false, true);
+    
+    return { success: true, message: 'Installing update...' };
+  } catch (error) {
+    console.error('Failed to install update:', error);
+    return { success: false, error: 'Failed to install update' };
   }
 });
 

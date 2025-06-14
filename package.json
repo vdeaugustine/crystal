@@ -1,6 +1,6 @@
 {
   "name": "crystal",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Crystal - Claude Code Commander for managing multiple Claude Code instances",
   "author": "Crystal Team",
@@ -43,6 +43,7 @@
     "better-sqlite3": "^11.7.0",
     "bull": "^4.16.3",
     "dotenv": "^16.4.7",
+    "electron-updater": "^6.6.2",
     "express": "^4.18.2",
     "openai": "^5.1.1"
   },
@@ -93,18 +94,6 @@
         "node_modules/@anthropic-ai/claude-code/vendor/.*\\.jar$"
       ],
       "notarize": true
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "main/assets/icon.ico"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "main/assets/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     },
     "publish": {
       "provider": "github",
