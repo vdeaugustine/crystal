@@ -311,6 +311,29 @@ export class WorktreeManager {
     }
   }
 
+  async abortRebase(worktreePath: string): Promise<void> {
+    try {
+      console.log(`[WorktreeManager] Aborting rebase in worktree: ${worktreePath}`);
+      
+      // Check if we're in the middle of a rebase
+      const statusCommand = `git status --porcelain=v1`;
+      const { stdout: statusOut } = await execWithShellPath(statusCommand, { cwd: worktreePath });
+      
+      // Abort the rebase
+      const command = `git rebase --abort`;
+      const { stdout, stderr } = await execWithShellPath(command, { cwd: worktreePath });
+      
+      if (stderr && !stderr.includes('No rebase in progress')) {
+        throw new Error(`Failed to abort rebase: ${stderr}`);
+      }
+      
+      console.log(`[WorktreeManager] Successfully aborted rebase`);
+    } catch (error: any) {
+      console.error(`[WorktreeManager] Error aborting rebase:`, error);
+      throw new Error(`Failed to abort rebase: ${error.message}`);
+    }
+  }
+
   async squashAndRebaseWorktreeToMain(projectPath: string, worktreePath: string, mainBranch: string, commitMessage: string): Promise<void> {
     const executedCommands: string[] = [];
     let lastOutput = '';

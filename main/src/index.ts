@@ -1884,6 +1884,98 @@ ipcMain.handle('sessions:rebase-main-into-worktree', async (_event, sessionId: s
   }
 });
 
+ipcMain.handle('sessions:abort-rebase-and-use-claude', async (_event, sessionId: string) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (!session.worktreePath) {
+      return { success: false, error: 'Session has no worktree path' };
+    }
+
+    // Get the project to find the main branch
+    const project = sessionManager.getProjectForSession(sessionId);
+    if (!project) {
+      return { success: false, error: 'Project not found for session' };
+    }
+
+    const mainBranch = project.main_branch || 'main';
+
+    // First, abort the rebase
+    try {
+      await worktreeManager.abortRebase(session.worktreePath);
+      
+      // Add message to session output about aborting the rebase
+      const timestamp = new Date().toLocaleTimeString();
+      const abortMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
+                          `\x1b[1m\x1b[94mAborted rebase successfully\x1b[0m\r\n\r\n`;
+      sessionManager.addSessionOutput(sessionId, {
+        type: 'stdout',
+        data: abortMessage,
+        timestamp: new Date()
+      });
+    } catch (abortError: any) {
+      console.error('Failed to abort rebase:', abortError);
+      // Continue anyway - the user might have already resolved it
+    }
+
+    // Send the prompt to Claude Code to handle the rebase
+    const prompt = `Please rebase ${mainBranch} into this branch and resolve all conflicts`;
+    
+    // Check if session is waiting for input or stopped
+    const currentSession = await sessionManager.getSession(sessionId);
+    if (!currentSession) {
+      return { success: false, error: 'Session not found' };
+    }
+    
+    if (currentSession.status === 'waiting' || currentSession.status === 'running') {
+      // Session is already running, just send the input
+      const userInputDisplay = `> ${prompt.trim()}\n`;
+      await sessionManager.addSessionOutput(sessionId, {
+        type: 'stdout',
+        data: userInputDisplay,
+        timestamp: new Date()
+      });
+      
+      claudeCodeManager.sendInput(sessionId, prompt + '\n');
+      return { success: true, data: { message: 'Sent rebase prompt to Claude Code' } };
+    } else {
+      // Session is stopped, need to continue the conversation
+      try {
+        // Get conversation history
+        const conversationHistory = sessionManager.getConversationMessages(sessionId);
+        
+        // Update session status to initializing
+        sessionManager.updateSession(sessionId, { 
+          status: 'initializing',
+          run_started_at: null
+        });
+        
+        // Add the prompt to conversation
+        if (prompt) {
+          sessionManager.continueConversation(sessionId, prompt);
+        }
+        
+        // Continue the session with proper worktree path
+        await claudeCodeManager.continueSession(sessionId, session.worktreePath, prompt, conversationHistory);
+        
+        return { success: true, data: { message: 'Rebase aborted and Claude Code prompted to handle conflicts' } };
+      } catch (error: any) {
+        console.error('Failed to continue session:', error);
+        return { success: false, error: 'Failed to continue Claude Code session' };
+      }
+    }
+  } catch (error: any) {
+    console.error('Failed to abort rebase and use Claude:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to abort rebase and use Claude'
+    };
+  }
+});
+
 ipcMain.handle('sessions:squash-and-rebase-to-main', async (_event, sessionId: string, commitMessage: string) => {
   try {
     const session = await sessionManager.getSession(sessionId);

@@ -147,6 +147,11 @@ export class API {
       return window.electronAPI.sessions.rebaseMainIntoWorktree(sessionId);
     },
 
+    async abortRebaseAndUseClaude(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.abortRebaseAndUseClaude(sessionId);
+    },
+
     async squashAndRebaseToMain(sessionId: string, commitMessage: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.squashAndRebaseToMain(sessionId, commitMessage);

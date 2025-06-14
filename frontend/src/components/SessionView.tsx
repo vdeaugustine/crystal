@@ -207,6 +207,7 @@ export function SessionView() {
     output: string;
     workingDirectory?: string;
     projectPath?: string;
+    isRebaseConflict?: boolean;
   } | null>(null);
   const [showStravuSearch, setShowStravuSearch] = useState(false);
   const [isStravuConnected, setIsStravuConnected] = useState(false);
@@ -1234,7 +1235,8 @@ export function SessionView() {
             message: response.error || 'Failed to rebase main into worktree',
             command: gitError.command,
             output: gitError.output || 'No output available',
-            workingDirectory: gitError.workingDirectory
+            workingDirectory: gitError.workingDirectory,
+            isRebaseConflict: gitError.output?.toLowerCase().includes('conflict') || false
           });
           setShowGitErrorDialog(true);
         } else {
@@ -1254,6 +1256,30 @@ export function SessionView() {
       setMergeError(error instanceof Error ? error.message : 'Failed to rebase main into worktree');
     } finally {
       setIsMerging(false);
+    }
+  };
+
+  const handleAbortRebaseAndUseClaude = async () => {
+    setShowGitErrorDialog(false);
+    setIsLoadingOutput(true);
+    
+    try {
+      // The backend will get the main branch name from the project settings
+      const response = await API.sessions.abortRebaseAndUseClaude(activeSession.id);
+      
+      if (!response.success) {
+        setMergeError(response.error || 'Failed to abort rebase and use Claude Code');
+        return;
+      }
+      
+      // The prompt has been sent to Claude Code, clear any error states
+      setMergeError(null);
+      setGitErrorDetails(null);
+    } catch (error) {
+      console.error('Error aborting rebase and using Claude:', error);
+      setMergeError(error instanceof Error ? error.message : 'Failed to abort rebase and use Claude Code');
+    } finally {
+      setIsLoadingOutput(false);
     }
   };
 
@@ -2076,26 +2102,41 @@ export function SessionView() {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => {
-                  if (gitErrorDetails.output) {
-                    navigator.clipboard.writeText(gitErrorDetails.output);
-                  }
-                }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex items-center space-x-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <span>Copy Output</span>
-              </button>
-              <button
-                onClick={() => setShowGitErrorDialog(false)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-              >
-                Close
-              </button>
+            <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3">
+                {gitErrorDetails.isRebaseConflict && (
+                  <button
+                    onClick={handleAbortRebaseAndUseClaude}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Use Claude Code to Resolve</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    if (gitErrorDetails.output) {
+                      navigator.clipboard.writeText(gitErrorDetails.output);
+                    }
+                  }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span>Copy Output</span>
+                </button>
+                <button
+                  onClick={() => setShowGitErrorDialog(false)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

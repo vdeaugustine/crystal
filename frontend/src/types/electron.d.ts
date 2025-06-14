@@ -58,6 +58,7 @@ interface ElectronAPI {
     
     // Git rebase operations
     rebaseMainIntoWorktree: (sessionId: string) => Promise<IPCResponse>;
+    abortRebaseAndUseClaude: (sessionId: string) => Promise<IPCResponse>;
     squashAndRebaseToMain: (sessionId: string, commitMessage: string) => Promise<IPCResponse>;
     rebaseToMain: (sessionId: string) => Promise<IPCResponse>;
     hasChangesToRebase: (sessionId: string) => Promise<IPCResponse>;
