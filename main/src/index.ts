@@ -1952,6 +1952,73 @@ ipcMain.handle('sessions:squash-and-rebase-to-main', async (_event, sessionId: s
   }
 });
 
+ipcMain.handle('sessions:rebase-to-main', async (_event, sessionId: string) => {
+  try {
+    const session = await sessionManager.getSession(sessionId);
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (!session.worktreePath) {
+      return { success: false, error: 'Session has no worktree path' };
+    }
+
+    // Get the project to find the main branch and project path
+    const project = sessionManager.getProjectForSession(sessionId);
+    if (!project) {
+      return { success: false, error: 'Project not found for session' };
+    }
+
+    const mainBranch = project.main_branch || 'main';
+    
+    // Add message to session output about starting the rebase
+    const timestamp = new Date().toLocaleTimeString();
+    const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
+                        `\x1b[1m\x1b[94mRebasing to ${mainBranch} (preserving all commits)...\x1b[0m\r\n\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: startMessage,
+      timestamp: new Date()
+    });
+    
+    await worktreeManager.rebaseWorktreeToMain(project.path, session.worktreePath, mainBranch);
+    
+    // Add success message to session output
+    const successMessage = `\x1b[32m✓ Successfully rebased worktree to ${mainBranch}\x1b[0m\r\n\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stdout',
+      data: successMessage,
+      timestamp: new Date()
+    });
+    
+    return { success: true, data: { message: `Successfully rebased worktree to ${mainBranch}` } };
+  } catch (error: any) {
+    console.error('Failed to rebase worktree to main:', error);
+    
+    // Add error message to session output
+    const errorMessage = `\x1b[31m✗ Rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
+                        (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
+                        `\r\n`;
+    sessionManager.addSessionOutput(sessionId, {
+      type: 'stderr',
+      data: errorMessage,
+      timestamp: new Date()
+    });
+    // Pass detailed git error information to frontend
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to rebase worktree to main',
+      gitError: {
+        commands: error.gitCommands,
+        output: error.gitOutput,
+        workingDirectory: error.workingDirectory,
+        projectPath: error.projectPath,
+        originalError: error.originalError?.message
+      }
+    };
+  }
+});
+
 // Git pull/push operations for main repo sessions
 ipcMain.handle('sessions:git-pull', async (_event, sessionId: string) => {
   try {

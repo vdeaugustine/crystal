@@ -152,6 +152,11 @@ export class API {
       return window.electronAPI.sessions.squashAndRebaseToMain(sessionId, commitMessage);
     },
 
+    async rebaseToMain(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.rebaseToMain(sessionId);
+    },
+
     // Git operation helpers
     async hasChangesToRebase(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');

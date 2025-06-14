@@ -209,6 +209,7 @@ export function SessionView() {
   } | null>(null);
   const [showStravuSearch, setShowStravuSearch] = useState(false);
   const [isStravuConnected, setIsStravuConnected] = useState(false);
+  const [shouldSquash, setShouldSquash] = useState(true);
   const lastProcessedOutputLength = useRef(0);
   const lastProcessedScriptOutputLength = useRef(0);
   
@@ -766,6 +767,7 @@ export function SessionView() {
     });
   }, [activeSession?.id]);
 
+
   // Load git commands and check for changes to rebase
   useEffect(() => {
     if (!activeSession) {
@@ -1142,8 +1144,10 @@ export function SessionView() {
     const defaultCommitMessage = await generateDefaultCommitMessage();
     setCommitMessage(defaultCommitMessage);
     setDialogType('squash');
+    setShouldSquash(true); // Reset to default
     setShowCommitMessageDialog(true);
   };
+
 
   const performSquashWithCommitMessage = async (message: string) => {
     setIsMerging(true);
@@ -1151,15 +1155,20 @@ export function SessionView() {
     setShowCommitMessageDialog(false);
     
     try {
-      const response = await API.sessions.squashAndRebaseToMain(activeSession.id, message);
+      let response;
+      if (shouldSquash) {
+        response = await API.sessions.squashAndRebaseToMain(activeSession.id, message);
+      } else {
+        response = await API.sessions.rebaseToMain(activeSession.id);
+      }
       
       if (!response.success) {
         // Check if we have detailed git error information
         if ((response as any).gitError) {
           const gitError = (response as any).gitError;
           setGitErrorDetails({
-            title: 'Squash and Rebase Failed',
-            message: response.error || 'Failed to squash and rebase to main',
+            title: shouldSquash ? 'Squash and Rebase Failed' : 'Rebase Failed',
+            message: response.error || `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`,
             commands: gitError.commands,
             output: gitError.output || 'No output available',
             workingDirectory: gitError.workingDirectory,
@@ -1167,20 +1176,20 @@ export function SessionView() {
           });
           setShowGitErrorDialog(true);
         } else {
-          setMergeError(response.error || 'Failed to squash and rebase to main');
+          setMergeError(response.error || `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
         }
         return;
       }
       
       setMergeError(null);
-      // Refresh git data after successful squash
+      // Refresh git data after successful operation
       const changesResponse = await API.sessions.hasChangesToRebase(activeSession.id);
       if (changesResponse.success) {
         setHasChangesToRebase(changesResponse.data);
       }
     } catch (error) {
-      console.error('Error squashing and rebasing to main:', error);
-      setMergeError(error instanceof Error ? error.message : 'Failed to squash and rebase to main');
+      console.error(`Error ${shouldSquash ? 'squashing and ' : ''}rebasing to main:`, error);
+      setMergeError(error instanceof Error ? error.message : `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
     } finally {
       setIsMerging(false);
     }
@@ -1738,6 +1747,27 @@ export function SessionView() {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
+                {/* Squash checkbox - only show for squash dialog */}
+                {dialogType === 'squash' && (
+                  <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <input
+                      type="checkbox"
+                      id="shouldSquash"
+                      checked={shouldSquash}
+                      onChange={(e) => setShouldSquash(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    <label htmlFor="shouldSquash" className="flex-1 cursor-pointer">
+                      <div className="font-medium text-gray-900">Squash commits</div>
+                      <div className="text-sm text-gray-600">
+                        {shouldSquash 
+                          ? "Combine all commits into a single commit" 
+                          : "Keep all commits and preserve history"}
+                      </div>
+                    </label>
+                  </div>
+                )}
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Commit Message
@@ -1746,29 +1776,45 @@ export function SessionView() {
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
                     rows={8}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    disabled={dialogType === 'squash' && !shouldSquash}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm ${
+                      dialogType === 'squash' && !shouldSquash ? 'bg-gray-100 text-gray-500' : ''
+                    }`}
                     placeholder={dialogType === 'squash' 
-                      ? "Enter commit message for the squashed commit..."
+                      ? (shouldSquash ? "Enter commit message for the squashed commit..." : "Commit message not needed when preserving commits")
                       : "Enter commit message for the rebase..."
                     }
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     {dialogType === 'squash'
-                      ? `This message will be used for the single squashed commit combining all your changes.`
+                      ? (shouldSquash 
+                          ? `This message will be used for the single squashed commit combining all your changes.`
+                          : `Original commit messages will be preserved.`)
                       : `This message will be used when rebasing changes from ${gitCommands?.mainBranch || 'main'}.`
                     }
                   </p>
                 </div>
 
-                {(dialogType === 'squash' ? gitCommands?.squashCommands : gitCommands?.rebaseCommands) && (
+                {dialogType === 'squash' && (
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Git commands to be executed:</h4>
                     <div className="space-y-1">
-                      {(dialogType === 'squash' ? gitCommands?.squashCommands : gitCommands?.rebaseCommands)?.map((cmd, idx) => (
-                        <div key={idx} className="font-mono text-xs bg-gray-800 text-white px-3 py-2 rounded">
-                          {cmd}
-                        </div>
-                      ))}
+                      {shouldSquash ? (
+                        gitCommands?.squashCommands?.map((cmd, idx) => (
+                          <div key={idx} className="font-mono text-xs bg-gray-800 text-white px-3 py-2 rounded">
+                            {cmd}
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <div className="font-mono text-xs bg-gray-800 text-white px-3 py-2 rounded">
+                            git checkout {gitCommands?.mainBranch || 'main'}
+                          </div>
+                          <div className="font-mono text-xs bg-gray-800 text-white px-3 py-2 rounded">
+                            git rebase {gitCommands?.currentBranch || 'feature-branch'}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1785,7 +1831,7 @@ export function SessionView() {
               </button>
               <button
                 onClick={() => performSquashWithCommitMessage(commitMessage)}
-                disabled={!commitMessage.trim() || isMerging}
+                disabled={(shouldSquash && !commitMessage.trim()) || isMerging}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
                 {isMerging ? (
@@ -1796,7 +1842,7 @@ export function SessionView() {
                     <span>{dialogType === 'squash' ? 'Squashing...' : 'Rebasing...'}</span>
                   </>
                 ) : (
-                  <span>{dialogType === 'squash' ? 'Squash & Rebase' : 'Rebase'}</span>
+                  <span>{dialogType === 'squash' ? (shouldSquash ? 'Squash & Rebase' : 'Rebase (Keep Commits)') : 'Rebase'}</span>
                 )}
               </button>
             </div>

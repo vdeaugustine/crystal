@@ -387,6 +387,59 @@ export class WorktreeManager {
     }
   }
 
+  async rebaseWorktreeToMain(projectPath: string, worktreePath: string, mainBranch: string): Promise<void> {
+    const executedCommands: string[] = [];
+    let lastOutput = '';
+    
+    try {
+      console.log(`[WorktreeManager] Rebasing worktree to ${mainBranch} (without squashing): ${worktreePath}`);
+      
+      // Get current branch name in worktree
+      let command = `git branch --show-current`;
+      executedCommands.push(`git branch --show-current (in ${worktreePath})`);
+      const { stdout: currentBranch, stderr: stderr1 } = await execWithShellPath(command, { cwd: worktreePath });
+      lastOutput = currentBranch || stderr1 || '';
+      const branchName = currentBranch.trim();
+      console.log(`[WorktreeManager] Current branch: ${branchName}`);
+      
+      // Check if there are any changes to rebase
+      command = `git log --oneline ${mainBranch}..HEAD`;
+      const { stdout: commits } = await execWithShellPath(command, { cwd: worktreePath });
+      if (!commits.trim()) {
+        throw new Error(`No commits to rebase. The branch is already up to date with ${mainBranch}.`);
+      }
+      console.log(`[WorktreeManager] Commits to rebase:\n${commits}`);
+      
+      // Switch to main branch in the main repository
+      command = `git checkout ${mainBranch}`;
+      executedCommands.push(`git checkout ${mainBranch} (in ${projectPath})`);
+      const checkoutResult = await execWithShellPath(command, { cwd: projectPath });
+      lastOutput = checkoutResult.stdout || checkoutResult.stderr || '';
+      console.log(`[WorktreeManager] Switched to ${mainBranch} in main repository`);
+      
+      // Rebase the branch onto main (preserving all commits)
+      command = `git rebase ${branchName}`;
+      executedCommands.push(`git rebase ${branchName} (in ${projectPath})`);
+      const rebaseResult = await execWithShellPath(command, { cwd: projectPath });
+      lastOutput = rebaseResult.stdout || rebaseResult.stderr || '';
+      console.log(`[WorktreeManager] Successfully rebased ${branchName} onto ${mainBranch}`);
+      
+      console.log(`[WorktreeManager] Successfully rebased worktree to ${mainBranch} (without squashing)`);
+    } catch (error: any) {
+      console.error(`[WorktreeManager] Failed to rebase worktree to ${mainBranch}:`, error);
+      
+      // Create detailed error with git command output
+      const gitError = new Error(`Failed to rebase worktree to ${mainBranch}`) as any;
+      gitError.gitCommands = executedCommands;
+      gitError.gitOutput = error.stderr || error.stdout || lastOutput || error.message || '';
+      gitError.workingDirectory = worktreePath;
+      gitError.projectPath = projectPath;
+      gitError.originalError = error;
+      
+      throw gitError;
+    }
+  }
+
   generateRebaseCommands(mainBranch: string): string[] {
     return [
       `git rebase ${mainBranch}`
