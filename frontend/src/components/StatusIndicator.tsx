@@ -56,10 +56,10 @@ export function StatusIndicator({
       case 'stopped':
         return {
           status: 'stopped',
-          color: 'bg-emerald-500',
-          textColor: 'text-emerald-400',
-          bgColor: 'bg-emerald-900/20',
-          borderColor: 'border-emerald-800',
+          color: 'bg-gray-400',
+          textColor: 'text-gray-400',
+          bgColor: 'bg-gray-800',
+          borderColor: 'border-gray-700',
           icon: CheckCircle,
           text: 'Completed',
           animated: false,
