@@ -45,11 +45,14 @@ export class ConfigManager extends EventEmitter {
   }
 
   getConfig(): AppConfig {
-    return { ...this.config };
+    // Always return dark theme
+    return { ...this.config, theme: 'dark' };
   }
 
   async updateConfig(updates: Partial<AppConfig>): Promise<AppConfig> {
-    this.config = { ...this.config, ...updates };
+    // Filter out theme updates - always dark mode
+    const { theme, ...filteredUpdates } = updates;
+    this.config = { ...this.config, ...filteredUpdates };
     await this.saveConfig();
     this.emit('config-updated', this.config);
     return this.getConfig();

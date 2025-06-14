@@ -147,7 +147,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             </p>
           </div>
 
-          <div>
+          {/* Theme toggle disabled - dark mode only */}
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Theme
             </label>
@@ -171,7 +172,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Toggle between light and dark theme
             </p>
-          </div>
+          </div> */}
 
           <div>
             <label htmlFor="anthropicApiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

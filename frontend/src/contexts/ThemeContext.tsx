@@ -11,30 +11,24 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // Always use dark theme
   const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    // Load theme from config
-    API.config.get().then((response) => {
-      if (response.success && response.data?.theme) {
-        setTheme(response.data.theme as Theme);
-      }
-    });
+    // Always set dark theme, ignore config
+    setTheme('dark');
   }, []);
 
   useEffect(() => {
     // Apply theme class to root element
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-    root.classList.add(theme);
+    root.classList.add('dark'); // Always dark
   }, [theme]);
 
   const toggleTheme = async () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    
-    // Save theme preference
-    await API.config.update({ theme: newTheme });
+    // No-op - theme switching disabled
+    // Keeping function to preserve API compatibility
   };
 
   return (
