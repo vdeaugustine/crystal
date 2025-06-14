@@ -307,24 +307,25 @@ export function UpdateDialog({ isOpen, onClose, versionInfo }: UpdateDialogProps
                           <li>Drag Crystal to your Applications folder</li>
                           <li>Launch the new version of Crystal</li>
                         </ol>
-                      <p className="text-sm text-gray-400 mt-3">
-                        Your settings and sessions will be preserved during the update.
-                      </p>
-                      {(error.includes('404') || error.includes('latest-mac.yml')) && (
-                        <div className="mt-3 p-2 bg-gray-800 rounded text-xs text-gray-500">
-                          <p className="font-semibold mb-1">Technical Details:</p>
-                          <p>The release may be missing required update metadata files, or you may be testing with a development version.</p>
-                        </div>
+                        <p className="text-sm text-gray-400 mt-3">
+                          Your settings and sessions will be preserved during the update.
+                        </p>
+                        {(error.includes('404') || error.includes('latest-mac.yml')) && (
+                          <div className="mt-3 p-2 bg-gray-800 rounded text-xs text-gray-500">
+                            <p className="font-semibold mb-1">Technical Details:</p>
+                            <p>The release may be missing required update metadata files, or you may be testing with a development version.</p>
+                          </div>
+                        )}
+                      </div>
+                      {versionInfo?.releaseUrl && (
+                        <button
+                          onClick={() => window.electronAPI.openExternal(versionInfo.releaseUrl!)}
+                          className="mt-3 text-sm text-blue-400 hover:text-blue-300 underline"
+                        >
+                          View Release on GitHub
+                        </button>
                       )}
                     </div>
-                    {versionInfo?.releaseUrl && (
-                      <button
-                        onClick={() => window.electronAPI.openExternal(versionInfo.releaseUrl!)}
-                        className="mt-3 text-sm text-blue-400 hover:text-blue-300 underline"
-                      >
-                        View Release on GitHub
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -336,19 +337,19 @@ export function UpdateDialog({ isOpen, onClose, versionInfo }: UpdateDialogProps
                 <p className="text-gray-300">You're running the latest version of Crystal!</p>
               </div>
             )}
-
-            {/* Release Notes */}
-            {versionInfo?.releaseNotes && (
-              <div className="mt-6">
-                <h3 className="text-lg font-medium text-gray-100 mb-3">Release Notes</h3>
-                <div className="bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
-                  <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans">
-                    {versionInfo.releaseNotes}
-                  </pre>
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Release Notes */}
+          {versionInfo?.releaseNotes && (
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-gray-100 mb-3">Release Notes</h3>
+              <div className="bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
+                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans">
+                  {versionInfo.releaseNotes}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="p-6 border-t border-gray-700">
