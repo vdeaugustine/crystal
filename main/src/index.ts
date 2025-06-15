@@ -399,8 +399,12 @@ function setupEventListeners() {
   });
 
   sessionManager.on('session-updated', (session) => {
-    if (mainWindow) {
+    console.log(`[Main] session-updated event received for ${session.id} with status ${session.status}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`[Main] Sending session:updated to renderer for ${session.id}`);
       mainWindow.webContents.send('session:updated', session);
+    } else {
+      console.error(`[Main] Cannot send session:updated - mainWindow is ${mainWindow ? 'destroyed' : 'null'}`);
     }
   });
 
@@ -421,6 +425,12 @@ function setupEventListeners() {
       mainWindow.webContents.send('session:output', output);
     }
   });
+  
+  sessionManager.on('session-output-available', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('session:output-available', info);
+    }
+  });
 
   // Listen to claudeCodeManager events
   claudeCodeManager.on('output', async (output: any) => {
@@ -430,6 +440,18 @@ function setupEventListeners() {
       data: output.data,
       timestamp: output.timestamp
     });
+    
+    // Check if Claude is waiting for user input
+    if (output.type === 'json' && output.data.type === 'prompt') {
+      console.log(`[Main] Claude is waiting for user input in session ${output.sessionId}`);
+      await sessionManager.updateSession(output.sessionId, { status: 'waiting' });
+    }
+    
+    // Check if Claude has completed (when it sends a completion message)
+    if (output.type === 'json' && output.data.type === 'completion') {
+      console.log(`[Main] Claude completed task in session ${output.sessionId}`);
+      await sessionManager.updateSession(output.sessionId, { status: 'stopped' });
+    }
     
     // Send real-time updates to renderer
     if (mainWindow) {
@@ -456,10 +478,19 @@ function setupEventListeners() {
   });
 
   claudeCodeManager.on('spawned', async ({ sessionId }: { sessionId: string }) => {
+    console.log(`[Main] Claude Code spawned for session ${sessionId}, updating status to 'running'`);
+    
+    // Add a small delay to ensure the session is fully initialized
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     await sessionManager.updateSession(sessionId, { 
       status: 'running',
       run_started_at: new Date().toISOString()
     });
+    
+    // Verify the update was successful
+    const updatedSession = await sessionManager.getSession(sessionId);
+    console.log(`[Main] Session ${sessionId} status after update: ${updatedSession?.status}`);
     
     // Start execution tracking
     try {
@@ -482,9 +513,11 @@ function setupEventListeners() {
   });
 
   claudeCodeManager.on('exit', async ({ sessionId, exitCode, signal }: { sessionId: string; exitCode: number; signal: string }) => {
-    console.log(`Session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
+    console.log(`[Main] Claude Code exited for session ${sessionId} with code ${exitCode}, signal ${signal}`);
     await sessionManager.setSessionExitCode(sessionId, exitCode);
+    console.log(`[Main] Updating session ${sessionId} status to 'stopped'`);
     await sessionManager.updateSession(sessionId, { status: 'stopped' });
+    console.log(`[Main] Session ${sessionId} status update complete`);
 
     // Stop run commands
     try {
@@ -871,7 +904,10 @@ ipcMain.handle('sessions:get-all', async () => {
 
 ipcMain.handle('sessions:get', async (_event, sessionId: string) => {
   try {
+    console.log('[IPC] sessions:get called for sessionId:', sessionId);
     const session = await sessionManager.getSession(sessionId);
+    console.log('[IPC] sessions:get result:', session ? `Found session ${session.id}` : 'Session not found');
+    
     if (!session) {
       return { success: false, error: 'Session not found' };
     }
@@ -1036,6 +1072,13 @@ ipcMain.handle('sessions:delete', async (_event, sessionId: string) => {
 
 ipcMain.handle('sessions:input', async (_event, sessionId: string, input: string) => {
   try {
+    // Update session status back to running when user sends input
+    const currentSession = await sessionManager.getSession(sessionId);
+    if (currentSession && currentSession.status === 'waiting') {
+      console.log(`[Main] User sent input to session ${sessionId}, updating status to 'running'`);
+      await sessionManager.updateSession(sessionId, { status: 'running' });
+    }
+    
     // Store user input in session outputs for persistence
     const userInputDisplay = `> ${input.trim()}\n`;
     await sessionManager.addSessionOutput(sessionId, {

@@ -97,7 +97,8 @@ export class SessionManager extends EventEmitter {
       lastViewedAt: dbSession.last_viewed_at,
       permissionMode: dbSession.permission_mode,
       runStartedAt: dbSession.run_started_at,
-      isMainRepo: dbSession.is_main_repo
+      isMainRepo: dbSession.is_main_repo,
+      projectId: dbSession.project_id // Add the missing projectId field
     };
   }
 
@@ -243,25 +244,41 @@ export class SessionManager extends EventEmitter {
   }
 
   updateSession(id: string, update: SessionUpdate): void {
+    console.log(`[SessionManager] updateSession called for ${id} with update:`, update);
+    
     const dbUpdate: UpdateSessionData = {};
     
     if (update.status !== undefined) {
       dbUpdate.status = this.mapSessionStatusToDbStatus(update.status);
+      console.log(`[SessionManager] Mapping status ${update.status} to DB status ${dbUpdate.status}`);
     }
     
     const updatedDbSession = this.db.updateSession(id, dbUpdate);
     if (!updatedDbSession) {
+      console.error(`[SessionManager] Session ${id} not found in database`);
       throw new Error(`Session ${id} not found`);
     }
 
     const session = this.convertDbSessionToSession(updatedDbSession);
-    Object.assign(session, update); // Apply any additional updates not stored in DB
+    
+    // Ensure the status from the update is used if provided
+    if (update.status !== undefined) {
+      session.status = update.status;
+    }
+    
+    // Apply any additional updates not stored in DB
+    Object.assign(session, update);
     
     this.activeSessions.set(id, session);
+    console.log(`[SessionManager] Emitting session-updated event for session ${id} with status ${session.status}, full session:`, JSON.stringify(session));
     this.emit('session-updated', session);
   }
 
   addSessionOutput(id: string, output: Omit<SessionOutput, 'sessionId'>): void {
+    // Check if this is the first output for this session
+    const existingOutputs = this.db.getSessionOutputs(id, 1);
+    const isFirstOutput = existingOutputs.length === 0;
+    
     // Store in database (stringify JSON objects)
     const dataToStore = output.type === 'json' ? JSON.stringify(output.data) : output.data;
     this.db.addSessionOutput(id, output.type, dataToStore);
@@ -272,6 +289,12 @@ export class SessionManager extends EventEmitter {
       ...output
     };
     this.emit('session-output', outputToEmit);
+    
+    // If this was the first output, emit a special event
+    if (isFirstOutput) {
+      console.log(`[SessionManager] First output detected for session ${id}, emitting output-available event`);
+      this.emit('session-output-available', { sessionId: id });
+    }
     
     // Check if this is the initial system message with Claude's session ID
     if (output.type === 'json' && output.data.type === 'system' && output.data.subtype === 'init' && output.data.session_id) {

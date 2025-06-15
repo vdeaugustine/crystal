@@ -20,6 +20,34 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   
+  // Force re-render when session status changes
+  const [, forceUpdate] = useState({});
+  useEffect(() => {
+    // Subscribe to session updates to ensure UI updates when this session's status changes
+    const unsubscribe = useSessionStore.subscribe((state) => {
+      const updatedSession = state.sessions.find(s => s.id === session.id) || 
+        (state.activeMainRepoSession?.id === session.id ? state.activeMainRepoSession : null);
+      
+      if (updatedSession && updatedSession.status !== session.status) {
+        forceUpdate({});
+      }
+    });
+    
+    // Also listen for custom session status change events
+    const handleStatusChange = (event: CustomEvent) => {
+      if (event.detail.sessionId === session.id) {
+        forceUpdate({});
+      }
+    };
+    
+    window.addEventListener('session-status-changed', handleStatusChange as EventListener);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('session-status-changed', handleStatusChange as EventListener);
+    };
+  }, [session.id, session.status]);
+  
   useEffect(() => {
     // Check if this session's project has a run script
     API.sessions.hasRunScript(session.id)
@@ -215,7 +243,10 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         onContextMenu={handleContextMenu}
       >
         <button
-          onClick={() => setActiveSession(session.id)}
+          onClick={() => {
+            console.log('[SessionListItem] Clicking session:', session.id, session.name);
+            setActiveSession(session.id);
+          }}
           className="flex items-center justify-start space-x-3 flex-1 min-w-0"
         >
           <StatusIndicator session={session} size="small" />

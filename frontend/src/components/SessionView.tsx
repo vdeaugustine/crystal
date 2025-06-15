@@ -14,8 +14,64 @@ import { Inbox } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 
 export function SessionView() {
-  const activeSession = useSessionStore((state) => state.getActiveSession());
+  const activeSessionId = useSessionStore((state) => state.activeSessionId);
+  const sessions = useSessionStore((state) => state.sessions);
+  const activeMainRepoSession = useSessionStore((state) => state.activeMainRepoSession);
+  
+  // Get the active session from the appropriate source
+  const activeSession = activeSessionId 
+    ? (activeMainRepoSession && activeMainRepoSession.id === activeSessionId 
+        ? activeMainRepoSession 
+        : sessions.find(s => s.id === activeSessionId))
+    : undefined;
+    
+    
   const { theme } = useTheme();
+  
+  // Force re-render when session status changes
+  const [, forceUpdate] = useState({});
+  const [shouldReloadOutput, setShouldReloadOutput] = useState(false);
+  
+  useEffect(() => {
+    if (!activeSessionId) return;
+    
+    // Subscribe to session updates to ensure UI updates when status changes
+    const unsubscribe = useSessionStore.subscribe((state) => {
+      const updatedSession = state.activeMainRepoSession?.id === activeSessionId 
+        ? state.activeMainRepoSession 
+        : state.sessions.find(s => s.id === activeSessionId);
+      
+      if (updatedSession && updatedSession.status !== activeSession?.status) {
+        
+        // If status changed from initializing to running, clear the terminal and reload output
+        if (activeSession?.status === 'initializing' && updatedSession.status === 'running') {
+          if (terminalInstance.current) {
+            terminalInstance.current.clear();
+          }
+          // Set flag to reload output after the component re-renders with new status
+          setShouldReloadOutput(true);
+        }
+        
+        forceUpdate({});
+      }
+    });
+    
+    // Also listen for custom session status change events
+    const handleStatusChange = (event: CustomEvent) => {
+      if (event.detail.sessionId === activeSessionId) {
+        forceUpdate({});
+      }
+    };
+    
+    window.addEventListener('session-status-changed', handleStatusChange as EventListener);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('session-status-changed', handleStatusChange as EventListener);
+    };
+  }, [activeSessionId, activeSession?.status]);
+  
+  
   
   // Track previous session ID to detect changes
   const previousSessionIdRef = useRef<string | null>(null);
@@ -80,18 +136,23 @@ export function SessionView() {
       return;
     }
     
+    console.log(`[SessionView] Session changed from ${previousSessionId} to ${currentSessionId}`);
+    
     if (!activeSession) {
       // Clear terminal immediately
       if (terminalInstance.current) {
         terminalInstance.current.clear();
       }
+      setFormattedOutput('');
+      setCurrentSessionIdForOutput(null);
       return;
     }
     
     const sessionId = activeSession.id; // Capture the session ID
     
-    // Clear terminal but don't clear formatted output yet - let it update naturally
+    // Clear terminal and reset state for new session
     setCurrentSessionIdForOutput(sessionId); // Track which session this output belongs to
+    setFormattedOutput(''); // Clear formatted output immediately
     if (terminalInstance.current) {
       terminalInstance.current.clear();
     }
@@ -104,10 +165,19 @@ export function SessionView() {
     lastProcessedOutputLength.current = 0;
     lastProcessedScriptOutputLength.current = 0;
     
-    // For new sessions, mark as waiting for first output
-    if (activeSession && activeSession.status === 'running' && (!activeSession.output || activeSession.output.length === 0)) {
+    // Check if this is a new session that might be waiting for output
+    const hasOutput = activeSession.output && activeSession.output.length > 0;
+    const hasMessages = activeSession.jsonMessages && activeSession.jsonMessages.length > 0;
+    const isNewSession = activeSession.status === 'initializing' || 
+                        (activeSession.status === 'running' && !hasOutput && !hasMessages);
+    
+    console.log(`[SessionView] Session ${sessionId} - hasOutput: ${hasOutput}, hasMessages: ${hasMessages}, isNewSession: ${isNewSession}`);
+    
+    if (isNewSession) {
       setIsWaitingForFirstOutput(true);
       setStartTime(Date.now());
+    } else {
+      setIsWaitingForFirstOutput(false);
     }
   }, [activeSession?.id]); // Changed dependency to activeSession?.id to trigger on session change
   
@@ -126,20 +196,26 @@ export function SessionView() {
     
     const sessionId = activeSession.id; // Capture the session ID
     
-    // Skip formatting only if we have no data to format
+    // Skip if we're not tracking this session's output
+    if (currentSessionIdForOutput !== sessionId) {
+      console.log(`[SessionView] Skipping format - not tracking session ${sessionId}`);
+      return;
+    }
+    
+    // For new sessions with no output, keep empty state
     if (messageCount === 0 && outputCount === 0) {
+      console.log(`[SessionView] Session ${sessionId} has no output yet`);
       return;
     }
     
-    // If we're waiting for first output and it arrives, trigger a reload
+    // If we're waiting for first output and it arrives, stop waiting and format
     if (isWaitingForFirstOutput && (messageCount > 0 || outputCount > 0)) {
+      console.log(`[SessionView] First output arrived for session ${sessionId}`);
       setIsWaitingForFirstOutput(false);
-      // Reload the output content now that we have data
-      loadOutputContent(sessionId);
-      return;
     }
     
-    const formatOutput = async () => {
+    // Format the output
+    const formatOutput = () => {
       // Get the current session fresh from the store to avoid stale closure
       const currentActiveSession = useSessionStore.getState().getActiveSession();
       
@@ -148,14 +224,6 @@ export function SessionView() {
       // Only format if we're still on the same session that triggered this effect
       if (!currentActiveSession || currentActiveSession.id !== sessionId) {
         console.log(`[formatOutput] Session mismatch, skipping`);
-        return;
-      }
-      
-      // Clear formatted output if we're switching to a different session
-      if (currentSessionIdForOutput && currentSessionIdForOutput !== sessionId) {
-        console.log(`[formatOutput] Switching from session ${currentSessionIdForOutput} to ${sessionId}, clearing output`);
-        setFormattedOutput('');
-        setCurrentSessionIdForOutput(sessionId);
         return;
       }
       
@@ -170,15 +238,14 @@ export function SessionView() {
       
       // Only set the formatted output if we're still on the same session
       const finalActiveSession = useSessionStore.getState().getActiveSession();
-      if (finalActiveSession && finalActiveSession.id === sessionId) {
+      if (finalActiveSession && finalActiveSession.id === sessionId && currentSessionIdForOutput === sessionId) {
         setFormattedOutput(formatted);
-        setCurrentSessionIdForOutput(sessionId);
         console.log(`[formatOutput] Set formatted output, length: ${formatted.length}`);
       }
     };
     
     formatOutput();
-  }, [activeSession?.id, messageCount, outputCount, isWaitingForFirstOutput, activeSession?.status]);
+  }, [activeSession?.id, messageCount, outputCount, currentSessionIdForOutput]);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
@@ -269,7 +336,7 @@ export function SessionView() {
   };
   
   const loadOutputContent = async (sessionId: string, retryCount = 0) => {
-    console.log(`[loadOutputContent] Called for session ${sessionId}`);
+    console.log(`[loadOutputContent] Called for session ${sessionId}, retry: ${retryCount}`);
     if (!terminalInstance.current) {
       console.log(`[loadOutputContent] No terminal instance, returning`);
       return;
@@ -291,7 +358,7 @@ export function SessionView() {
         throw new Error(response.error || 'Failed to load output');
       }
       
-      const outputs = response.data;
+      const outputs = response.data || [];
       
       // Check if we're still on the same session before adding outputs
       const currentActiveSession = useSessionStore.getState().getActiveSession();
@@ -300,7 +367,7 @@ export function SessionView() {
         return;
       }
       
-      console.log(`[loadOutputContent] Database returned ${outputs.length} outputs`);
+      console.log(`[loadOutputContent] Database returned ${outputs.length} outputs for session ${sessionId}`);
       
       // Small delay to ensure UI is ready
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -312,27 +379,44 @@ export function SessionView() {
         return;
       }
       
-      console.log(`[loadOutputContent] Setting ${outputs.length} outputs from database`);
-      
-      // Clear existing output first to prevent mixing
-      useSessionStore.getState().clearSessionOutput(sessionId);
-      
-      // Use setSessionOutputs for atomic update
-      useSessionStore.getState().setSessionOutputs(sessionId, outputs);
-      
-      // Get the updated session to verify data was added
-      const updatedSession = useSessionStore.getState().getActiveSession();
-      if (updatedSession) {
-        console.log(`[loadOutputContent] After setting - output count: ${updatedSession.output?.length}, json count: ${updatedSession.jsonMessages?.length}`);
+      // Only update if we have outputs or if this is not a retry (to avoid infinite loops)
+      if (outputs.length > 0 || retryCount === 0) {
+        console.log(`[loadOutputContent] Setting ${outputs.length} outputs from database`);
+        
+        // Use setSessionOutputs for atomic update (it handles clearing internally)
+        useSessionStore.getState().setSessionOutputs(sessionId, outputs);
+        
+        // Get the updated session to verify data was added
+        const updatedSession = useSessionStore.getState().getActiveSession();
+        if (updatedSession) {
+          console.log(`[loadOutputContent] After setting - output count: ${updatedSession.output?.length}, json count: ${updatedSession.jsonMessages?.length}`);
+          
+          // If this was the first load and we got data, ensure we're not waiting anymore
+          if (isWaitingForFirstOutput && (updatedSession.output?.length > 0 || updatedSession.jsonMessages?.length > 0)) {
+            setIsWaitingForFirstOutput(false);
+          }
+        }
+      } else if (outputs.length === 0 && retryCount > 0) {
+        console.log(`[loadOutputContent] No outputs yet for session ${sessionId}, will retry`);
+        // Don't clear existing output if we're just retrying
       }
       
       setLoadError(null);
     } catch (error) {
       console.error('Error fetching session output:', error);
       
-      if (retryCount < 3) {
-        // Retry after a short delay, with increasing delays for new sessions
-        const delay = activeSession?.status === 'initializing' ? 1500 : 1000;
+      // For new sessions, be more aggressive with retries
+      const isNewSession = activeSession?.status === 'initializing' || 
+                          (activeSession?.status === 'running' && retryCount < 2);
+      const maxRetries = isNewSession ? 10 : 3; // More retries for new sessions
+      
+      if (retryCount < maxRetries) {
+        // Exponential backoff with jitter
+        const baseDelay = isNewSession ? 2000 : 1000;
+        const delay = baseDelay + (retryCount * 500) + Math.random() * 500;
+        
+        console.log(`[loadOutputContent] Retry ${retryCount + 1}/${maxRetries} for session ${sessionId} after ${Math.round(delay)}ms`);
+        
         setTimeout(() => {
           // Check if still the active session before retrying
           const currentActiveSession = useSessionStore.getState().getActiveSession();
@@ -342,8 +426,10 @@ export function SessionView() {
         }, delay);
       } else {
         // Don't show error for new sessions, they might just be starting up
-        if (activeSession?.status !== 'initializing') {
+        if (!isNewSession) {
           setLoadError(error instanceof Error ? error.message : 'Failed to load output content');
+        } else {
+          console.log(`[loadOutputContent] Gave up loading output for new session ${sessionId} after ${retryCount} retries`);
         }
       }
     } finally {
@@ -417,40 +503,48 @@ export function SessionView() {
       }, 100);
     }
 
-    // Reset terminal when switching sessions (preserves scrollback capability)
-    terminalInstance.current.reset();
-    lastProcessedOutputLength.current = 0;
+    // Don't reset terminal here - it's already been reset in the session change effect
+    // This effect should only handle terminal initialization
     
-    // Clear formatted output when switching sessions
-    setFormattedOutput('');
-    setCurrentSessionIdForOutput(null);
-
-    // Use requestAnimationFrame to ensure terminal is ready
-    requestAnimationFrame(() => {
-      // For newly created sessions (status: initializing), add a delay before loading output
-      // This gives Claude Code time to start producing output
-      if (activeSession.status === 'initializing') {
-        // Show a message while Claude Code is starting up
-        if (terminalInstance.current) {
-          terminalInstance.current.writeln('\r\n🚀 Starting Claude Code session...\r\n');
+    // Only load output if we haven't already loaded it for this session
+    const hasOutput = activeSession.output && activeSession.output.length > 0;
+    const hasMessages = activeSession.jsonMessages && activeSession.jsonMessages.length > 0;
+    const needsLoading = hasOutput || hasMessages || activeSession.status === 'initializing';
+    
+    if (needsLoading) {
+      // Use requestAnimationFrame to ensure terminal is ready
+      requestAnimationFrame(() => {
+        // For newly created sessions (status: initializing), add a delay before loading output
+        // This gives Claude Code time to start producing output
+        if (activeSession.status === 'initializing' && !hasOutput && !hasMessages) {
+          // Show a message while Claude Code is starting up
+          if (terminalInstance.current) {
+            terminalInstance.current.writeln('\r\n🚀 Starting Claude Code session...\r\n');
+          }
+          
+          // Load output after a longer delay for new sessions
+          setTimeout(() => {
+            // Check if we're still on the same session before loading
+            const currentActiveSession = useSessionStore.getState().getActiveSession();
+            if (currentActiveSession && currentActiveSession.id === activeSession.id) {
+              loadOutputContent(activeSession.id);
+            }
+          }, 1000); // Increased delay to give Claude more time to start
+        } else if (hasOutput || hasMessages) {
+          // For existing sessions with output, load immediately
+          setTimeout(() => {
+            // Check if we're still on the same session before loading
+            const currentActiveSession = useSessionStore.getState().getActiveSession();
+            if (currentActiveSession && currentActiveSession.id === activeSession.id) {
+              loadOutputContent(activeSession.id);
+            }
+          }, 100);
         }
-        
-        // Mark that we're waiting for first output
-        setIsWaitingForFirstOutput(true);
-        
-        // Load output after a longer delay for new sessions
-        setTimeout(() => {
-          loadOutputContent(activeSession.id);
-        }, 500);
-      } else {
-        // For existing sessions, load output after terminal is ready
-        setTimeout(() => {
-          loadOutputContent(activeSession.id);
-        }, 100);
-      }
-    });
+      });
+    }
     
   }, [activeSession?.id]);
+  
 
   // Check Stravu connection status
   useEffect(() => {
@@ -626,6 +720,14 @@ export function SessionView() {
       terminalInstance.current.scrollToBottom();
     }
   }, [formattedOutput, activeSession?.id, currentSessionIdForOutput]);
+  
+  // Handle the reload output flag after loadOutputContent is defined
+  useEffect(() => {
+    if (shouldReloadOutput && activeSession) {
+      loadOutputContent(activeSession.id);
+      setShouldReloadOutput(false);
+    }
+  }, [shouldReloadOutput, activeSession?.id]);
 
   useEffect(() => {
     if (!scriptTerminalInstance.current || !activeSession) return;
@@ -852,6 +954,9 @@ export function SessionView() {
         setStartTime(sessionStartTime);
       }
       
+      // Update elapsed time immediately
+      setElapsedTime(Math.floor((Date.now() - sessionStartTime) / 1000));
+      
       // Update elapsed time every 5 seconds instead of every second to reduce CPU usage
       const interval = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - sessionStartTime) / 1000));
@@ -863,7 +968,7 @@ export function SessionView() {
       setStartTime(null);
       setElapsedTime(0);
     }
-  }, [activeSession?.status, activeSession?.runStartedAt]);
+  }, [activeSession?.status, activeSession?.runStartedAt, activeSession?.id]);
   
   // Remove polling - we're using real-time updates now
   // useEffect(() => {
@@ -888,6 +993,26 @@ export function SessionView() {
       terminal: false,
     });
   }, [activeSession?.id]);
+  
+  // Force reload output when session becomes active with empty arrays
+  // This handles the case where WebSocket events arrive before session is loaded
+  useEffect(() => {
+    if (!activeSession || !terminalInstance.current) return;
+    
+    // Check if session has empty output arrays but is not a brand new session
+    const hasEmptyOutput = (!activeSession.output || activeSession.output.length === 0) && 
+                          (!activeSession.jsonMessages || activeSession.jsonMessages.length === 0);
+    const isNotNew = activeSession.status !== 'initializing';
+    
+    if (hasEmptyOutput && isNotNew && currentSessionIdForOutput === activeSession.id) {
+      console.log(`[SessionView] Active session ${activeSession.id} has empty output, forcing reload`);
+      
+      // Force a reload from database
+      setTimeout(() => {
+        loadOutputContent(activeSession.id);
+      }, 200);
+    }
+  }, [activeSession?.id, currentSessionIdForOutput]);
 
 
   // Load git commands and check for changes to rebase
@@ -948,6 +1073,18 @@ export function SessionView() {
       setTimeout(() => {
         loadOutputContent(activeSession.id);
       }, 200);
+    }
+    
+    // If status changed from initializing to running, reload output to clear the "Starting..." message
+    if (previousStatus === 'initializing' && currentStatus === 'running') {
+      console.log('[SessionView] Session transitioned from initializing to running, reloading output');
+      // Clear the terminal and reload output
+      if (terminalInstance.current) {
+        terminalInstance.current.clear();
+      }
+      setTimeout(() => {
+        loadOutputContent(activeSession.id);
+      }, 100);
     }
     
     previousStatusRef.current = currentStatus;
@@ -1505,7 +1642,7 @@ export function SessionView() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <StatusIndicator session={activeSession} size="medium" showText showProgress />
+              <StatusIndicator key={`status-${activeSession.id}-${activeSession.status}`} session={activeSession} size="medium" showText showProgress />
               <div className="flex flex-wrap items-center gap-2 relative z-20">
                 {activeSession.isMainRepo ? (
                   <>

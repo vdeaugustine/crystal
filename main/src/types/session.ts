@@ -16,6 +16,7 @@ export interface Session {
   runStartedAt?: string;
   isMainRepo?: boolean;
   displayOrder?: number;
+  projectId?: number;
 }
 
 export interface CreateSessionRequest {

@@ -18,6 +18,7 @@ interface ProjectWithSessions extends Project {
 export function ProjectTreeView() {
   const [projectsWithSessions, setProjectsWithSessions] = useState<ProjectWithSessions[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+  const storesSessions = useSessionStore(state => state.sessions);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedProjectForCreate, setSelectedProjectForCreate] = useState<Project | null>(null);
@@ -25,6 +26,7 @@ export function ProjectTreeView() {
   const [selectedProjectForSettings, setSelectedProjectForSettings] = useState<Project | null>(null);
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+  const [hasPendingUpdates, setHasPendingUpdates] = useState(false);
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const { showError } = useErrorStore();
 
@@ -32,16 +34,85 @@ export function ProjectTreeView() {
     loadProjectsWithSessions();
     
     // Set up event listeners for session updates
-    const handleSessionCreated = () => {
-      loadProjectsWithSessions();
+    const handleSessionCreated = (newSession: Session) => {
+      console.log('[ProjectTreeView] Session created:', newSession.id, 'projectId:', newSession.projectId);
+      
+      // Add the new session to the appropriate project without reloading everything
+      setProjectsWithSessions(prevProjects => {
+        const updatedProjects = prevProjects.map(project => {
+          if (project.id === newSession.projectId) {
+            console.log('[ProjectTreeView] Adding session to project:', project.id, project.name);
+            // Add the new session to this project
+            return {
+              ...project,
+              sessions: [...project.sessions, newSession]
+            };
+          }
+          return project;
+        });
+        
+        // If no project was found, log a warning
+        if (!updatedProjects.some(p => p.id === newSession.projectId)) {
+          console.warn('[ProjectTreeView] No matching project found for session projectId:', newSession.projectId);
+          console.log('[ProjectTreeView] Available projects:', prevProjects.map(p => ({ id: p.id, name: p.name })));
+        }
+        
+        return updatedProjects;
+      });
+      
+      // Auto-expand the project that contains the new session
+      if (newSession.projectId) {
+        setExpandedProjects(prev => new Set([...prev, newSession.projectId!]));
+      }
     };
     
-    const handleSessionUpdated = () => {
-      loadProjectsWithSessions();
+    const handleSessionUpdated = (updatedSession: Session) => {
+      // Only reload if the create dialog is not open
+      // This prevents the dialog from losing state during session updates
+      if (!showCreateDialog) {
+        // Update only the specific session that changed
+        setProjectsWithSessions(prevProjects => 
+          prevProjects.map(project => {
+            // Find the project that contains this session
+            const sessionIndex = project.sessions.findIndex(s => s.id === updatedSession.id);
+            if (sessionIndex !== -1) {
+              // Update the session in this project by merging the updates
+              const updatedSessions = [...project.sessions];
+              // Merge the updated fields with the existing session to preserve all data
+              updatedSessions[sessionIndex] = {
+                ...updatedSessions[sessionIndex],
+                ...updatedSession
+              };
+              return {
+                ...project,
+                sessions: updatedSessions
+              };
+            }
+            return project;
+          })
+        );
+      } else {
+        // Mark that we have pending updates to load after dialog closes
+        setHasPendingUpdates(true);
+      }
     };
     
-    const handleSessionDeleted = () => {
-      loadProjectsWithSessions();
+    const handleSessionDeleted = (deletedSession: Session) => {
+      // Remove the deleted session from the appropriate project without reloading everything
+      setProjectsWithSessions(prevProjects => 
+        prevProjects.map(project => {
+          const sessionIndex = project.sessions.findIndex(s => s.id === deletedSession.id);
+          if (sessionIndex !== -1) {
+            // Remove the session from this project
+            const updatedSessions = project.sessions.filter(s => s.id !== deletedSession.id);
+            return {
+              ...project,
+              sessions: updatedSessions
+            };
+          }
+          return project;
+        })
+      );
     };
     
     // Listen for IPC events
@@ -56,7 +127,35 @@ export function ProjectTreeView() {
         unsubscribeDeleted();
       };
     }
-  }, []);
+  }, [showCreateDialog]);
+
+  // Sync sessions from store with local project state
+  useEffect(() => {
+    if (storesSessions.length > 0 && projectsWithSessions.length > 0) {
+      setProjectsWithSessions(prevProjects => {
+        return prevProjects.map(project => {
+          // Find all sessions for this project from the store
+          const projectSessions = storesSessions.filter(s => s.projectId === project.id);
+          
+          // Only update if there are differences
+          const hasChanges = projectSessions.length !== project.sessions.length ||
+            projectSessions.some(storeSession => {
+              const localSession = project.sessions.find(s => s.id === storeSession.id);
+              return !localSession || localSession.status !== storeSession.status;
+            });
+          
+          if (hasChanges) {
+            return {
+              ...project,
+              sessions: projectSessions
+            };
+          }
+          
+          return project;
+        });
+      });
+    }
+  }, [storesSessions]);
 
   const loadProjectsWithSessions = async () => {
     try {
@@ -305,6 +404,12 @@ export function ProjectTreeView() {
           onClose={() => {
             setShowCreateDialog(false);
             setSelectedProjectForCreate(null);
+            // Reload projects with sessions after closing dialog
+            // if there were any pending updates while dialog was open
+            if (hasPendingUpdates) {
+              loadProjectsWithSessions();
+              setHasPendingUpdates(false);
+            }
           }}
           projectName={selectedProjectForCreate?.name}
           projectId={selectedProjectForCreate?.id}

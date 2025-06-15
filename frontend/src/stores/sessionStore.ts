@@ -47,8 +47,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   
   addSession: (session) => set((state) => {
     console.log(`[SessionStore] Adding new session ${session.id} and setting as active`);
+    
+    // Initialize arrays if they don't exist
+    const sessionWithArrays = {
+      ...session,
+      output: session.output || [],
+      jsonMessages: session.jsonMessages || []
+    };
+    
     return {
-      sessions: [session, ...state.sessions],  // Add new sessions at the top
+      sessions: [sessionWithArrays, ...state.sessions],  // Add new sessions at the top
       activeSessionId: session.id  // Automatically set as active
     };
   }),
@@ -56,23 +64,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   updateSession: (updatedSession) => set((state) => {
     // If this is the active main repo session, update it
     if (state.activeMainRepoSession && state.activeMainRepoSession.id === updatedSession.id) {
+      const newActiveSession = {
+        ...state.activeMainRepoSession,
+        ...updatedSession,
+        output: state.activeMainRepoSession.output,
+        jsonMessages: state.activeMainRepoSession.jsonMessages
+      };
       return {
         ...state,
-        activeMainRepoSession: {
-          ...updatedSession,
-          output: state.activeMainRepoSession.output,
-          jsonMessages: state.activeMainRepoSession.jsonMessages
-        }
+        activeMainRepoSession: newActiveSession
       };
     }
     
     // Otherwise update in regular sessions
+    const newSessions = state.sessions.map(session => {
+      if (session.id === updatedSession.id) {
+        const updatedSessionWithOutput = {
+          ...session,
+          ...updatedSession,
+          output: session.output,
+          jsonMessages: session.jsonMessages
+        };
+        return updatedSessionWithOutput;
+      }
+      return session;
+    });
+    
     return {
-      sessions: state.sessions.map(session => 
-        session.id === updatedSession.id 
-          ? { ...updatedSession, output: session.output, jsonMessages: session.jsonMessages } // Preserve existing output and messages
-          : session
-      )
+      ...state,
+      sessions: newSessions
     };
   }),
   
@@ -82,18 +102,69 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   })),
   
   setActiveSession: async (sessionId) => {
+    console.log('[SessionStore] setActiveSession called with:', sessionId);
+    
     if (!sessionId) {
       set({ activeSessionId: null, activeMainRepoSession: null });
       return;
     }
     
-    // First check if this is a main repo session by fetching it
+    // First check if the session is already in our local store
+    const state = get();
+    const existingSession = state.sessions.find(s => s.id === sessionId);
+    
+    if (existingSession) {
+      console.log('[SessionStore] Session found in local store:', existingSession.id, existingSession.name);
+      
+      if (existingSession.isMainRepo) {
+        // Store main repo session separately with initialized arrays
+        console.log('[SessionStore] Setting existing main repo session as active');
+        set({ 
+          activeSessionId: sessionId, 
+          activeMainRepoSession: {
+            ...existingSession,
+            output: existingSession.output || [],
+            jsonMessages: existingSession.jsonMessages || []
+          }
+        });
+      } else {
+        // Regular session - just set the ID
+        console.log('[SessionStore] Setting existing regular session as active');
+        set({ activeSessionId: sessionId, activeMainRepoSession: null });
+      }
+      
+      // Mark session as viewed
+      get().markSessionAsViewed(sessionId);
+      return;
+    }
+    
+    // If not in local store, fetch from backend (this might be a stale UI)
     try {
+      console.log('[SessionStore] Session not in local store, fetching from backend');
       const response = await API.sessions.get(sessionId);
+      console.log('[SessionStore] Session fetch response:', response);
+      
       if (response.success && response.data) {
         const session = response.data;
+        console.log('[SessionStore] Session data from backend:', session);
+        
+        // Add the session to local store if not already there
+        const currentSessions = get().sessions;
+        const sessionExists = currentSessions.find(s => s.id === sessionId);
+        if (!sessionExists) {
+          console.log('[SessionStore] Adding fetched session to local store');
+          set(state => ({
+            sessions: [...state.sessions, {
+              ...session,
+              output: session.output || [],
+              jsonMessages: session.jsonMessages || []
+            }]
+          }));
+        }
+        
         if (session.isMainRepo) {
           // Store main repo session separately with initialized arrays
+          console.log('[SessionStore] Setting fetched main repo session as active');
           set({ 
             activeSessionId: sessionId, 
             activeMainRepoSession: {
@@ -104,13 +175,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           });
         } else {
           // Regular session
+          console.log('[SessionStore] Setting fetched regular session as active');
           set({ activeSessionId: sessionId, activeMainRepoSession: null });
         }
         // Mark session as viewed when it becomes active
         get().markSessionAsViewed(sessionId);
+      } else {
+        console.error('[SessionStore] Failed to fetch session:', sessionId, response);
       }
     } catch (error) {
-      console.error('Error setting active session:', error);
+      console.error('[SessionStore] Error setting active session:', error);
       set({ activeSessionId: sessionId, activeMainRepoSession: null });
     }
   },
@@ -124,7 +198,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       
       if (output.type === 'json') {
         // Update jsonMessages array
-        const newJsonMessages = session.jsonMessages || [];
+        const newJsonMessages = [...(session.jsonMessages || [])];
         newJsonMessages.push({...output.data, timestamp: output.timestamp});
         return { 
           ...state,
@@ -132,7 +206,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         };
       } else {
         // Add stdout/stderr to output array
-        const newOutput = [...session.output];
+        const newOutput = [...(session.output || [])];
         newOutput.push(output.data);
         return {
           ...state,
@@ -143,19 +217,22 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     
     // Otherwise handle regular sessions
     const sessionIndex = state.sessions.findIndex(s => s.id === output.sessionId);
-    if (sessionIndex === -1) return state;
+    if (sessionIndex === -1) {
+      console.warn(`[SessionStore] Session ${output.sessionId} not found in store, cannot add output`);
+      return state;
+    }
     
     const sessions = [...state.sessions];
     const session = sessions[sessionIndex];
     
     if (output.type === 'json') {
       // Update jsonMessages array
-      const newJsonMessages = session.jsonMessages || [];
+      const newJsonMessages = [...(session.jsonMessages || [])];
       newJsonMessages.push({...output.data, timestamp: output.timestamp});
       sessions[sessionIndex] = { ...session, jsonMessages: newJsonMessages };
     } else {
       // Add stdout/stderr to output array
-      const newOutput = [...session.output];
+      const newOutput = [...(session.output || [])];
       newOutput.push(output.data);
       sessions[sessionIndex] = { ...session, output: newOutput };
     }
@@ -182,6 +259,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   }),
   
   setSessionOutputs: (sessionId, outputs) => set((state) => {
+    console.log(`[SessionStore] Setting ${outputs.length} outputs for session ${sessionId}`);
+    
     // Separate outputs and JSON messages
     const stdOutputs: string[] = [];
     const jsonMessages: any[] = [];
@@ -194,6 +273,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
     });
     
+    console.log(`[SessionStore] Processed outputs - stdout: ${stdOutputs.length}, json: ${jsonMessages.length}`);
+    
     // Check if this is for the active main repo session
     if (state.activeMainRepoSession && state.activeMainRepoSession.id === sessionId) {
       return {
@@ -202,14 +283,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       };
     }
     
-    return {
-      sessions: state.sessions.map(session => {
-        if (session.id === sessionId) {
-          return { ...session, output: stdOutputs, jsonMessages };
-        }
-        return session;
-      })
-    };
+    // For regular sessions, update in the sessions array
+    const updatedSessions = state.sessions.map(session => {
+      if (session.id === sessionId) {
+        console.log(`[SessionStore] Updating session ${sessionId} with outputs`);
+        return { ...session, output: stdOutputs, jsonMessages };
+      }
+      return session;
+    });
+    
+    return { sessions: updatedSessions };
   }),
   
   clearSessionOutput: (sessionId) => set((state) => {
@@ -269,12 +352,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   
   getActiveSession: () => {
     const state = get();
+    console.log('[SessionStore] getActiveSession - activeSessionId:', state.activeSessionId, 'sessions count:', state.sessions.length);
+    
     // If we have a main repo session, return it
     if (state.activeMainRepoSession && state.activeMainRepoSession.id === state.activeSessionId) {
+      console.log('[SessionStore] Returning activeMainRepoSession');
       return state.activeMainRepoSession;
     }
+    
     // Otherwise look in regular sessions
-    return state.sessions.find(session => session.id === state.activeSessionId);
+    const found = state.sessions.find(session => session.id === state.activeSessionId);
+    console.log('[SessionStore] Found session in sessions array:', found?.id, found?.name);
+    return found;
   },
 
   markSessionAsViewed: async (sessionId) => {
