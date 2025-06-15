@@ -2058,7 +2058,7 @@ ipcMain.handle('sessions:abort-rebase-and-use-claude', async (_event, sessionId:
     }
 
     // Send the prompt to Claude Code to handle the rebase
-    const prompt = `Please rebase ${mainBranch} into this branch and resolve all conflicts`;
+    const prompt = `Please rebase the local ${mainBranch} branch (not origin/${mainBranch}) into this branch and resolve all conflicts`;
     
     // Check if session is waiting for input or stopped
     const currentSession = await sessionManager.getSession(sessionId);

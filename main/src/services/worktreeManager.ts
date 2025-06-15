@@ -277,21 +277,8 @@ export class WorktreeManager {
     try {
       console.log(`[WorktreeManager] Rebasing ${mainBranch} into worktree: ${worktreePath}`);
       
-      // First, fetch the latest changes from the main branch
-      let command = `git fetch origin ${mainBranch}`;
-      executedCommands.push(`${command} (in ${worktreePath})`);
-      try {
-        const fetchResult = await execWithShellPath(command, { cwd: worktreePath });
-        lastOutput = fetchResult.stdout || fetchResult.stderr || '';
-        console.log(`[WorktreeManager] Fetched latest ${mainBranch}`);
-      } catch (fetchError: any) {
-        // Fetch might fail if there's no remote, continue anyway
-        console.log(`[WorktreeManager] Fetch failed (might not have remote), continuing...`);
-        lastOutput = fetchError.stderr || fetchError.stdout || '';
-      }
-      
-      // Rebase the current worktree branch onto main
-      command = `git rebase ${mainBranch}`;
+      // Rebase the current worktree branch onto local main branch
+      const command = `git rebase ${mainBranch}`;
       executedCommands.push(`${command} (in ${worktreePath})`);
       const rebaseResult = await execWithShellPath(command, { cwd: worktreePath });
       lastOutput = rebaseResult.stdout || rebaseResult.stderr || '';

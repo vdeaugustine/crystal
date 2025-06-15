@@ -1522,11 +1522,11 @@ export function SessionView() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 17l-4 4m0 0l-4-4m4 4V3" />
                         </svg>
-                        <span className="text-sm font-medium">{isMerging ? 'Rebasing...' : `Rebase from ${gitCommands?.mainBranch || 'main'}`}</span>
+                        <span className="text-sm font-medium">{isMerging ? 'Rebasing...' : `Rebase from local ${gitCommands?.mainBranch || 'main'}`}</span>
                       </button>
                       {/* Enhanced Tooltip */}
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 max-w-md w-80">
-                        <div className="font-semibold mb-1">Rebase from {gitCommands?.mainBranch || 'main'}</div>
+                        <div className="font-semibold mb-1">Rebase from local {gitCommands?.mainBranch || 'main'}</div>
                         {!hasChangesToRebase ? (
                           <div className="text-gray-300">No changes to rebase</div>
                         ) : (
@@ -1536,7 +1536,7 @@ export function SessionView() {
                               git rebase {gitCommands?.mainBranch || 'main'}
                             </div>
                             <div className="text-xs text-gray-300 mt-1">
-                              Replays your commits on top of {gitCommands?.mainBranch || 'main'}
+                              Replays your commits on top of local {gitCommands?.mainBranch || 'main'} branch
                             </div>
                           </div>
                         )}
