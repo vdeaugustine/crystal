@@ -26,6 +26,7 @@ export interface CreateSessionRequest {
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
   isMainRepo?: boolean;
+  baseBranch?: string;
 }
 
 export interface SessionOutput {

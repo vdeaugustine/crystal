@@ -83,6 +83,9 @@ interface ElectronAPI {
 
     // IDE operations
     openIDE: (sessionId: string) => Promise<IPCResponse>;
+    
+    // Reorder operations
+    reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>) => Promise<IPCResponse>;
   };
 
   // Project management
@@ -94,6 +97,8 @@ interface ElectronAPI {
     update: (projectId: string, updates: any) => Promise<IPCResponse>;
     delete: (projectId: string) => Promise<IPCResponse>;
     detectBranch: (path: string) => Promise<IPCResponse>;
+    reorder: (projectOrders: Array<{ id: number; displayOrder: number }>) => Promise<IPCResponse>;
+    listBranches: (projectId: string) => Promise<IPCResponse>;
   };
 
   // Configuration

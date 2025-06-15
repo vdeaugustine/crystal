@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API } from '../utils/api';
 import type { CreateSessionRequest } from '../types/session';
 import { useErrorStore } from '../stores/errorStore';
-import { Shield, ShieldOff, Sparkles } from 'lucide-react';
+import { Shield, ShieldOff, Sparkles, GitBranch } from 'lucide-react';
 
 interface CreateSessionDialogProps {
   isOpen: boolean;
@@ -22,6 +22,8 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const [worktreeError, setWorktreeError] = useState<string | null>(null);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const { showError } = useErrorStore();
   
   useEffect(() => {
@@ -41,8 +43,27 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
       }).catch(err => {
         console.error('Failed to fetch config:', err);
       });
+      
+      // Fetch branches if projectId is provided
+      if (projectId) {
+        setIsLoadingBranches(true);
+        API.projects.listBranches(projectId.toString()).then(response => {
+          if (response.success && response.data) {
+            setBranches(response.data);
+            // Set the current branch as default if available
+            const currentBranch = response.data.find((b: any) => b.isCurrent);
+            if (currentBranch && !formData.baseBranch) {
+              setFormData(prev => ({ ...prev, baseBranch: currentBranch.name }));
+            }
+          }
+        }).catch(err => {
+          console.error('Failed to fetch branches:', err);
+        }).finally(() => {
+          setIsLoadingBranches(false);
+        });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, projectId]);
   
   if (!isOpen) return null;
   
@@ -229,6 +250,47 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               {!worktreeError && 'The name that will be used to label your session and create your worktree folder.'}
             </p>
           </div>
+          
+          {branches.length > 0 && (
+            <div>
+              <label htmlFor="baseBranch" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Base Branch
+              </label>
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-gray-400" />
+                <select
+                  id="baseBranch"
+                  value={formData.baseBranch || ''}
+                  onChange={(e) => setFormData({ ...formData, baseBranch: e.target.value })}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                  disabled={isLoadingBranches}
+                >
+                  {branches.map((branch, index) => {
+                    // Check if this is the first non-worktree branch after worktree branches
+                    const isFirstNonWorktree = index > 0 && 
+                      !branch.hasWorktree && 
+                      branches[index - 1].hasWorktree;
+                    
+                    return (
+                      <React.Fragment key={branch.name}>
+                        {isFirstNonWorktree && (
+                          <option disabled value="">
+                            ──────────────
+                          </option>
+                        )}
+                        <option value={branch.name}>
+                          {branch.name} {branch.isCurrent ? '(current)' : ''}
+                        </option>
+                      </React.Fragment>
+                    );
+                  })}
+                </select>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Create the new session branch from this existing branch
+              </p>
+            </div>
+          )}
           
           <div>
             <label htmlFor="count" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

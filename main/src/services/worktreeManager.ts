@@ -43,14 +43,14 @@ export class WorktreeManager {
     }
   }
 
-  async createWorktree(projectPath: string, name: string, branch?: string): Promise<{ worktreePath: string }> {
+  async createWorktree(projectPath: string, name: string, branch?: string, baseBranch?: string): Promise<{ worktreePath: string }> {
     console.log(`[WorktreeManager] Creating worktree: ${name} in project: ${projectPath}`);
     
     const { baseDir } = this.getProjectPaths(projectPath);
     const worktreePath = join(baseDir, name);
     const branchName = branch || name;
     
-    console.log(`[WorktreeManager] Worktree path: ${worktreePath}, branch: ${branchName}`);
+    console.log(`[WorktreeManager] Worktree path: ${worktreePath}, branch: ${branchName}, base branch: ${baseBranch || 'HEAD'}`);
 
     try {
       // First check if this is a git repository
@@ -116,9 +116,21 @@ export class WorktreeManager {
         console.log(`[WorktreeManager] Adding worktree with existing branch...`);
         await execWithShellPath(`git worktree add "${worktreePath}" ${branchName}`, { cwd: projectPath });
       } else {
-        // Create new branch from current HEAD and add worktree
-        console.log(`[WorktreeManager] Creating new branch and adding worktree...`);
-        await execWithShellPath(`git worktree add -b ${branchName} "${worktreePath}"`, { cwd: projectPath });
+        // Create new branch from specified base branch (or current HEAD if not specified)
+        const baseRef = baseBranch || 'HEAD';
+        console.log(`[WorktreeManager] Creating new branch from ${baseRef} and adding worktree...`);
+        
+        // Verify that the base branch exists if specified
+        if (baseBranch) {
+          try {
+            await execWithShellPath(`git show-ref --verify --quiet refs/heads/${baseBranch}`, { cwd: projectPath });
+            console.log(`[WorktreeManager] Base branch ${baseBranch} exists`);
+          } catch {
+            throw new Error(`Base branch '${baseBranch}' does not exist`);
+          }
+        }
+        
+        await execWithShellPath(`git worktree add -b ${branchName} "${worktreePath}" ${baseRef}`, { cwd: projectPath });
       }
       
       console.log(`[WorktreeManager] Worktree created successfully at: ${worktreePath}`);
@@ -185,6 +197,46 @@ export class WorktreeManager {
       return worktrees;
     } catch (error) {
       throw new Error(`Failed to list worktrees: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async listBranches(projectPath: string): Promise<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>> {
+    try {
+      // Get all local branches
+      const { stdout: branchOutput } = await execWithShellPath(`git branch`, { cwd: projectPath });
+      
+      // Get all worktrees to identify which branches have worktrees
+      const worktrees = await this.listWorktrees(projectPath);
+      const worktreeBranches = new Set(worktrees.map(w => w.branch));
+      
+      const branches: Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }> = [];
+      const lines = branchOutput.split('\n').filter(line => line.trim());
+      
+      for (const line of lines) {
+        const isCurrent = line.startsWith('*');
+        // Remove leading *, +, and spaces. The + indicates uncommitted changes
+        const name = line.replace(/^[\*\+]?\s*[\+]?\s*/, '').trim();
+        if (name) {
+          branches.push({ 
+            name, 
+            isCurrent,
+            hasWorktree: worktreeBranches.has(name)
+          });
+        }
+      }
+      
+      // Sort branches: worktree branches first, then the rest
+      branches.sort((a, b) => {
+        if (a.hasWorktree && !b.hasWorktree) return -1;
+        if (!a.hasWorktree && b.hasWorktree) return 1;
+        // Within each group, sort alphabetically
+        return a.name.localeCompare(b.name);
+      });
+      
+      return branches;
+    } catch (error) {
+      console.error(`[WorktreeManager] Error listing branches:`, error);
+      return [];
     }
   }
 

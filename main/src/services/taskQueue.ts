@@ -22,6 +22,7 @@ interface CreateSessionJob {
   index?: number;
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
+  baseBranch?: string;
 }
 
 interface ContinueSessionJob {
@@ -106,10 +107,10 @@ export class TaskQueue {
 
   private setupProcessors() {
     this.sessionQueue.process(5, async (job) => {
-      const { prompt, worktreeTemplate, index, permissionMode, projectId } = job.data;
+      const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch } = job.data;
       const { sessionManager, worktreeManager, claudeCodeManager } = this.options;
 
-      console.log(`[TaskQueue] Processing session creation job ${job.id}`, { prompt, worktreeTemplate, index, permissionMode, projectId });
+      console.log(`[TaskQueue] Processing session creation job ${job.id}`, { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch });
 
       try {
         let targetProject;
@@ -149,7 +150,7 @@ export class TaskQueue {
           run_script: targetProject.run_script
         }, null, 2));
 
-        const { worktreePath } = await worktreeManager.createWorktree(targetProject.path, worktreeName, undefined);
+        const { worktreePath } = await worktreeManager.createWorktree(targetProject.path, worktreeName, undefined, baseBranch);
         console.log(`[TaskQueue] Worktree created at: ${worktreePath}`);
         
         const sessionName = worktreeName;
@@ -245,10 +246,10 @@ export class TaskQueue {
     return job;
   }
 
-  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
+  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
     const jobs = [];
     for (let i = 0; i < count; i++) {
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId, baseBranch }));
     }
     return Promise.all(jobs);
   }

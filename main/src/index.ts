@@ -929,7 +929,7 @@ ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) 
 
     if (count > 1) {
       console.log('[IPC] Creating multiple sessions...');
-      const jobs = await taskQueue.createMultipleSessions(request.prompt, request.worktreeTemplate || '', count, request.permissionMode, targetProject.id);
+      const jobs = await taskQueue.createMultipleSessions(request.prompt, request.worktreeTemplate || '', count, request.permissionMode, targetProject.id, request.baseBranch);
       console.log(`[IPC] Created ${jobs.length} jobs:`, jobs.map(job => job.id));
       return { success: true, data: { jobIds: jobs.map(job => job.id) } };
     } else {
@@ -938,7 +938,8 @@ ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) 
         prompt: request.prompt,
         worktreeTemplate: request.worktreeTemplate || '',
         permissionMode: request.permissionMode,
-        projectId: targetProject.id
+        projectId: targetProject.id,
+        baseBranch: request.baseBranch
       });
       console.log('[IPC] Created job with ID:', job.id);
       return { success: true, data: { jobId: job.id } };
@@ -1643,6 +1644,21 @@ ipcMain.handle('projects:detect-branch', async (_event, path: string) => {
   } catch (error) {
     console.log('[Main] Could not detect branch:', error);
     return { success: true, data: 'main' }; // Return default if detection fails
+  }
+});
+
+ipcMain.handle('projects:list-branches', async (_event, projectId: string) => {
+  try {
+    const project = databaseService.getProject(parseInt(projectId));
+    if (!project) {
+      return { success: false, error: 'Project not found' };
+    }
+    
+    const branches = await worktreeManager.listBranches(project.path);
+    return { success: true, data: branches };
+  } catch (error) {
+    console.error('[Main] Failed to list branches:', error);
+    return { success: false, error: 'Failed to list branches' };
   }
 });
 

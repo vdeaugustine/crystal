@@ -24,6 +24,7 @@ export interface CreateSessionRequest {
   count?: number;
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
+  baseBranch?: string;
 }
 
 export interface SessionUpdate {
