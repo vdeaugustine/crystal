@@ -469,10 +469,15 @@ export function DraggableProjectTreeView() {
                     e.stopPropagation();
                     handleCreateSession(project);
                   }}
-                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors opacity-0 group-hover:opacity-100"
-                  title="Create new session"
+                  className={`relative p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors group/tooltip ${
+                    sessionCount === 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
                 >
                   <Plus className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" />
+                  <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 text-xs text-white bg-gray-800 dark:bg-gray-700 rounded whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 pointer-events-none z-50">
+                    Create new session
+                    <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-4 border-transparent border-t-gray-800 dark:border-t-gray-700"></span>
+                  </span>
                 </button>
                 
                 <button
