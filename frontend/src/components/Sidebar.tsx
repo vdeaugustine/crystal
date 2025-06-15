@@ -17,6 +17,7 @@ interface SidebarProps {
 
 export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick, width, onResize }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showStatusGuide, setShowStatusGuide] = useState(false);
 
   return (
     <>
@@ -113,66 +114,13 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick,
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           <div className="px-4 py-2 text-sm uppercase flex items-center justify-between overflow-hidden">
             <span className="truncate text-gray-700 dark:text-gray-400">Projects & Sessions</span>
-            <div className="group relative">
-              <button 
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                title="Status legend"
-              >
-                <Info className="w-4 h-4" />
-              </button>
-              {/* Status Legend Tooltip */}
-              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-                <div className="p-4">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Session Status Guide</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">Initializing</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Setting up git worktree and environment</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">Running</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Claude is actively processing your request</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-amber-500 rounded-full animate-pulse flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">Waiting</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Claude needs your input to continue</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-emerald-500 rounded-full flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">Completed</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Task finished successfully</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">New Activity</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Session has new unviewed results</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
-                      <div>
-                        <span className="text-gray-700 dark:text-gray-200 text-sm font-medium">Error</span>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">Something went wrong with the session</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Arrow pointing up */}
-                <div className="absolute -top-2 right-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-white dark:border-b-gray-900"></div>
-              </div>
-            </div>
+            <button 
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+              title="View status legend"
+              onClick={() => setShowStatusGuide(true)}
+            >
+              <Info className="w-4 h-4" />
+            </button>
           </div>
           <DraggableProjectTreeView />
         </div>
@@ -180,6 +128,75 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick,
     </div>
 
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      
+      {/* Status Guide Modal */}
+      {showStatusGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowStatusGuide(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Session Status Guide</h3>
+              <button
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                onClick={() => setShowStatusGuide(false)}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">Initializing</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Setting up git worktree and environment</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">Running</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Claude is actively processing your request</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-amber-500 rounded-full animate-pulse flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">Waiting</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Claude needs your input to continue</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-gray-400 rounded-full flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">Completed</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Task finished successfully</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">New Activity</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Session has new unviewed results</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
+                <div>
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">Error</span>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Something went wrong with the session</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

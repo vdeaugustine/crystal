@@ -338,10 +338,11 @@ crystal/
 - The help dialog covers all features, keyboard shortcuts, and tips
 
 ### Session States Explained
-- 🔵 **Initializing**: Setting up git worktree
+- 🟢 **Initializing**: Setting up git worktree
 - 🟢 **Running**: Claude is actively processing
 - 🟡 **Waiting**: Needs your input
-- ⚪ **Stopped**: Session completed or stopped
+- ⚪ **Completed**: Task finished successfully
+- 🔵 **New Activity**: Session has new unviewed results
 - 🔴 **Error**: Something went wrong
 
 ### Git Operations

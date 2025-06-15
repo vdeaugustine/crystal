@@ -20,10 +20,10 @@ export function StatusIndicator({
       case 'initializing':
         return {
           status: 'initializing',
-          color: 'bg-blue-500',
-          textColor: 'text-blue-400',
-          bgColor: 'bg-blue-900/20',
-          borderColor: 'border-blue-800',
+          color: 'bg-green-500',
+          textColor: 'text-green-400',
+          bgColor: 'bg-green-900/20',
+          borderColor: 'border-green-800',
           icon: Loader2,
           text: 'Initializing',
           animated: true,

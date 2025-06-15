@@ -101,9 +101,12 @@ Click "Create Session" and enter:
 - **Count**: Number of parallel sessions
 
 ### 3. Manage Sessions
+- **🟢 Initializing**: Setting up git worktree
 - **🟢 Running**: Claude is working
 - **🟡 Waiting**: Needs your input
-- **⚪ Stopped**: Completed or paused
+- **⚪ Completed**: Task finished successfully
+- **🔵 New Activity**: Session has new unviewed results
+- **🔴 Error**: Something went wrong
 - Click any session to view or continue it
 
 ### 4. View Your Work
