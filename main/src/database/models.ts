@@ -74,6 +74,7 @@ export interface CreateSessionData {
 }
 
 export interface UpdateSessionData {
+  name?: string;
   status?: Session['status'];
   last_output?: string;
   exit_code?: number;

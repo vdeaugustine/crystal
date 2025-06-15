@@ -33,6 +33,8 @@ export function SessionView() {
     changes: false,
     terminal: false,
   });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState('');
   
   // Instead of subscribing to script output, we'll get it when needed
   const [scriptOutput, setScriptOutput] = useState<string[]>([]);
@@ -1390,6 +1392,46 @@ export function SessionView() {
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
     }
   };
+
+  const handleStartEditName = () => {
+    if (!activeSession) return;
+    setEditName(activeSession.name);
+    setIsEditingName(true);
+  };
+
+  const handleSaveEditName = async () => {
+    if (!activeSession || editName.trim() === '' || editName === activeSession.name) {
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      const response = await API.sessions.rename(activeSession.id, editName.trim());
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to rename session');
+      }
+      setIsEditingName(false);
+    } catch (error) {
+      console.error('Error renaming session:', error);
+      alert('Failed to rename session');
+      setEditName(activeSession.name);
+      setIsEditingName(false);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditName('');
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEditName();
+    } else if (e.key === 'Escape') {
+      handleCancelEditName();
+    }
+  };
   
   if (!activeSession) {
     return (
@@ -1409,7 +1451,25 @@ export function SessionView() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex-shrink-0">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0 relative">
-            <h2 className="font-bold text-xl text-gray-900 dark:text-gray-100 truncate">{activeSession.name}</h2>
+            {isEditingName ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={handleSaveEditName}
+                className="font-bold text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1 rounded border border-gray-400 dark:border-gray-600 focus:border-blue-500 focus:outline-none w-full"
+                autoFocus
+              />
+            ) : (
+              <h2 
+                className="font-bold text-xl text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-gray-700 dark:hover:text-gray-600"
+                onDoubleClick={handleStartEditName}
+                title="Double-click to rename"
+              >
+                {activeSession.name}
+              </h2>
+            )}
             <div className="flex items-center space-x-1 mt-1">
               <button
                 onClick={() => setIsPathCollapsed(!isPathCollapsed)}

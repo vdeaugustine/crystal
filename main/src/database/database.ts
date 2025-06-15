@@ -541,6 +541,10 @@ export class DatabaseService {
     const updates: string[] = [];
     const values: any[] = [];
 
+    if (data.name !== undefined) {
+      updates.push('name = ?');
+      values.push(data.name);
+    }
     if (data.status !== undefined) {
       updates.push('status = ?');
       values.push(data.status);

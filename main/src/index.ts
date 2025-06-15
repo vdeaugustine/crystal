@@ -1231,6 +1231,28 @@ ipcMain.handle('sessions:generate-name', async (_event, prompt: string) => {
   }
 });
 
+ipcMain.handle('sessions:rename', async (_event, sessionId: string, newName: string) => {
+  try {
+    // Update the session name in the database
+    const updatedSession = databaseService.updateSession(sessionId, { name: newName });
+    if (!updatedSession) {
+      return { success: false, error: 'Session not found' };
+    }
+    
+    // Emit update event so frontend gets notified
+    const session = sessionManager.getSession(sessionId);
+    if (session) {
+      session.name = newName;
+      sessionManager.emit('session-updated', session);
+    }
+    
+    return { success: true, data: updatedSession };
+  } catch (error) {
+    console.error('Failed to rename session:', error);
+    return { success: false, error: 'Failed to rename session' };
+  }
+});
+
 // Git and execution handlers
 ipcMain.handle('sessions:get-executions', async (_event, sessionId: string) => {
   try {

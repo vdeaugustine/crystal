@@ -173,6 +173,11 @@ export class API {
       return window.electronAPI.sessions.generateName(prompt);
     },
 
+    async rename(sessionId: string, newName: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.rename(sessionId, newName);
+    },
+
     async getGitCommands(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.getGitCommands(sessionId);
