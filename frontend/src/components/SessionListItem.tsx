@@ -144,7 +144,7 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         <StatusIndicator session={session} size="small" />
         <span className="flex-1 truncate text-sm text-left">
           {session.name}
-          {session.isMainRepo && (
+          {!!session.isMainRepo && (
             <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">(main)</span>
           )}
         </span>
