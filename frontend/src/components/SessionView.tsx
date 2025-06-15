@@ -89,21 +89,25 @@ export function SessionView() {
             )}
             {(activeSession.status === 'running' || activeSession.status === 'initializing') && (
               <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2">
-                <div className="flex items-center space-x-3 text-gray-700 dark:text-gray-300">
-                    <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot"></div>
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.4s' }}></div>
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center space-x-3">
+                        <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot"></div>
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.4s' }}></div>
+                        </div>
+                        <span className="text-sm font-medium">
+                            {activeSession.status === 'initializing' ? 'Starting Claude Code...' : 'Claude is working...'}
+                        </span>
                     </div>
-                    <span className="text-sm font-medium">
-                        {activeSession.status === 'initializing' ? 'Starting Claude Code...' : 'Claude is working...'}
-                    </span>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                        {activeSession.status === 'initializing' ? '⚡' : hook.formatElapsedTime(hook.elapsedTime)}
+                    <div className="flex items-center space-x-3">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                            {activeSession.status === 'initializing' ? '⚡' : hook.formatElapsedTime(hook.elapsedTime)}
+                        </div>
+                        <button onClick={hook.handleStopSession} className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">
+                            Cancel
+                        </button>
                     </div>
-                    <button onClick={hook.handleStopSession} className="ml-2 px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">
-                        Cancel
-                    </button>
                 </div>
               </div>
             )}
