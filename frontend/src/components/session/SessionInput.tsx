@@ -7,7 +7,7 @@ interface SessionInputProps {
   viewMode: ViewMode;
   input: string;
   setInput: (input: string) => void;
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   handleTerminalCommand: () => void;
   handleSendInput: () => void;
   handleContinueConversation: () => void;
