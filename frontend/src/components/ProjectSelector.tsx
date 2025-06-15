@@ -121,8 +121,16 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
     setIsOpen(false);
   };
 
-  const handleProjectDeleted = () => {
+  const handleProjectUpdated = () => {
+    // Since ProjectSettings already updated the project on the backend,
+    // we need to refresh to get the updated data
     fetchProjects();
+  };
+
+  const handleProjectDeleted = () => {
+    // Remove the deleted project from the list without refetching
+    setProjects(prev => prev.filter(p => p.id !== settingsProject?.id));
+    
     if (settingsProject?.id === activeProject?.id) {
       // If the deleted project was active, clear it
       setActiveProject(null);
@@ -344,7 +352,7 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
             setShowSettings(false);
             setSettingsProject(null);
           }}
-          onUpdate={fetchProjects}
+          onUpdate={handleProjectUpdated}
           onDelete={handleProjectDeleted}
         />
       )}

@@ -265,7 +265,7 @@ export const useSessionView = (
       const outputArray = currentActiveSession.output || [];
       console.log(`[formatOutput] Session ${activeSession.id} has ${outputArray.length} output items`);
       
-      let formatted = outputArray.join('');
+      const formatted = outputArray.join('');
       
       // Double-check we're still on the same session before updating
       const finalActiveSession = useSessionStore.getState().getActiveSession();

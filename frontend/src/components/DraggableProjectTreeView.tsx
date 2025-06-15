@@ -51,17 +51,83 @@ export function DraggableProjectTreeView() {
   useEffect(() => {
     loadProjectsWithSessions();
     
-    // Set up event listeners for session updates
-    const handleSessionCreated = () => {
-      loadProjectsWithSessions();
+    // Set up event listeners for session updates with targeted updates
+    const handleSessionCreated = (newSession: Session) => {
+      console.log('[DraggableProjectTreeView] Session created:', newSession.id, 'for project:', newSession.projectId);
+      
+      if (!newSession.projectId) {
+        console.warn('[DraggableProjectTreeView] Session created without projectId, reloading all');
+        loadProjectsWithSessions();
+        return;
+      }
+      
+      // Add the new session to the appropriate project without reloading everything
+      setProjectsWithSessions(prevProjects => {
+        const updatedProjects = prevProjects.map(project => {
+          if (project.id === newSession.projectId) {
+            // Add the new session to this project
+            return {
+              ...project,
+              sessions: [...project.sessions, newSession]
+            };
+          }
+          return project;
+        });
+        
+        // If no project was found, log a warning
+        if (!updatedProjects.some(p => p.id === newSession.projectId)) {
+          console.warn('[DraggableProjectTreeView] No matching project found for session projectId:', newSession.projectId);
+        }
+        
+        return updatedProjects;
+      });
+      
+      // Auto-expand the project that contains the new session
+      if (newSession.projectId) {
+        setExpandedProjects(prev => new Set([...prev, newSession.projectId!]));
+      }
     };
     
-    const handleSessionUpdated = () => {
-      loadProjectsWithSessions();
+    const handleSessionUpdated = (updatedSession: Session) => {
+      // Update only the specific session that changed
+      setProjectsWithSessions(prevProjects => 
+        prevProjects.map(project => {
+          // Find the project that contains this session
+          const sessionIndex = project.sessions.findIndex(s => s.id === updatedSession.id);
+          if (sessionIndex !== -1) {
+            // Update the session in this project by merging the updates
+            const updatedSessions = [...project.sessions];
+            // Merge the updated fields with the existing session to preserve all data
+            updatedSessions[sessionIndex] = {
+              ...updatedSessions[sessionIndex],
+              ...updatedSession
+            };
+            return {
+              ...project,
+              sessions: updatedSessions
+            };
+          }
+          return project;
+        })
+      );
     };
     
-    const handleSessionDeleted = () => {
-      loadProjectsWithSessions();
+    const handleSessionDeleted = (deletedSession: Session) => {
+      // Remove the deleted session from the appropriate project without reloading everything
+      setProjectsWithSessions(prevProjects => 
+        prevProjects.map(project => {
+          const sessionIndex = project.sessions.findIndex(s => s.id === deletedSession.id);
+          if (sessionIndex !== -1) {
+            // Remove the session from this project
+            const updatedSessions = project.sessions.filter(s => s.id !== deletedSession.id);
+            return {
+              ...project,
+              sessions: updatedSessions
+            };
+          }
+          return project;
+        })
+      );
     };
     
     // Listen for IPC events
@@ -186,8 +252,9 @@ export function DraggableProjectTreeView() {
       setShowAddProjectDialog(false);
       setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
       
-      // Just reload the projects list
-      loadProjectsWithSessions();
+      // Add the new project to the list without reloading everything
+      const newProjectWithSessions = { ...response.data, sessions: [] };
+      setProjectsWithSessions(prev => [...prev, newProjectWithSessions]);
     } catch (error: any) {
       console.error('Failed to create project:', error);
       showError({
@@ -563,10 +630,17 @@ export function DraggableProjectTreeView() {
             setSelectedProjectForSettings(null);
           }}
           onUpdate={() => {
+            // Project updates don't affect sessions, so we can just refresh projects
+            // This is still a refresh but limited to project data only
             loadProjectsWithSessions();
           }}
           onDelete={() => {
-            loadProjectsWithSessions();
+            // Remove the deleted project from the list without reloading
+            if (selectedProjectForSettings) {
+              setProjectsWithSessions(prev => 
+                prev.filter(p => p.id !== selectedProjectForSettings.id)
+              );
+            }
           }}
         />
       )}
