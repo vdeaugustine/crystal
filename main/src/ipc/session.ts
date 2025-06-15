@@ -1,0 +1,429 @@
+import { IpcMain } from 'electron';
+import type { AppServices } from './types';
+import type { CreateSessionRequest } from '../types/session';
+
+export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices): void {
+  const {
+    sessionManager,
+    databaseService,
+    taskQueue,
+    worktreeManager,
+    claudeCodeManager,
+    worktreeNameGenerator
+  } = services;
+
+  // Session management handlers
+  ipcMain.handle('sessions:get-all', async () => {
+    try {
+      const sessions = await sessionManager.getAllSessions();
+      return { success: true, data: sessions };
+    } catch (error) {
+      console.error('Failed to get sessions:', error);
+      return { success: false, error: 'Failed to get sessions' };
+    }
+  });
+
+  ipcMain.handle('sessions:get', async (_event, sessionId: string) => {
+    try {
+      console.log('[IPC] sessions:get called for sessionId:', sessionId);
+      const session = await sessionManager.getSession(sessionId);
+      console.log('[IPC] sessions:get result:', session ? `Found session ${session.id}` : 'Session not found');
+
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+      return { success: true, data: session };
+    } catch (error) {
+      console.error('Failed to get session:', error);
+      return { success: false, error: 'Failed to get session' };
+    }
+  });
+
+  ipcMain.handle('sessions:get-all-with-projects', async () => {
+    try {
+      const allProjects = databaseService.getAllProjects();
+      const projectsWithSessions = allProjects.map(project => {
+        const sessions = sessionManager.getSessionsForProject(project.id);
+        return {
+          ...project,
+          sessions
+        };
+      });
+      return { success: true, data: projectsWithSessions };
+    } catch (error) {
+      console.error('Failed to get sessions with projects:', error);
+      return { success: false, error: 'Failed to get sessions with projects' };
+    }
+  });
+
+  ipcMain.handle('sessions:create', async (_event, request: CreateSessionRequest) => {
+    console.log('[IPC] sessions:create handler called with request:', request);
+    try {
+      let targetProject;
+
+      if (request.projectId) {
+        // Use the project specified in the request
+        targetProject = databaseService.getProject(request.projectId);
+        if (!targetProject) {
+          return { success: false, error: 'Project not found' };
+        }
+      } else {
+        // Fall back to active project for backward compatibility
+        targetProject = sessionManager.getActiveProject();
+        if (!targetProject) {
+          console.warn('[IPC] No project specified and no active project found');
+          return { success: false, error: 'No project specified. Please provide a projectId.' };
+        }
+      }
+
+      if (!taskQueue) {
+        console.error('[IPC] Task queue not initialized');
+        return { success: false, error: 'Task queue not initialized' };
+      }
+
+      const count = request.count || 1;
+      console.log(`[IPC] Creating ${count} session(s) with prompt: "${request.prompt}"`);
+
+      if (count > 1) {
+        console.log('[IPC] Creating multiple sessions...');
+        const jobs = await taskQueue.createMultipleSessions(request.prompt, request.worktreeTemplate || '', count, request.permissionMode, targetProject.id, request.baseBranch);
+        console.log(`[IPC] Created ${jobs.length} jobs:`, jobs.map(job => job.id));
+        return { success: true, data: { jobIds: jobs.map(job => job.id) } };
+      } else {
+        console.log('[IPC] Creating single session...');
+        const job = await taskQueue.createSession({
+          prompt: request.prompt,
+          worktreeTemplate: request.worktreeTemplate || '',
+          permissionMode: request.permissionMode,
+          projectId: targetProject.id,
+          baseBranch: request.baseBranch
+        });
+        console.log('[IPC] Created job with ID:', job.id);
+        return { success: true, data: { jobId: job.id } };
+      }
+    } catch (error) {
+      console.error('[IPC] Failed to create session:', error);
+      console.error('[IPC] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+
+      // Extract detailed error information
+      let errorMessage = 'Failed to create session';
+      let errorDetails = '';
+      let command = '';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = error.stack || error.toString();
+
+        // Check if it's a git command error
+        const gitError = error as any;
+        if (gitError.gitCommand) {
+          command = gitError.gitCommand;
+        } else if (gitError.cmd) {
+          command = gitError.cmd;
+        }
+
+        // Include git output if available
+        if (gitError.gitOutput) {
+          errorDetails = gitError.gitOutput;
+        } else if (gitError.stderr) {
+          errorDetails = gitError.stderr;
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: errorDetails,
+        command: command
+      };
+    }
+  });
+
+  ipcMain.handle('sessions:delete', async (_event, sessionId: string) => {
+    try {
+      // Get database session details before archiving (includes worktree_name and project_id)
+      const dbSession = databaseService.getSession(sessionId);
+      if (!dbSession) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      // Add a message to session output about archiving
+      const timestamp = new Date().toLocaleTimeString();
+      let archiveMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 📦 ARCHIVING SESSION \x1b[0m\r\n`;
+
+      // Clean up the worktree if session has one (but not for main repo sessions)
+      if (dbSession.worktree_name && dbSession.project_id && !dbSession.is_main_repo) {
+        const project = databaseService.getProject(dbSession.project_id);
+        if (project) {
+          try {
+            console.log(`[Main] Removing worktree ${dbSession.worktree_name} for session ${sessionId}`);
+            archiveMessage += `\x1b[90mRemoving git worktree: ${dbSession.worktree_name}\x1b[0m\r\n`;
+
+            await worktreeManager.removeWorktree(project.path, dbSession.worktree_name);
+
+            console.log(`[Main] Successfully removed worktree ${dbSession.worktree_name}`);
+            archiveMessage += `\x1b[32m✓ Worktree removed successfully\x1b[0m\r\n`;
+          } catch (worktreeError) {
+            // Log the error but don't fail the session deletion
+            console.error(`[Main] Failed to remove worktree ${dbSession.worktree_name}:`, worktreeError);
+            archiveMessage += `\x1b[33m⚠ Failed to remove worktree (manual cleanup may be needed)\x1b[0m\r\n`;
+            // Continue with session deletion even if worktree removal fails
+          }
+        }
+      }
+
+      archiveMessage += `\x1b[90mSession archived. It will no longer appear in the active sessions list.\x1b[0m\r\n\r\n`;
+
+      // Add the archive message to session output
+      sessionManager.addSessionOutput(sessionId, {
+        type: 'stdout',
+        data: archiveMessage,
+        timestamp: new Date()
+      });
+
+      // Archive the session
+      await sessionManager.archiveSession(sessionId);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      return { success: false, error: 'Failed to delete session' };
+    }
+  });
+
+  ipcMain.handle('sessions:input', async (_event, sessionId: string, input: string) => {
+    try {
+      // Update session status back to running when user sends input
+      const currentSession = await sessionManager.getSession(sessionId);
+      if (currentSession && currentSession.status === 'waiting') {
+        console.log(`[Main] User sent input to session ${sessionId}, updating status to 'running'`);
+        await sessionManager.updateSession(sessionId, { status: 'running' });
+      }
+
+      // Store user input in session outputs for persistence
+      const userInputDisplay = `> ${input.trim()}\n`;
+      await sessionManager.addSessionOutput(sessionId, {
+        type: 'stdout',
+        data: userInputDisplay,
+        timestamp: new Date()
+      });
+
+      claudeCodeManager.sendInput(sessionId, input);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to send input:', error);
+      return { success: false, error: 'Failed to send input' };
+    }
+  });
+
+  ipcMain.handle('sessions:get-or-create-main-repo', async (_event, projectId: number) => {
+    try {
+      console.log('[IPC] sessions:get-or-create-main-repo handler called with projectId:', projectId);
+
+      // Get or create the main repo session
+      const session = sessionManager.getOrCreateMainRepoSession(projectId);
+
+      // If it's a newly created session, just emit the created event
+      const dbSession = databaseService.getSession(session.id);
+      if (dbSession && dbSession.status === 'pending') {
+        console.log('[IPC] New main repo session created:', session.id);
+
+        // Emit session created event
+        sessionManager.emitSessionCreated(session);
+
+        // Set the status to stopped since Claude Code isn't running yet
+        sessionManager.updateSession(session.id, { status: 'stopped' });
+      }
+
+      return { success: true, data: session };
+    } catch (error) {
+      console.error('Failed to get or create main repo session:', error);
+      return { success: false, error: 'Failed to get or create main repo session' };
+    }
+  });
+
+  ipcMain.handle('sessions:continue', async (_event, sessionId: string, prompt?: string) => {
+    try {
+      // Get session details
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        throw new Error('Session not found');
+      }
+
+      // Get conversation history
+      const conversationHistory = sessionManager.getConversationMessages(sessionId);
+
+      // If no prompt provided, use empty string (for resuming)
+      const continuePrompt = prompt || '';
+
+      // Check if this is a main repo session that hasn't started Claude Code yet
+      const dbSession = databaseService.getSession(sessionId);
+      const isMainRepoFirstStart = dbSession?.is_main_repo && conversationHistory.length === 0 && continuePrompt;
+
+      // Update session status to initializing and clear run_started_at
+      sessionManager.updateSession(sessionId, {
+        status: 'initializing',
+        run_started_at: null // Clear previous run time
+      });
+
+      if (isMainRepoFirstStart && continuePrompt) {
+        // First message in main repo session - start Claude Code without --continue
+        console.log(`[IPC] Starting Claude Code for main repo session ${sessionId} with first prompt`);
+
+        // Add initial prompt marker
+        sessionManager.addInitialPromptMarker(sessionId, continuePrompt);
+
+        // Add initial prompt to conversation messages
+        sessionManager.addConversationMessage(sessionId, 'user', continuePrompt);
+
+        // Add the prompt to output so it's visible
+        const timestamp = new Date().toLocaleTimeString();
+        const initialPromptDisplay = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
+                                     `\x1b[1m\x1b[92m${continuePrompt}\x1b[0m\r\n\r\n`;
+        await sessionManager.addSessionOutput(sessionId, {
+          type: 'stdout',
+          data: initialPromptDisplay,
+          timestamp: new Date()
+        });
+
+        // Run build script if configured
+        const project = dbSession?.project_id ? databaseService.getProject(dbSession.project_id) : null;
+        if (project?.build_script) {
+          console.log(`[IPC] Running build script for main repo session ${sessionId}`);
+
+          const buildWaitingMessage = `\x1b[36m[${new Date().toLocaleTimeString()}]\x1b[0m \x1b[1m\x1b[33m⏳ Waiting for build script to complete...\x1b[0m\r\n\r\n`;
+          await sessionManager.addSessionOutput(sessionId, {
+            type: 'stdout',
+            data: buildWaitingMessage,
+            timestamp: new Date()
+          });
+
+          const buildCommands = project.build_script.split('\n').filter(cmd => cmd.trim());
+          const buildResult = await sessionManager.runBuildScript(sessionId, buildCommands, session.worktreePath);
+          console.log(`[IPC] Build script completed. Success: ${buildResult.success}`);
+        }
+
+        // Start Claude Code with the user's prompt
+        await claudeCodeManager.startSession(sessionId, session.worktreePath, continuePrompt, dbSession?.permission_mode);
+      } else {
+        // Normal continue for existing sessions
+        if (continuePrompt) {
+          sessionManager.continueConversation(sessionId, continuePrompt);
+        }
+
+        // Continue the session with the existing conversation
+        await claudeCodeManager.continueSession(sessionId, session.worktreePath, continuePrompt, conversationHistory);
+      }
+
+      // The session manager will update status based on Claude output
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to continue conversation:', error);
+      return { success: false, error: 'Failed to continue conversation' };
+    }
+  });
+
+  ipcMain.handle('sessions:get-output', async (_event, sessionId: string) => {
+    try {
+      console.log(`[IPC] sessions:get-output called for session: ${sessionId}`);
+      const outputs = await sessionManager.getSessionOutputs(sessionId);
+      console.log(`[IPC] Retrieved ${outputs.length} outputs for session ${sessionId}`);
+
+      // Transform JSON messages to formatted stdout on the fly
+      const { formatJsonForOutputEnhanced } = await import('../utils/toolFormatter');
+      const transformedOutputs = outputs.map(output => {
+        if (output.type === 'json') {
+          // Generate formatted output from JSON
+          const outputText = formatJsonForOutputEnhanced(output.data);
+          if (outputText) {
+            // Return as stdout for the Output view
+            return {
+              ...output,
+              type: 'stdout' as const,
+              data: outputText
+            };
+          }
+          // If no output format can be generated, skip this JSON message
+          return null;
+        }
+        return output; // Non-JSON outputs pass through
+      }).filter(Boolean); // Remove any null entries
+      return { success: true, data: transformedOutputs };
+    } catch (error) {
+      console.error('Failed to get session outputs:', error);
+      return { success: false, error: 'Failed to get session outputs' };
+    }
+  });
+
+  ipcMain.handle('sessions:get-conversation', async (_event, sessionId: string) => {
+    try {
+      const messages = await sessionManager.getConversationMessages(sessionId);
+      return { success: true, data: messages };
+    } catch (error) {
+      console.error('Failed to get conversation messages:', error);
+      return { success: false, error: 'Failed to get conversation messages' };
+    }
+  });
+
+  ipcMain.handle('sessions:mark-viewed', async (_event, sessionId: string) => {
+    try {
+      await sessionManager.markSessionAsViewed(sessionId);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to mark session as viewed:', error);
+      return { success: false, error: 'Failed to mark session as viewed' };
+    }
+  });
+
+  ipcMain.handle('sessions:stop', async (_event, sessionId: string) => {
+    try {
+      await claudeCodeManager.stopSession(sessionId);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to stop session:', error);
+      return { success: false, error: 'Failed to stop session' };
+    }
+  });
+
+  ipcMain.handle('sessions:generate-name', async (_event, prompt: string) => {
+    try {
+      const name = await worktreeNameGenerator.generateWorktreeName(prompt);
+      return { success: true, data: name };
+    } catch (error) {
+      console.error('Failed to generate session name:', error);
+      return { success: false, error: 'Failed to generate session name' };
+    }
+  });
+
+  ipcMain.handle('sessions:rename', async (_event, sessionId: string, newName: string) => {
+    try {
+      // Update the session name in the database
+      const updatedSession = databaseService.updateSession(sessionId, { name: newName });
+      if (!updatedSession) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      // Emit update event so frontend gets notified
+      const session = sessionManager.getSession(sessionId);
+      if (session) {
+        session.name = newName;
+        sessionManager.emit('session-updated', session);
+      }
+
+      return { success: true, data: updatedSession };
+    } catch (error) {
+      console.error('Failed to rename session:', error);
+      return { success: false, error: 'Failed to rename session' };
+    }
+  });
+
+  ipcMain.handle('sessions:reorder', async (_event, sessionOrders: Array<{ id: string; displayOrder: number }>) => {
+    try {
+      databaseService.reorderSessions(sessionOrders);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to reorder sessions:', error);
+      return { success: false, error: 'Failed to reorder sessions' };
+    }
+  });
+} 

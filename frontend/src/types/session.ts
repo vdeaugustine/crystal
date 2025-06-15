@@ -35,3 +35,21 @@ export interface SessionOutput {
   data: string | any;
   timestamp: string;
 }
+
+export interface GitCommands {
+  rebaseCommands: string[];
+  squashCommands: string[];
+  mainBranch?: string;
+  currentBranch?: string;
+}
+
+export interface GitErrorDetails {
+  title: string;
+  message: string;
+  command?: string;
+  commands?: string[];
+  output: string;
+  workingDirectory?: string;
+  projectPath?: string;
+  isRebaseConflict?: boolean;
+}

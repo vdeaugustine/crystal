@@ -161,6 +161,10 @@ All core features have been successfully implemented with significant enhancemen
 │ │  Worktree    │ │ Claude Code  │ │   Config         │  │
 │ │  Manager     │ │   Manager    │ │   Manager        │  │
 │ └──────────────┘ └──────────────┘ └───────────────────┘  │
+│ ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐  │
+│ │ IPC Handlers │ │    Event     │ │   Git Diff       │  │
+│ │(git,session) │ │   Manager    │ │   Manager        │  │
+│ └──────────────┘ └──────────────┘ └───────────────────┘  │
 ├─────────────────────────────────────────────────────────┤
 │            Better-SQLite3 Database                       │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐ │
@@ -180,6 +184,20 @@ All core features have been successfully implemented with significant enhancemen
 ```
 
 ## Critical Implementation Details
+
+### Modular Architecture (Refactored)
+
+The main process has been refactored from a monolithic `index.ts` file (previously 2,705 lines) into a modular structure:
+
+- **`index.ts`** (414 lines): Core Electron setup and initialization
+- **`ipc/git.ts`** (843 lines): All git-related IPC handlers 
+- **`ipc/session.ts`** (428 lines): Session management IPC handlers
+- **`events.ts`** (359 lines): Event handling and coordination
+
+The frontend has also been modularized:
+- **`useSessionView.ts`** (941 lines): Extracted session view logic from the previous monolithic SessionView component
+
+This modular structure improves maintainability and makes it easier to locate and modify specific functionality.
 
 ### Session Output Handling (DO NOT MODIFY WITHOUT EXPLICIT PERMISSION)
 
@@ -204,7 +222,7 @@ All core features have been successfully implemented with significant enhancemen
    - Uses `setSessionOutputs` for atomic updates to prevent race conditions
 
 4. **Frontend Display**:
-   - The SessionView component formats outputs for terminal display
+   - The useSessionView hook manages session view logic and state (extracted from SessionView component)
    - A mutex lock (`loadingRef`) prevents concurrent loads
    - Timing is carefully managed with `requestAnimationFrame` and delays
    - The `formattedOutput` state is NOT cleared on session switch - it updates naturally
@@ -457,13 +475,19 @@ crystal/
 │   │   │   ├── Help.tsx    # Help dialog
 │   │   │   └── ...        # Other UI components
 │   │   ├── hooks/          # Custom React hooks
+│   │   │   └── useSessionView.ts # Session view logic (941 lines)
 │   │   ├── stores/         # Zustand state stores
 │   │   └── utils/          # Utility functions
 ├── main/            # Electron main process
 │   ├── src/
-│   │   ├── index.ts         # Main entry point
+│   │   ├── index.ts         # Main entry point (reduced to 414 lines)
 │   │   ├── preload.ts       # Preload script
+│   │   ├── events.ts        # Event handling (359 lines)
 │   │   ├── database/        # SQLite database
+│   │   ├── ipc/            # IPC handlers (modular)
+│   │   │   ├── git.ts      # Git operation handlers (843 lines)
+│   │   │   ├── session.ts  # Session operation handlers (428 lines)
+│   │   │   └── ...         # Other IPC handlers
 │   │   ├── services/        # Business logic services
 │   │   │   ├── taskQueue.ts # Bull queue for async tasks
 │   │   │   └── ...         # Other service modules
