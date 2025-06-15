@@ -485,7 +485,7 @@ function setupEventListeners() {
     
     await sessionManager.updateSession(sessionId, { 
       status: 'running',
-      run_started_at: new Date().toISOString()
+      run_started_at: 'CURRENT_TIMESTAMP'
     });
     
     // Verify the update was successful

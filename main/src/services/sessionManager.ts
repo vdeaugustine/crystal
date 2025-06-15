@@ -6,6 +6,7 @@ import type { DatabaseService } from '../database/database';
 import type { Session as DbSession, CreateSessionData, UpdateSessionData, ConversationMessage, PromptMarker, ExecutionDiff, CreateExecutionDiffData, Project } from '../database/models';
 import { getShellPath } from '../utils/shellPath';
 import { TerminalSessionManager } from './terminalSessionManager';
+import { formatForDisplay } from '../utils/timestampUtils';
 
 export class SessionManager extends EventEmitter {
   private activeSessions: Map<string, Session> = new Map();
@@ -303,6 +304,14 @@ export class SessionManager extends EventEmitter {
       console.log(`[SessionManager] Captured Claude session ID: ${output.data.session_id} for Crystal session ${id}`);
     }
     
+    // Check if this is a system result message indicating Claude has completed
+    if (output.type === 'json' && output.data.type === 'system' && output.data.subtype === 'result') {
+      // Update the completion timestamp for the most recent prompt
+      const completionTimestamp = output.timestamp instanceof Date ? output.timestamp.toISOString() : output.timestamp;
+      this.db.updatePromptMarkerCompletion(id, completionTimestamp);
+      console.log(`[SessionManager] Marked prompt as complete for session ${id} at ${completionTimestamp}`);
+    }
+    
     // Check if this is a user message in JSON format to track prompts
     if (output.type === 'json' && output.data.type === 'user' && output.data.message?.content) {
       // Extract text content from user messages
@@ -425,7 +434,7 @@ export class SessionManager extends EventEmitter {
     this.addConversationMessage(id, 'user', userMessage);
     
     // Add the continuation prompt to output so it's visible
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = formatForDisplay(new Date());
     const userPromptDisplay = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
                              `\x1b[1m\x1b[92m${userMessage}\x1b[0m\r\n\r\n`;
     this.addSessionOutput(id, {

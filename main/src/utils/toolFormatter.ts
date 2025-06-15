@@ -164,9 +164,9 @@ export function formatToolInteraction(
     let resultTime = '';
     if (resultTimestamp) {
       try {
-        const date = new Date(resultTimestamp);
-        if (!isNaN(date.getTime())) {
-          resultTime = ` (${date.toLocaleTimeString()})`;
+        const { formatForDisplay, isValidTimestamp } = require('./timestampUtils');
+        if (isValidTimestamp(resultTimestamp)) {
+          resultTime = ` (${formatForDisplay(resultTimestamp)})`;
         }
       } catch {
         // Ignore invalid timestamp

@@ -1,15 +1,17 @@
+import { formatForDisplay, isValidTimestamp } from './timestampUtils';
+
 export function formatJsonForOutput(jsonMessage: any): string {
   // Safely parse timestamp
   let timestamp: string;
   try {
     const dateValue = jsonMessage.timestamp || new Date();
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) {
+    if (isValidTimestamp(dateValue)) {
+      timestamp = formatForDisplay(dateValue);
+    } else {
       throw new Error('Invalid timestamp');
     }
-    timestamp = date.toLocaleTimeString();
   } catch {
-    timestamp = new Date().toLocaleTimeString();
+    timestamp = formatForDisplay(new Date());
   }
   
   if (jsonMessage.type === 'system') {

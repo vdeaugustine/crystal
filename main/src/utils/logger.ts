@@ -2,6 +2,7 @@ import type { ConfigManager } from '../services/configManager';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getCrystalSubdirectory } from './crystalDirectory';
+import { formatForDatabase } from './timestampUtils';
 
 export class Logger {
   private logDir: string;
@@ -49,7 +50,7 @@ export class Logger {
   }
 
   private getCurrentLogFileName(): string {
-    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const date = formatForDatabase().split('T')[0]; // YYYY-MM-DD
     return path.join(this.logDir, `crystal-${date}.log`);
   }
 
@@ -62,7 +63,7 @@ export class Logger {
         }
 
         // Generate new filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const timestamp = formatForDatabase().replace(/[:.]/g, '-');
         const rotatedFileName = path.join(this.logDir, `crystal-${timestamp}.log`);
         
         // Rename current file
@@ -127,7 +128,7 @@ export class Logger {
   }
 
   private log(level: string, message: string, error?: Error) {
-    const timestamp = new Date().toISOString();
+    const timestamp = formatForDatabase();
     const errorInfo = error ? ` Error: ${error.message}\nStack: ${error.stack}` : '';
     const fullMessage = `[${timestamp}] ${level}: ${message}${errorInfo}`;
     

@@ -133,8 +133,8 @@ export class DatabaseService {
     }
 
     // Check if claude_session_id column exists
-    const sessionTableInfo = this.db.prepare("PRAGMA table_info(sessions)").all();
-    const hasClaudeSessionIdColumn = sessionTableInfo.some((col: any) => col.name === 'claude_session_id');
+    const sessionTableInfoClaude = this.db.prepare("PRAGMA table_info(sessions)").all();
+    const hasClaudeSessionIdColumn = sessionTableInfoClaude.some((col: any) => col.name === 'claude_session_id');
     
     if (!hasClaudeSessionIdColumn) {
       // Add claude_session_id column to store Claude's actual session ID
@@ -142,7 +142,7 @@ export class DatabaseService {
     }
 
     // Check if permission_mode column exists
-    const hasPermissionModeColumn = sessionTableInfo.some((col: any) => col.name === 'permission_mode');
+    const hasPermissionModeColumn = sessionTableInfoClaude.some((col: any) => col.name === 'permission_mode');
     
     if (!hasPermissionModeColumn) {
       // Add permission_mode column to sessions table
@@ -167,8 +167,8 @@ export class DatabaseService {
       `).run();
       
       // Add project_id to sessions table
-      const sessionsTableInfo = this.db.prepare("PRAGMA table_info(sessions)").all();
-      const hasProjectIdColumn = sessionsTableInfo.some((col: any) => col.name === 'project_id');
+      const sessionsTableInfoProjects = this.db.prepare("PRAGMA table_info(sessions)").all();
+      const hasProjectIdColumn = sessionsTableInfoProjects.some((col: any) => col.name === 'project_id');
       
       if (!hasProjectIdColumn) {
         this.db.prepare("ALTER TABLE sessions ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE").run();
@@ -309,6 +309,83 @@ export class DatabaseService {
       `).run();
       
       this.db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_display_order ON sessions(project_id, display_order)").run();
+    }
+    
+    // Normalize timestamp fields migration
+    // Check if last_viewed_at is still TEXT type
+    const sessionTableInfoTimestamp = this.db.prepare("PRAGMA table_info(sessions)").all();
+    const lastViewedAtColumn = sessionTableInfoTimestamp.find((col: any) => col.name === 'last_viewed_at') as any;
+    
+    if (lastViewedAtColumn && lastViewedAtColumn.type === 'TEXT') {
+      console.log('[Database] Running timestamp normalization migration...');
+      
+      try {
+        // Create new temporary columns with DATETIME type
+        this.db.prepare("ALTER TABLE sessions ADD COLUMN last_viewed_at_new DATETIME").run();
+        this.db.prepare("ALTER TABLE sessions ADD COLUMN run_started_at_new DATETIME").run();
+        
+        // Copy and convert existing data
+        this.db.prepare("UPDATE sessions SET last_viewed_at_new = datetime(last_viewed_at) WHERE last_viewed_at IS NOT NULL").run();
+        this.db.prepare("UPDATE sessions SET run_started_at_new = datetime(run_started_at) WHERE run_started_at IS NOT NULL").run();
+        
+        // Create a backup of the table with proper schema
+        this.db.prepare(`
+          CREATE TABLE sessions_new (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            initial_prompt TEXT NOT NULL,
+            worktree_name TEXT NOT NULL,
+            worktree_path TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_output TEXT,
+            exit_code INTEGER,
+            pid INTEGER,
+            claude_session_id TEXT,
+            archived BOOLEAN DEFAULT 0,
+            last_viewed_at DATETIME,
+            project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+            permission_mode TEXT DEFAULT 'ignore' CHECK(permission_mode IN ('approve', 'ignore')),
+            run_started_at DATETIME,
+            is_main_repo BOOLEAN DEFAULT 0,
+            display_order INTEGER
+          )
+        `).run();
+        
+        // Copy all data to new table
+        this.db.prepare(`
+          INSERT INTO sessions_new 
+          SELECT id, name, initial_prompt, worktree_name, worktree_path, status, 
+                 created_at, updated_at, last_output, exit_code, pid, claude_session_id,
+                 archived, last_viewed_at_new, project_id, permission_mode, 
+                 run_started_at_new, is_main_repo, display_order
+          FROM sessions
+        `).run();
+        
+        // Drop old table and rename new one
+        this.db.prepare("DROP TABLE sessions").run();
+        this.db.prepare("ALTER TABLE sessions_new RENAME TO sessions").run();
+        
+        // Recreate indexes
+        this.db.prepare("CREATE INDEX idx_sessions_archived ON sessions(archived)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_project_id ON sessions(project_id)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_is_main_repo ON sessions(is_main_repo, project_id)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_display_order ON sessions(project_id, display_order)").run();
+        
+        console.log('[Database] Timestamp normalization migration completed successfully');
+      } catch (error) {
+        console.error('[Database] Failed to normalize timestamps:', error);
+        // Don't throw - allow app to continue with TEXT fields
+      }
+    }
+    
+    // Add missing completion_timestamp to prompt_markers if it doesn't exist
+    const promptMarkersInfo = this.db.prepare("PRAGMA table_info(prompt_markers)").all();
+    const hasCompletionTimestamp = promptMarkersInfo.some((col: any) => col.name === 'completion_timestamp');
+    
+    if (!hasCompletionTimestamp) {
+      this.db.prepare("ALTER TABLE prompt_markers ADD COLUMN completion_timestamp DATETIME").run();
     }
   }
 
@@ -566,8 +643,12 @@ export class DatabaseService {
       values.push(data.claude_session_id);
     }
     if (data.run_started_at !== undefined) {
-      updates.push('run_started_at = ?');
-      values.push(data.run_started_at);
+      if (data.run_started_at === 'CURRENT_TIMESTAMP') {
+        updates.push('run_started_at = CURRENT_TIMESTAMP');
+      } else {
+        updates.push('run_started_at = ?');
+        values.push(data.run_started_at);
+      }
     }
 
     if (updates.length === 0) {
@@ -676,9 +757,10 @@ export class DatabaseService {
     console.log('[Database] Adding prompt marker:', { sessionId, promptText, outputIndex, outputLine });
     
     try {
+      // Use datetime('now') to ensure UTC timestamp
       const result = this.db.prepare(`
-        INSERT INTO prompt_markers (session_id, prompt_text, output_index, output_line)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO prompt_markers (session_id, prompt_text, output_index, output_line, timestamp)
+        VALUES (?, ?, ?, ?, datetime('now'))
       `).run(sessionId, promptText, outputIndex, outputLine);
       
       console.log('[Database] Prompt marker added successfully, ID:', result.lastInsertRowid);
@@ -690,11 +772,25 @@ export class DatabaseService {
   }
 
   getPromptMarkers(sessionId: string): PromptMarker[] {
-    return this.db.prepare(`
-      SELECT * FROM prompt_markers 
+    const markers = this.db.prepare(`
+      SELECT 
+        id,
+        session_id,
+        prompt_text,
+        output_index,
+        output_line,
+        datetime(timestamp) || 'Z' as timestamp,
+        CASE 
+          WHEN completion_timestamp IS NOT NULL 
+          THEN datetime(completion_timestamp) || 'Z'
+          ELSE NULL
+        END as completion_timestamp
+      FROM prompt_markers 
       WHERE session_id = ? 
       ORDER BY timestamp ASC
     `).all(sessionId) as PromptMarker[];
+    
+    return markers;
   }
 
   updatePromptMarkerLine(id: number, outputLine: number): void {
@@ -703,6 +799,38 @@ export class DatabaseService {
       SET output_line = ? 
       WHERE id = ?
     `).run(outputLine, id);
+  }
+
+  updatePromptMarkerCompletion(sessionId: string, timestamp?: string): void {
+    // Update the most recent prompt marker for this session with completion timestamp
+    // Use datetime() to ensure proper UTC timestamp handling
+    if (timestamp) {
+      // If timestamp is provided, use datetime() to normalize it
+      this.db.prepare(`
+        UPDATE prompt_markers 
+        SET completion_timestamp = datetime(?) 
+        WHERE session_id = ? 
+        AND id = (
+          SELECT id FROM prompt_markers 
+          WHERE session_id = ? 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        )
+      `).run(timestamp, sessionId, sessionId);
+    } else {
+      // If no timestamp, use current UTC time
+      this.db.prepare(`
+        UPDATE prompt_markers 
+        SET completion_timestamp = datetime('now') 
+        WHERE session_id = ? 
+        AND id = (
+          SELECT id FROM prompt_markers 
+          WHERE session_id = ? 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        )
+      `).run(sessionId, sessionId);
+    }
   }
 
   // Execution diff operations

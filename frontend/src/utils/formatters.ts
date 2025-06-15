@@ -1,24 +1,13 @@
-export function formatDistanceToNow(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
+import { formatDistanceToNow as formatDistance, formatForDisplay } from './timestampUtils';
 
-  if (diffDays > 0) {
-    return `${diffDays} day${diffDays > 1 ? 's' : ''}`;
-  } else if (diffHours > 0) {
-    return `${diffHours} hour${diffHours > 1 ? 's' : ''}`;
-  } else if (diffMinutes > 0) {
-    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
-  } else {
-    return 'just now';
-  }
+export function formatDistanceToNow(date: Date): string {
+  // Use the timestamp utility but remove the "ago" suffix for backward compatibility
+  const result = formatDistance(date);
+  return result.replace(' ago', '');
 }
 
 export function formatJsonForWeb(jsonMessage: any): string {
-  const timestamp = new Date(jsonMessage.timestamp || new Date()).toLocaleTimeString();
+  const timestamp = formatForDisplay(jsonMessage.timestamp || new Date());
   
   if (jsonMessage.type === 'system') {
     if (jsonMessage.subtype === 'init') {

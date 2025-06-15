@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from '../utils/formatters';
+import { formatDuration, getTimeDifference, isValidTimestamp, parseTimestamp } from '../utils/timestampUtils';
 import { API } from '../utils/api';
 import { useSessionStore } from '../stores/sessionStore';
 
@@ -10,6 +11,7 @@ interface PromptMarker {
   output_index: number;
   output_line?: number;
   timestamp: string;
+  completion_timestamp?: string;
 }
 
 interface PromptNavigationProps {
@@ -23,38 +25,100 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
   const activeSession = useSessionStore((state) => state.sessions.find(s => s.id === sessionId));
 
-  const calculateDuration = (currentPrompt: PromptMarker, nextPrompt?: PromptMarker, isLast: boolean = false): string => {
-    const startTime = new Date(currentPrompt.timestamp).getTime();
-    
-    // For the last prompt, only show duration if session is not actively running
-    if (isLast && activeSession && (activeSession.status === 'running' || activeSession.status === 'waiting')) {
-      const durationMs = Date.now() - startTime;
-      const seconds = Math.floor(durationMs / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
+  const calculateDuration = (currentPrompt: PromptMarker, currentIndex: number): string => {
+    try {
+      const isLast = currentIndex === prompts.length - 1;
       
-      if (hours > 0) {
-        return `${hours}h ${minutes % 60}m (ongoing)`;
-      } else if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s (ongoing)`;
-      } else {
-        return `${seconds}s (ongoing)`;
+      console.log('calculateDuration for prompt:', {
+        index: currentIndex,
+        isLast,
+        prompt_id: currentPrompt.id,
+        raw_timestamp: currentPrompt.timestamp,
+        completion_timestamp: currentPrompt.completion_timestamp,
+        session_status: activeSession?.status,
+        prompt_text_preview: currentPrompt.prompt_text.substring(0, 30) + '...'
+      });
+      
+      // Validate the current prompt's timestamp
+      if (!isValidTimestamp(currentPrompt.timestamp)) {
+        console.warn('Invalid timestamp for prompt:', currentPrompt.timestamp);
+        return 'Unknown duration';
       }
-    }
-    
-    const endTime = nextPrompt ? new Date(nextPrompt.timestamp).getTime() : Date.now();
-    const durationMs = endTime - startTime;
-    
-    const seconds = Math.floor(durationMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    } else {
-      return `${seconds}s`;
+      
+      // If we have a completion_timestamp, use it to calculate the actual execution duration
+      if (currentPrompt.completion_timestamp && isValidTimestamp(currentPrompt.completion_timestamp)) {
+        const durationMs = getTimeDifference(currentPrompt.timestamp, currentPrompt.completion_timestamp);
+        
+        console.log('Using completion timestamp:', {
+          start: currentPrompt.timestamp,
+          end: currentPrompt.completion_timestamp,
+          duration_ms: durationMs
+        });
+        
+        // Check for negative duration
+        if (durationMs < 0) {
+          console.warn('Negative duration detected with completion timestamp');
+          return 'Invalid duration';
+        }
+        
+        return formatDuration(durationMs);
+      }
+      
+      // If no completion timestamp, check if prompt is still running
+      if (isLast && activeSession && (activeSession.status === 'running' || activeSession.status === 'waiting')) {
+        // For ongoing prompts, calculate duration from the UTC timestamp to current UTC time
+        const startTime = parseTimestamp(currentPrompt.timestamp);
+        const now = new Date();
+        const durationMs = now.getTime() - startTime.getTime();
+        
+        console.log('Calculating ongoing duration:', {
+          raw_timestamp: currentPrompt.timestamp,
+          parsed_start: startTime.toISOString(),
+          now_utc: now.toISOString(),
+          duration_ms: durationMs
+        });
+        
+        // Check for negative duration
+        if (durationMs < 0) {
+          console.error('NEGATIVE DURATION DETECTED:', {
+            raw_timestamp: currentPrompt.timestamp,
+            parsed_as_utc: startTime.toISOString(),
+            current_time_utc: now.toISOString(),
+            difference_ms: durationMs,
+            difference_hours: durationMs / (1000 * 60 * 60)
+          });
+          // Instead of showing negative, show the absolute value with a warning
+          return `${formatDuration(Math.abs(durationMs))} (!)`;
+        }
+        
+        return formatDuration(durationMs) + ' (ongoing)';
+      }
+      
+      // For prompts without completion_timestamp that are not actively running
+      // Try to estimate using the next prompt's timestamp
+      if (!isLast && currentIndex < prompts.length - 1) {
+        const nextPrompt = prompts[currentIndex + 1];
+        if (nextPrompt && isValidTimestamp(nextPrompt.timestamp)) {
+          const durationMs = getTimeDifference(currentPrompt.timestamp, nextPrompt.timestamp);
+          
+          console.log('Estimating duration from next prompt:', {
+            current_timestamp: currentPrompt.timestamp,
+            next_timestamp: nextPrompt.timestamp,
+            duration_ms: durationMs
+          });
+          
+          if (durationMs >= 0) {
+            return formatDuration(durationMs);
+          }
+        }
+      }
+      
+      // Fallback for completed prompts without any way to calculate duration
+      return 'Completed';
+      
+    } catch (error) {
+      console.error('Error calculating duration:', error);
+      return 'Unknown duration';
     }
   };
 
@@ -66,6 +130,15 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
       try {
         const response = await API.sessions.getPrompts(sessionId);
         if (response.success) {
+          // Log the timestamps to debug format issues
+          console.log('Fetched prompts with timestamps:', response.data.map((p: PromptMarker) => ({
+            id: p.id,
+            raw_timestamp: p.timestamp,
+            parsed_timestamp: parseTimestamp(p.timestamp).toISOString(),
+            completion_timestamp: p.completion_timestamp,
+            parsed_completion: p.completion_timestamp ? parseTimestamp(p.completion_timestamp).toISOString() : null,
+            prompt_text: p.prompt_text.substring(0, 50) + '...'
+          })));
           setPrompts(response.data);
         }
       } catch (error) {
@@ -150,10 +223,10 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
                       {marker.prompt_text}
                     </div>
                     <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      <span>{formatDistanceToNow(new Date(marker.timestamp))} ago</span>
+                      <span>{formatDistanceToNow(parseTimestamp(marker.timestamp))} ago</span>
                       <span className="text-gray-400">•</span>
                       <span className="font-medium text-gray-600 dark:text-gray-400">
-                        {calculateDuration(marker, prompts[index + 1], index === prompts.length - 1)}
+                        {calculateDuration(marker, index)}
                       </span>
                     </div>
                   </div>

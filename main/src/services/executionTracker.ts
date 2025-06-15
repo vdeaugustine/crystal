@@ -4,6 +4,7 @@ import type { SessionManager } from './sessionManager';
 import { GitDiffManager, type GitDiffResult } from './gitDiffManager';
 import type { CreateExecutionDiffData } from '../database/models';
 import { execSync } from '../utils/commandExecutor';
+import { formatForDisplay } from '../utils/timestampUtils';
 
 interface ExecutionContext {
   sessionId: string;
@@ -97,7 +98,7 @@ export class ExecutionTracker extends EventEmitter {
         
         // Add error to session output so users can see what went wrong
         const errorDetails = commitError.stderr || commitError.stdout || commitError.message || 'Unknown error';
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = formatForDisplay(new Date());
         
         const errorMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[41m\x1b[37m ❌ GIT COMMIT FAILED \x1b[0m\r\n` +
                            `\x1b[91mFailed to auto-commit changes during Claude Code execution.\x1b[0m\r\n` +

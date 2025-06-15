@@ -6,6 +6,7 @@ import { WorktreeNameGenerator } from './worktreeNameGenerator';
 import type { ClaudeCodeManager } from './claudeCodeManager';
 import type { GitDiffManager } from './gitDiffManager';
 import type { ExecutionTracker } from './executionTracker';
+import { formatForDisplay } from '../utils/timestampUtils';
 
 interface TaskQueueOptions {
   sessionManager: SessionManager;
@@ -176,7 +177,7 @@ export class TaskQueue {
         console.log(`[TaskQueue] Added initial prompt to conversation messages for session ${session.id}`);
 
         // Add the initial prompt to output so it's visible
-        const timestamp = new Date().toLocaleTimeString();
+        const timestamp = formatForDisplay(new Date());
         const initialPromptDisplay = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m 👤 USER PROMPT \x1b[0m\r\n` +
                                      `\x1b[1m\x1b[92m${prompt}\x1b[0m\r\n\r\n`;
         await sessionManager.addSessionOutput(session.id, {
@@ -195,7 +196,7 @@ export class TaskQueue {
           console.log(`[TaskQueue] Running build script for session ${session.id}`);
           
           // Add a "waiting for build" message to output
-          const buildWaitingMessage = `\x1b[36m[${new Date().toLocaleTimeString()}]\x1b[0m \x1b[1m\x1b[33m⏳ Waiting for build script to complete...\x1b[0m\r\n\r\n`;
+          const buildWaitingMessage = `\x1b[36m[${formatForDisplay(new Date())}]\x1b[0m \x1b[1m\x1b[33m⏳ Waiting for build script to complete...\x1b[0m\r\n\r\n`;
           await sessionManager.addSessionOutput(session.id, {
             type: 'stdout',
             data: buildWaitingMessage,
