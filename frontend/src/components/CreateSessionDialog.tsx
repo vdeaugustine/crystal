@@ -24,6 +24,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const [hasApiKey, setHasApiKey] = useState(false);
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [ultrathink, setUltrathink] = useState(false);
   const { showError } = useErrorStore();
   
   useEffect(() => {
@@ -115,8 +116,12 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
     setIsSubmitting(true);
     
     try {
+      // Append ultrathink to prompt if checkbox is checked
+      const finalPrompt = ultrathink ? formData.prompt + '\nultrathink' : formData.prompt;
+      
       const response = await API.sessions.create({
         ...formData,
+        prompt: finalPrompt,
         projectId
       });
       
@@ -138,6 +143,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
         : 'ignore';
       setFormData({ prompt: '', worktreeTemplate: '', count: 1, permissionMode: defaultPermissionMode as 'ignore' | 'approve' });
       setWorktreeError(null);
+      setUltrathink(false);
     } catch (error: any) {
       console.error('Error creating session:', error);
       showError({
@@ -183,6 +189,22 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               required
               placeholder="Enter the prompt for Claude Code..."
             />
+            <div className="mt-2">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={ultrathink}
+                  onChange={(e) => setUltrathink(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Enable ultrathink mode
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                Triggers Claude Code to use its maximum thinking token limit. Slower but better for difficult tasks.
+              </p>
+            </div>
           </div>
           
           <div>

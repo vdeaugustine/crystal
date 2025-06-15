@@ -188,6 +188,7 @@ export function SessionView() {
   const scriptFitAddon = useRef<FitAddon | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState('');
+  const [ultrathink, setUltrathink] = useState(false);
   const [isLoadingOutput, setIsLoadingOutput] = useState(false);
   const previousMessageCountRef = useRef(0);
   const [isMerging, setIsMerging] = useState(false);
@@ -1095,13 +1096,16 @@ export function SessionView() {
     if (!input.trim()) return;
     
     try {
-      const response = await API.sessions.sendInput(activeSession.id, input + '\n');
+      // Append ultrathink if checkbox is checked
+      const finalInput = ultrathink ? input + '\nultrathink' : input;
+      const response = await API.sessions.sendInput(activeSession.id, finalInput + '\n');
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to send input');
       }
       
       setInput('');
+      setUltrathink(false);
     } catch (error) {
       console.error('Error sending input:', error);
     }
@@ -1111,13 +1115,16 @@ export function SessionView() {
     if (!input.trim()) return;
     
     try {
-      const response = await API.sessions.continue(activeSession.id, input);
+      // Append ultrathink if checkbox is checked
+      const finalInput = ultrathink ? input + '\nultrathink' : input;
+      const response = await API.sessions.continue(activeSession.id, finalInput);
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to continue conversation');
       }
       
       setInput('');
+      setUltrathink(false);
       
       // Force reload output content after a short delay to ensure the session has started
       setTimeout(() => {
@@ -1141,6 +1148,7 @@ export function SessionView() {
       }
       
       setInput('');
+      setUltrathink(false);
     } catch (error) {
       console.error('Error running terminal command:', error);
     }
@@ -1918,6 +1926,19 @@ export function SessionView() {
                 ? 'Send' 
                 : 'Continue'}
           </button>
+        </div>
+        <div className="mt-2">
+          <label className="flex items-center gap-2 cursor-pointer group" title="Triggers Claude Code to use its maximum thinking token limit. Slower but better for difficult tasks.">
+            <input
+              type="checkbox"
+              checked={ultrathink}
+              onChange={(e) => setUltrathink(e.target.checked)}
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              ultrathink
+            </span>
+          </label>
         </div>
         {activeSession.status !== 'waiting' && !(viewMode === 'terminal' && !activeSession.isRunning) && (
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
