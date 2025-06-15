@@ -8,6 +8,7 @@ All notable changes to Crystal will be documented in this file.
 - Dark mode support throughout the application with proper light/dark theme switching
 - Merge conflict resolution button to help resolve git conflicts using Claude
 - Rebase without squash option for more flexible git operations
+- Create new worktrees off of any branch
 
 ### Changed
 - Improved welcome screen logic to avoid repeatedly showing to returning users
