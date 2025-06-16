@@ -70,7 +70,7 @@ export const CommitMessageDialog: React.FC<CommitMessageDialogProps> = ({
                 onChange={(e) => setCommitMessage(e.target.value)}
                 rows={8}
                 disabled={dialogType === 'squash' && !shouldSquash}
-                className={`w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${dialogType === 'squash' && !shouldSquash ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                className={`w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${dialogType === 'squash' && !shouldSquash ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'} placeholder-gray-500 dark:placeholder-gray-400`}
                 placeholder={dialogType === 'squash' ? (shouldSquash ? "Enter commit message..." : "Not needed when preserving commits") : "Enter commit message..."}
               />
                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">

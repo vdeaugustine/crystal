@@ -31,7 +31,7 @@ export function SessionView() {
 
   if (!activeSession) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
         <EmptyState
           icon={Inbox}
           title="No Session Selected"
