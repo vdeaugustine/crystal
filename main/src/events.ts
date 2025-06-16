@@ -12,12 +12,11 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     gitDiffManager
   } = services;
 
-  const mainWindow = getMainWindow();
-
   // Listen to sessionManager events and broadcast to renderer
   sessionManager.on('session-created', (session) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('session:created', session);
+    const mw = getMainWindow();
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send('session:created', session);
     }
   });
 
