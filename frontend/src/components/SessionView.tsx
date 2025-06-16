@@ -69,7 +69,7 @@ export function SessionView() {
         setUnreadActivity={hook.setUnreadActivity}
       />
       
-      <div className="flex-1 flex relative overflow-hidden min-h-0">
+      <div className="flex-1 flex relative min-h-0">
         <div className="flex-1 relative">
           {hook.isLoadingOutput && (
             <div className="absolute top-4 left-4 text-gray-600 dark:text-gray-400 z-10">Loading output...</div>
@@ -115,7 +115,7 @@ export function SessionView() {
           <div className={`h-full ${hook.viewMode === 'messages' ? 'block' : 'hidden'}`}>
             <JsonMessageView messages={activeSession.jsonMessages || []} />
           </div>
-          <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'}`}>
+          <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'} overflow-hidden`}>
             {hook.viewMode === 'changes' && (
               <CombinedDiffView 
                 sessionId={activeSession.id} 

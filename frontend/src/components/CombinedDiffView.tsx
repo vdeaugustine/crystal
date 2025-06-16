@@ -132,7 +132,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
   }
 
   return (
-    <div className={`combined-diff-view flex flex-col overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900' : 'h-full'}`}>
+    <div className={`combined-diff-view flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900' : 'h-full'}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">File Changes</h2>
@@ -167,7 +167,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      <div className="flex-1 flex min-h-0">
         {/* Commits selection sidebar */}
         {!isFullscreen && (
           <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex flex-col">
@@ -181,7 +181,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
         )}
 
         {/* Diff preview */}
-        <div className={`${isFullscreen ? 'w-full' : 'flex-1'} overflow-x-auto overflow-y-auto bg-white dark:bg-gray-900 min-w-0`}>
+        <div className={`${isFullscreen ? 'w-full' : 'flex-1'} overflow-auto bg-white dark:bg-gray-900 min-w-0 flex flex-col`}>
           {isGitOperationRunning ? (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -203,9 +203,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
               <p>{error}</p>
             </div>
           ) : combinedDiff ? (
-            <div className="p-4" style={{ width: '100%' }}>
-              <DiffViewer diff={combinedDiff.diff} className="w-full" />
-            </div>
+            <DiffViewer diff={combinedDiff.diff} className="h-full" />
           ) : isMainRepo ? (
             <div className="flex items-center justify-center h-full text-gray-600 dark:text-gray-400">
               <div className="text-center">

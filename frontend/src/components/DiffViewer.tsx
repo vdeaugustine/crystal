@@ -107,8 +107,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
 
     return (
       <div className={`diff-viewer ${className}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* View toggle */}
-        <div className="flex justify-end mb-4 flex-shrink-0">
+        {/* View toggle - sticky header */}
+        <div className="flex justify-end px-4 py-2 flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
           <div className="inline-flex rounded-lg border border-gray-600 bg-gray-700">
             <button
               onClick={() => handleViewTypeChange('unified')}
@@ -139,7 +139,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-auto p-4">
         {files.map((file, index) => {
           // For binary files or files with no content
           if (file.isBinary || (!file.oldValue && !file.newValue)) {
@@ -202,174 +202,25 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
               </div>
 
               {/* Diff content */}
-              <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ maxHeight: '600px', overflow: 'auto' }}>
-                <div className="diff-viewer-wrapper" style={{ minWidth: viewType === 'split' ? '800px' : 'auto' }}>
-                  <ReactDiffViewer
-                    oldValue={file.oldValue || ''}
-                    newValue={file.newValue || ''}
-                    splitView={viewType === 'split'}
-                    useDarkTheme={isDarkMode}
-                    styles={currentStyles}
-                    showDiffOnly={false}
-                    disableWordDiff={false}
-                    hideLineNumbers={false}
-                    hideMarkers={viewType === 'split'}
-                    leftTitle={file.oldFileName}
-                    rightTitle={file.newFileName}
-                  />
-                </div>
+              <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ overflow: 'auto', maxHeight: '600px' }}>
+                <ReactDiffViewer
+                  oldValue={file.oldValue || ''}
+                  newValue={file.newValue || ''}
+                  splitView={viewType === 'split'}
+                  useDarkTheme={isDarkMode}
+                  styles={currentStyles}
+                  showDiffOnly={false}
+                  disableWordDiff={false}
+                  hideLineNumbers={false}
+                  hideMarkers={viewType === 'split'}
+                  leftTitle={file.oldFileName}
+                  rightTitle={file.newFileName}
+                />
               </div>
             </div>
           );
         })}
         </div>
-        
-        <style dangerouslySetInnerHTML={{__html: `
-          /* Override react-diff-viewer-continued styles */
-          .diff-viewer-wrapper {
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.5;
-          }
-          
-          /* Preserve code formatting - only break on word boundaries */
-          .diff-viewer-wrapper pre,
-          .diff-viewer-wrapper code {
-            white-space: pre !important;
-            word-break: normal !important;
-            overflow-wrap: normal !important;
-          }
-          
-          /* Table layout for unified view */
-          .diff-viewer-wrapper table {
-            table-layout: auto !important;
-            width: 100%;
-            min-width: fit-content;
-            border-spacing: 0;
-            border-collapse: collapse;
-          }
-          
-          /* Split view specific table layout - target tables with split view class */
-          .diff-viewer-wrapper table.css-${viewType === 'split' ? '*' : 'none'}-split-view,
-          .diff-viewer-wrapper table[class*="split-view"] {
-            table-layout: fixed !important;
-            width: 100%;
-          }
-          
-          /* Target all TD elements based on their position for split view */
-          ${viewType === 'split' ? `
-          /* Split view: First and third columns are line numbers */
-          .diff-viewer-wrapper td:nth-child(1),
-          .diff-viewer-wrapper td:nth-child(3) {
-            width: 55px !important;
-            min-width: 55px !important;
-            max-width: 55px !important;
-            padding: 0 10px !important;
-            text-align: right !important;
-            user-select: none !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-          }
-          
-          /* Split view: Second and fourth columns are code content */
-          .diff-viewer-wrapper td:nth-child(2),
-          .diff-viewer-wrapper td:nth-child(4) {
-            width: calc(50% - 55px) !important;
-            max-width: calc(50% - 55px) !important;
-            overflow: hidden !important;
-            position: relative;
-          }
-          
-          /* Split view: Pre elements inside code cells should handle overflow */
-          .diff-viewer-wrapper td:nth-child(2) pre,
-          .diff-viewer-wrapper td:nth-child(4) pre {
-            overflow-x: auto !important;
-            max-width: 100% !important;
-            display: block !important;
-            margin: 0;
-          }
-          ` : `
-          /* Unified view: Line number columns */
-          .diff-viewer-wrapper td:nth-child(1),
-          .diff-viewer-wrapper td:nth-child(2) {
-            width: 55px !important;
-            min-width: 55px !important;
-            max-width: 55px !important;
-            padding: 0 10px !important;
-            text-align: right !important;
-            user-select: none !important;
-            white-space: nowrap !important;
-          }
-          
-          /* Unified view: Marker column */
-          .diff-viewer-wrapper td:nth-child(3) {
-            width: 25px !important;
-            min-width: 25px !important;
-            max-width: 25px !important;
-            padding: 0 5px !important;
-            text-align: center !important;
-          }
-          
-          /* Unified view: Code content column */
-          .diff-viewer-wrapper td:nth-child(4) {
-            width: auto !important;
-            overflow: hidden !important;
-          }
-          
-          /* Unified view: Pre elements inside code cells */
-          .diff-viewer-wrapper td:nth-child(4) pre {
-            overflow-x: auto !important;
-            display: block !important;
-            margin: 0;
-          }
-          `}
-          
-          /* Code cells should not break words */
-          .diff-viewer-wrapper td {
-            white-space: pre !important;
-            word-break: normal !important;
-            padding: 0 10px !important;
-            vertical-align: top !important;
-          }
-          
-          /* Improve readability */
-          .diff-viewer-wrapper .line-content {
-            white-space: pre !important;
-            tab-size: 4;
-          }
-          
-          /* Better file titles */
-          .diff-viewer-wrapper .diff-title {
-            padding: 8px 12px !important;
-            font-weight: 600 !important;
-          }
-          
-          /* Fix container width */
-          .diff-viewer-wrapper > div {
-            width: 100% !important;
-            overflow-x: auto !important;
-          }
-          
-          /* Ensure tables use full width properly */
-          .diff-viewer-wrapper table {
-            min-width: 100% !important;
-          }
-          
-          /* Hide markers in split view as they don't display properly */
-          ${viewType === 'split' ? `
-          .diff-viewer-wrapper td[class*="marker"] {
-            display: none !important;
-          }
-          ` : ''}
-          
-          /* Ensure pre elements respect their container */
-          .diff-viewer-wrapper pre {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-            border: none;
-          }
-        `}} />
       </div>
     );
   } catch (error) {
