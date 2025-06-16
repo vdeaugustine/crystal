@@ -17,8 +17,15 @@ interface ClaudeCodeProcess {
   worktreePath: string;
 }
 
+interface ClaudeAvailabilityCache {
+  result: { available: boolean; error?: string; version?: string; path?: string };
+  timestamp: number;
+}
+
 export class ClaudeCodeManager extends EventEmitter {
   private processes: Map<string, ClaudeCodeProcess> = new Map();
+  private availabilityCache: ClaudeAvailabilityCache | null = null;
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
   constructor(
     private sessionManager: any, 
@@ -58,8 +65,25 @@ export class ClaudeCodeManager extends EventEmitter {
         ? systemPromptParts.join('\n\n') 
         : undefined;
       
-      // Test if claude-code command exists and works
-      const availability = await testClaudeCodeAvailability();
+      // Test if claude-code command exists and works (with caching)
+      let availability;
+      
+      // Check cache first
+      if (this.availabilityCache && 
+          (Date.now() - this.availabilityCache.timestamp) < this.CACHE_TTL) {
+        availability = this.availabilityCache.result;
+        this.logger?.verbose(`Using cached Claude availability check`);
+      } else {
+        // Perform fresh check
+        availability = await testClaudeCodeAvailability();
+        
+        // Cache the result
+        this.availabilityCache = {
+          result: availability,
+          timestamp: Date.now()
+        };
+      }
+      
       if (!availability.available) {
         this.logger?.error(`Claude Code not available: ${availability.error}`);
         this.logger?.error(`Current PATH: ${process.env.PATH}`);
@@ -105,15 +129,21 @@ export class ClaudeCodeManager extends EventEmitter {
         this.logger?.verbose(`Claude executable path: ${availability.path}`);
       }
       
-      // Test claude in the target directory
-      const directoryTest = await testClaudeCodeInDirectory(worktreePath);
-      if (!directoryTest.success) {
-        this.logger?.error(`Claude test failed in directory ${worktreePath}: ${directoryTest.error}`);
-        if (directoryTest.output) {
-          this.logger?.error(`Claude output: ${directoryTest.output}`);
+      // Skip directory test on Linux for better performance
+      const skipDirTest = os.platform() === 'linux';
+      if (!skipDirTest) {
+        // Test claude in the target directory
+        const directoryTest = await testClaudeCodeInDirectory(worktreePath);
+        if (!directoryTest.success) {
+          this.logger?.error(`Claude test failed in directory ${worktreePath}: ${directoryTest.error}`);
+          if (directoryTest.output) {
+            this.logger?.error(`Claude output: ${directoryTest.output}`);
+          }
+        } else {
+          this.logger?.verbose(`Claude works in target directory`);
         }
       } else {
-        this.logger?.verbose(`Claude works in target directory`);
+        this.logger?.verbose(`Skipping directory test on Linux for performance`);
       }
       
       // Build the command arguments
@@ -383,7 +413,37 @@ export class ClaudeCodeManager extends EventEmitter {
       console.log(`[ClaudeCodeManager] Executing Claude Code command in worktree ${worktreePath}: ${fullCommand}`);
       
       // Get the user's shell PATH to ensure we have access to all their tools
-      const shellPath = getShellPath();
+      // For Linux, use current PATH to avoid slow shell detection
+      const isLinux = os.platform() === 'linux';
+      let shellPath: string;
+      
+      if (isLinux) {
+        // For Linux, enhance current PATH with common locations instead of shell detection
+        console.log('[ClaudeManager] Linux detected - using optimized PATH strategy');
+        const currentPath = process.env.PATH || '';
+        const pathSeparator = ':';
+        const commonLinuxPaths = [
+          '/usr/local/bin',
+          '/snap/bin',
+          path.join(os.homedir(), '.local', 'bin'),
+          path.join(os.homedir(), 'bin'),
+          '/usr/bin',
+          '/bin'
+        ];
+        
+        console.log(`[ClaudeManager] Current PATH has ${currentPath.split(pathSeparator).length} entries`);
+        
+        // Add common paths that aren't already in PATH
+        const currentPaths = new Set(currentPath.split(pathSeparator));
+        const additionalPaths = commonLinuxPaths.filter(p => !currentPaths.has(p) && fs.existsSync(p));
+        
+        console.log(`[ClaudeManager] Adding ${additionalPaths.length} Linux-specific paths: ${additionalPaths.join(', ')}`);
+        shellPath = currentPath + (additionalPaths.length > 0 ? pathSeparator + additionalPaths.join(pathSeparator) : '');
+      } else {
+        console.log('[ClaudeManager] Non-Linux platform - using full shell PATH detection');
+        shellPath = getShellPath();
+      }
+      
       const env = {
         ...process.env,
         PATH: shellPath,
@@ -439,6 +499,12 @@ export class ClaudeCodeManager extends EventEmitter {
       
       let ptyProcess: pty.IPty;
       try {
+        console.log(`[ClaudeManager] Spawning Claude process...`);
+        console.log(`[ClaudeManager] Command: ${claudeCommand}`);
+        console.log(`[ClaudeManager] Working directory: ${worktreePath}`);
+        console.log(`[ClaudeManager] PATH entries: ${shellPath.split(':').length}`);
+        const startTime = Date.now();
+        
         ptyProcess = pty.spawn(claudeCommand, args, {
           name: 'xterm-color',
           cols: 80,
@@ -446,10 +512,13 @@ export class ClaudeCodeManager extends EventEmitter {
           cwd: worktreePath,
           env
         });
+        
+        const spawnTime = Date.now() - startTime;
+        console.log(`[ClaudeManager] Claude process spawned successfully in ${spawnTime}ms`);
       } catch (spawnError) {
         // Handle spawn errors (e.g., command not found, permission denied)
         const errorMsg = spawnError instanceof Error ? spawnError.message : String(spawnError);
-        this.logger?.error(`Failed to spawn Claude process: ${errorMsg}`);
+        this.logger?.error(`[ClaudeManager] Failed to spawn Claude process: ${errorMsg}`);
         
         // Emit a pseudo-message to show the error in the UI
         const errorMessage = {

@@ -19,7 +19,9 @@ export class TerminalSessionManager extends EventEmitter {
     // Clean up any existing session
     this.closeTerminalSession(sessionId);
 
-    const shellPath = getShellPath();
+    // For Linux, use the current PATH to avoid slow shell detection
+    const isLinux = process.platform === 'linux';
+    const shellPath = isLinux ? (process.env.PATH || '') : getShellPath();
     const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
     
     // Create a new PTY instance

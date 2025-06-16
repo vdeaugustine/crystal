@@ -53,7 +53,9 @@ export class RunCommandManager extends EventEmitter {
             this.logger?.verbose(`Executing line ${j + 1}/${commandLines.length} of command ${i + 1}: ${commandLine}`);
             
             // Create environment with WORKTREE_PATH and enhanced PATH
-            const shellPath = getShellPath();
+            // For Linux, use current PATH to avoid slow shell detection
+            const isLinux = process.platform === 'linux';
+            const shellPath = isLinux ? (process.env.PATH || '') : getShellPath();
             const env = {
               ...process.env,
               WORKTREE_PATH: worktreePath,
