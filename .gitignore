@@ -54,6 +54,7 @@ coverage/
 # Claude Code session data
 sessions/
 .claude-sessions/
+.claude-images/
 
 # Electron
 *.dmg

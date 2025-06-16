@@ -1,6 +1,10 @@
 import { IpcMain } from 'electron';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import type { AppServices } from './types';
 import type { CreateSessionRequest } from '../types/session';
+import { getCrystalSubdirectory } from '../utils/crystalDirectory';
 
 export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices): void {
   const {
@@ -169,6 +173,24 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
             archiveMessage += `\x1b[33m⚠ Failed to remove worktree (manual cleanup may be needed)\x1b[0m\r\n`;
             // Continue with session deletion even if worktree removal fails
           }
+        }
+      }
+
+      // Clean up session artifacts (images)
+      const artifactsDir = getCrystalSubdirectory('artifacts', sessionId);
+      if (existsSync(artifactsDir)) {
+        try {
+          console.log(`[Main] Removing artifacts directory for session ${sessionId}`);
+          archiveMessage += `\x1b[90mRemoving session artifacts...\x1b[0m\r\n`;
+          
+          await fs.rm(artifactsDir, { recursive: true, force: true });
+          
+          console.log(`[Main] Successfully removed artifacts for session ${sessionId}`);
+          archiveMessage += `\x1b[32m✓ Artifacts removed successfully\x1b[0m\r\n`;
+        } catch (artifactsError) {
+          console.error(`[Main] Failed to remove artifacts for session ${sessionId}:`, artifactsError);
+          archiveMessage += `\x1b[33m⚠ Failed to remove artifacts (manual cleanup may be needed)\x1b[0m\r\n`;
+          // Continue with session deletion even if artifacts removal fails
         }
       }
 
@@ -424,6 +446,48 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
     } catch (error) {
       console.error('Failed to reorder sessions:', error);
       return { success: false, error: 'Failed to reorder sessions' };
+    }
+  });
+
+  // Save images for a session
+  ipcMain.handle('sessions:save-images', async (_event, sessionId: string, images: Array<{ name: string; dataUrl: string; type: string }>) => {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (!session) {
+        throw new Error('Session not found');
+      }
+
+      // Create images directory in CRYSTAL_DIR/artifacts/{sessionId}
+      const imagesDir = getCrystalSubdirectory('artifacts', sessionId);
+      if (!existsSync(imagesDir)) {
+        await fs.mkdir(imagesDir, { recursive: true });
+      }
+
+      const savedPaths: string[] = [];
+      
+      for (const image of images) {
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 9);
+        const extension = image.type.split('/')[1] || 'png';
+        const filename = `${timestamp}_${randomStr}.${extension}`;
+        const filePath = path.join(imagesDir, filename);
+
+        // Extract base64 data
+        const base64Data = image.dataUrl.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Save the image
+        await fs.writeFile(filePath, buffer);
+        
+        // Return the absolute path that Claude Code can access
+        savedPaths.push(filePath);
+      }
+
+      return savedPaths;
+    } catch (error) {
+      console.error('Failed to save images:', error);
+      throw error;
     }
   });
 } 

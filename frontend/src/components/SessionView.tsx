@@ -8,7 +8,7 @@ import { Inbox } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 import { useSessionView } from '../hooks/useSessionView';
 import { SessionHeader } from './session/SessionHeader';
-import { SessionInput } from './session/SessionInput';
+import { SessionInputWithImages } from './session/SessionInputWithImages';
 import { GitErrorDialog } from './session/GitErrorDialog';
 import { CommitMessageDialog } from './session/CommitMessageDialog';
 import { PromptNavigation } from './PromptNavigation';
@@ -137,7 +137,7 @@ export function SessionView() {
         )}
       </div>
       
-      <SessionInput
+      <SessionInputWithImages
         activeSession={activeSession}
         viewMode={hook.viewMode}
         input={hook.input}

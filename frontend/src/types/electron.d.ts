@@ -87,6 +87,9 @@ interface ElectronAPI {
     
     // Reorder operations
     reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>) => Promise<IPCResponse>;
+    
+    // Image operations
+    saveImages: (sessionId: string, images: Array<{ name: string; dataUrl: string; type: string }>) => Promise<string[]>;
   };
 
   // Project management

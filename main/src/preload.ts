@@ -84,6 +84,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Reorder operations
     reorder: (sessionOrders: Array<{ id: string; displayOrder: number }>): Promise<IPCResponse> => ipcRenderer.invoke('sessions:reorder', sessionOrders),
+    
+    // Image operations
+    saveImages: (sessionId: string, images: Array<{ name: string; dataUrl: string; type: string }>): Promise<string[]> => ipcRenderer.invoke('sessions:save-images', sessionId, images),
   },
 
   // Project management

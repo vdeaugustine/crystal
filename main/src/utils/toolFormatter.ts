@@ -23,6 +23,46 @@ interface PendingToolCall {
 const pendingToolCalls = new Map<string, PendingToolCall>();
 
 /**
+ * Recursively filter out base64 data from any object structure
+ */
+function filterBase64Data(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map(item => filterBase64Data(item));
+  }
+
+  // Handle objects
+  if (typeof obj === 'object') {
+    const filtered: any = {};
+    
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        // Check if this is a base64 source object
+        if (key === 'source' && obj[key]?.type === 'base64' && obj[key]?.data) {
+          // Replace base64 data with placeholder
+          filtered[key] = {
+            ...obj[key],
+            data: '[Base64 data filtered]'
+          };
+        } else {
+          // Recursively filter nested objects
+          filtered[key] = filterBase64Data(obj[key]);
+        }
+      }
+    }
+    
+    return filtered;
+  }
+
+  // Return primitive values as-is
+  return obj;
+}
+
+/**
  * Convert absolute file paths to relative paths based on the git repository root
  */
 function makePathsRelative(content: any, gitRepoPath?: string): string {
@@ -175,9 +215,32 @@ export function formatToolInteraction(
     output += `\x1b[90m├─ Result${resultTime}:\x1b[0m\r\n`;
     
     if (toolResult.content) {
-      // Apply relative paths to the result content
-      const processedContent = makePathsRelative(toolResult.content, gitRepoPath);
-      const lines = processedContent.split('\n');
+      // Check if this is an image read result
+      let isImageResult = false;
+      if (toolCall.name === 'Read' && toolCall.input.file_path) {
+        try {
+          // Check if the result is a JSON array with image data
+          const parsed = JSON.parse(toolResult.content);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].type === 'image') {
+            isImageResult = true;
+            // Display a friendly message instead of the base64 data
+            output += `\x1b[90m│  \x1b[0m\x1b[37m[Image displayed to Claude Code]\x1b[0m\r\n`;
+            output += `\x1b[90m│  \x1b[0m\x1b[90mFile: ${makePathsRelative(toolCall.input.file_path, gitRepoPath)}\x1b[0m\r\n`;
+            if (parsed[0].source?.data) {
+              const dataLength = parsed[0].source.data.length;
+              const sizeKB = Math.round(dataLength * 0.75 / 1024); // Approximate base64 to bytes
+              output += `\x1b[90m│  \x1b[0m\x1b[90mSize: ~${sizeKB} KB\x1b[0m\r\n`;
+            }
+          }
+        } catch {
+          // Not JSON or not an image, proceed with normal handling
+        }
+      }
+      
+      if (!isImageResult) {
+        // Apply relative paths to the result content
+        const processedContent = makePathsRelative(toolResult.content, gitRepoPath);
+        const lines = processedContent.split('\n');
       // Show more lines for errors to ensure important information isn't hidden
       const isError = toolCall.name === 'Bash' && (
         toolResult.content.includes('error:') || 
@@ -276,6 +339,7 @@ export function formatToolInteraction(
           output += `\x1b[90m│  ... (${lines.length - maxLines} more lines)\x1b[0m\r\n`;
         }
       }
+      } // Close the !isImageResult block
     } else {
       output += `\x1b[90m│  \x1b[0m\x1b[37m(empty result)\x1b[0m\r\n`;
     }
@@ -406,8 +470,24 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
                 return new Date().toLocaleTimeString();
               }
             })();
+            
+            // Filter out any base64 data from the result
+            let content = result.content || '';
+            
+            // First, filter out base64 data from the content
+            const filteredContent = filterBase64Data(content);
+            
+            // Then convert to string for display
+            if (typeof filteredContent === 'string') {
+              content = makePathsRelative(filteredContent, gitRepoPath);
+            } else if (filteredContent !== null && filteredContent !== undefined) {
+              // Convert filtered object/array to string
+              content = JSON.stringify(filteredContent, null, 2);
+              content = makePathsRelative(content, gitRepoPath);
+            }
+            
             return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[90m📥 Tool Result [${result.tool_use_id}]\x1b[0m\r\n` +
-                   `\x1b[37m${makePathsRelative(result.content || '', gitRepoPath)}\x1b[0m\r\n\r\n`;
+                   `\x1b[37m${content}\x1b[0m\r\n\r\n`;
           })
           .join('');
       }

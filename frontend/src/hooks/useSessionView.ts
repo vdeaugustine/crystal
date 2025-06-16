@@ -694,9 +694,33 @@ export const useSessionView = (
     return () => window.removeEventListener('navigateToPrompt', handlePromptNavigation as EventListener);
   }, [activeSession?.id, handleNavigateToPrompt]);
 
-  const handleSendInput = async () => {
+  const handleSendInput = async (attachedImages?: any[]) => {
     if (!input.trim() || !activeSession) return;
-    const finalInput = ultrathink ? `${input}\nultrathink` : input;
+    
+    let finalInput = ultrathink ? `${input}\nultrathink` : input;
+    
+    // If there are attached images, save them and append paths to input
+    if (attachedImages && attachedImages.length > 0) {
+      try {
+        // Save images via IPC
+        const imagePaths = await window.electronAPI.sessions.saveImages(
+          activeSession.id,
+          attachedImages.map(img => ({
+            name: img.name,
+            dataUrl: img.dataUrl,
+            type: img.type,
+          }))
+        );
+        
+        // Append image paths to the prompt
+        const imagePathsText = imagePaths.map(path => `Image: ${path}`).join('\n');
+        finalInput = `${finalInput}\n\n${imagePathsText}`;
+      } catch (error) {
+        console.error('Failed to save images:', error);
+        // Continue without images on error
+      }
+    }
+    
     const response = await API.sessions.sendInput(activeSession.id, `${finalInput}\n`);
     if (response.success) {
       setInput('');
@@ -704,9 +728,33 @@ export const useSessionView = (
     }
   };
 
-  const handleContinueConversation = async () => {
+  const handleContinueConversation = async (attachedImages?: any[]) => {
     if (!input.trim() || !activeSession) return;
-    const finalInput = ultrathink ? `${input}\nultrathink` : input;
+    
+    let finalInput = ultrathink ? `${input}\nultrathink` : input;
+    
+    // If there are attached images, save them and append paths to input
+    if (attachedImages && attachedImages.length > 0) {
+      try {
+        // Save images via IPC
+        const imagePaths = await window.electronAPI.sessions.saveImages(
+          activeSession.id,
+          attachedImages.map(img => ({
+            name: img.name,
+            dataUrl: img.dataUrl,
+            type: img.type,
+          }))
+        );
+        
+        // Append image paths to the prompt
+        const imagePathsText = imagePaths.map(path => `Image: ${path}`).join('\n');
+        finalInput = `${finalInput}\n\n${imagePathsText}`;
+      } catch (error) {
+        console.error('Failed to save images:', error);
+        // Continue without images on error
+      }
+    }
+    
     const response = await API.sessions.continue(activeSession.id, finalInput);
     if (response.success) {
       setInput('');
