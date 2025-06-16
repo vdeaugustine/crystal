@@ -67,6 +67,7 @@ export const useSessionView = (
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousStatusRef = useRef<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const isContinuingConversationRef = useRef(false);
 
 
   const loadOutputContent = useCallback(async (sessionId: string, retryCount = 0) => {
@@ -152,8 +153,12 @@ export const useSessionView = (
       
       if (updatedSession && updatedSession.status !== activeSession?.status) {
         if (activeSession?.status === 'initializing' && updatedSession.status === 'running') {
-          terminalInstance.current?.clear();
-          setShouldReloadOutput(true);
+          // Only clear terminal and reload for new sessions, not when continuing conversations
+          const hasExistingOutput = activeSession.output && activeSession.output.length > 0;
+          if (!hasExistingOutput && !isContinuingConversationRef.current) {
+            terminalInstance.current?.clear();
+            setShouldReloadOutput(true);
+          }
         }
         forceUpdate({});
       }
@@ -349,6 +354,12 @@ export const useSessionView = (
       console.log(`[useSessionView] Not ready to load output - terminalRef: ${!!terminalRef.current}, activeSession: ${!!activeSession}`);
       return;
     }
+    
+    // Skip loading if we're continuing a conversation
+    if (isContinuingConversationRef.current) {
+      console.log(`[useSessionView] Skipping output load - continuing conversation`);
+      return;
+    }
   
     const hasOutput = activeSession.output?.length > 0;
     const hasMessages = activeSession.jsonMessages?.length > 0;
@@ -364,7 +375,7 @@ export const useSessionView = (
       }
       setTimeout(() => {
         const currentActiveSession = useSessionStore.getState().getActiveSession();
-        if (currentActiveSession?.id === activeSession.id) {
+        if (currentActiveSession?.id === activeSession.id && !isContinuingConversationRef.current) {
           console.log(`[useSessionView] Loading output for initializing session ${activeSession.id}`);
           loadOutputContent(activeSession.id);
         }
@@ -374,7 +385,7 @@ export const useSessionView = (
       console.log(`[useSessionView] Session ${activeSession.id} needs output load - scheduling load with delay ${loadDelay}ms`);
       setTimeout(() => {
         const currentActiveSession = useSessionStore.getState().getActiveSession();
-        if (currentActiveSession?.id === activeSession.id) {
+        if (currentActiveSession?.id === activeSession.id && !isContinuingConversationRef.current) {
           console.log(`[useSessionView] Loading output for session ${activeSession.id} (hasOutput: ${hasOutput}, hasMessages: ${hasMessages})`);
           loadOutputContent(activeSession.id);
         }
@@ -588,7 +599,7 @@ export const useSessionView = (
   useEffect(() => {
     if (!activeSession || !terminalInstance.current) return;
     const hasEmptyOutput = !activeSession.output?.length && !activeSession.jsonMessages?.length;
-    if (hasEmptyOutput && activeSession.status !== 'initializing' && currentSessionIdForOutput === activeSession.id) {
+    if (hasEmptyOutput && activeSession.status !== 'initializing' && currentSessionIdForOutput === activeSession.id && !isContinuingConversationRef.current) {
       setTimeout(() => loadOutputContent(activeSession.id), 200);
     }
   }, [activeSessionId, currentSessionIdForOutput, loadOutputContent]);
@@ -625,11 +636,24 @@ export const useSessionView = (
     const { status } = activeSession;
     const prevStatus = previousStatusRef.current;
     if (prevStatus && ['stopped', 'waiting'].includes(prevStatus) && status === 'initializing') {
-      setTimeout(() => loadOutputContent(activeSession.id), 200);
+      // Don't reload output when continuing a conversation - existing output should remain
+      // Only reload for truly new sessions that have no output yet
+      const hasExistingOutput = activeSession.output && activeSession.output.length > 0;
+      if (!hasExistingOutput && !isContinuingConversationRef.current) {
+        setTimeout(() => loadOutputContent(activeSession.id), 200);
+      }
     }
     if (prevStatus === 'initializing' && status === 'running') {
-      terminalInstance.current?.clear();
-      setTimeout(() => loadOutputContent(activeSession.id), 100);
+      // Only clear terminal for new sessions, not when continuing conversations
+      const hasExistingOutput = activeSession.output && activeSession.output.length > 0;
+      if (!hasExistingOutput && !isContinuingConversationRef.current) {
+        terminalInstance.current?.clear();
+        setTimeout(() => loadOutputContent(activeSession.id), 100);
+      }
+      // Reset the flag after status changes to running
+      if (isContinuingConversationRef.current) {
+        isContinuingConversationRef.current = false;
+      }
     }
     previousStatusRef.current = status;
   }, [activeSession?.status, activeSessionId, loadOutputContent]);
@@ -731,6 +755,9 @@ export const useSessionView = (
   const handleContinueConversation = async (attachedImages?: any[]) => {
     if (!input.trim() || !activeSession) return;
     
+    // Mark that we're continuing a conversation to prevent output reload
+    isContinuingConversationRef.current = true;
+    
     let finalInput = ultrathink ? `${input}\nultrathink` : input;
     
     // If there are attached images, save them and append paths to input
@@ -759,7 +786,8 @@ export const useSessionView = (
     if (response.success) {
       setInput('');
       setUltrathink(false);
-      setTimeout(() => loadOutputContent(activeSession.id), 500);
+      // Output will be loaded automatically when session status changes to 'initializing'
+      // No need to manually reload here as it can cause timing issues
     }
   };
 
