@@ -69,6 +69,21 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           diffViewerTitleBorderColor: '#4b5563',
         },
       },
+      // Custom font size styles
+      line: {
+        fontSize: '12px',
+        padding: '1px 10px',
+      },
+      contentText: {
+        fontSize: '12px',
+      },
+      gutter: {
+        fontSize: '11px',
+        minWidth: '50px',
+      },
+      lineNumber: {
+        fontSize: '11px',
+      },
     };
     
     const lightStyles = {
@@ -99,6 +114,21 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           diffViewerTitleColor: '#6b7280',
           diffViewerTitleBorderColor: '#e5e7eb',
         },
+      },
+      // Custom font size styles
+      line: {
+        fontSize: '12px',
+        padding: '1px 10px',
+      },
+      contentText: {
+        fontSize: '12px',
+      },
+      gutter: {
+        fontSize: '11px',
+        minWidth: '50px',
+      },
+      lineNumber: {
+        fontSize: '11px',
       },
     };
     
