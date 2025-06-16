@@ -38,6 +38,9 @@ jobs:
     - name: Rebuild native modules
       run: pnpm run electron:rebuild
 
+    - name: Generate NOTICES file
+      run: pnpm run generate-notices
+
     - name: Build application
       run: pnpm run build:mac
       env:

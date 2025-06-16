@@ -23,14 +23,15 @@
     "build:frontend": "pnpm run --filter frontend build",
     "build:main": "pnpm run --filter main build",
     "build:electron": "electron-builder",
-    "build:mac": "pnpm run build:frontend && pnpm run build:main && electron-builder --mac --publish never",
-    "release:mac": "pnpm run build:frontend && pnpm run build:main && electron-builder --mac --publish always",
+    "build:mac": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --mac --publish never",
+    "release:mac": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --mac --publish always",
     "preview": "pnpm run --filter frontend preview",
     "lint": "pnpm run -r lint",
     "typecheck": "pnpm run -r typecheck",
     "postinstall": "electron-builder install-app-deps",
     "electron:rebuild": "cd main && electron-rebuild -f -w better-sqlite3",
     "setup": "pnpm install && pnpm run build:main && pnpm run electron:rebuild",
+    "generate-notices": "node scripts/generate-notices.js",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
@@ -70,7 +71,9 @@
       "package.json",
       "node_modules/**/*",
       "!node_modules/@anthropic-ai/claude-code/vendor/**/*.jar",
-      "build/**/*"
+      "build/**/*",
+      "LICENSE",
+      "NOTICES"
     ],
     "npmRebuild": true,
     "buildDependenciesFromSource": false,
