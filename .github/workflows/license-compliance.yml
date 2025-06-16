@@ -9,6 +9,7 @@ on:
       - 'main/package.json'
       - 'scripts/generate-notices.js'
       - '.github/workflows/license-compliance.yml'
+      - 'NOTICES'
   push:
     branches: [ main ]
     paths:
@@ -18,6 +19,7 @@ on:
       - 'main/package.json'
       - 'scripts/generate-notices.js'
       - '.github/workflows/license-compliance.yml'
+      - 'NOTICES'
   workflow_dispatch:
 
 jobs:
@@ -43,22 +45,31 @@ jobs:
     - name: Generate NOTICES file
       run: pnpm run generate-notices
 
-    - name: Check if NOTICES file was generated
+    - name: Check if NOTICES file is up-to-date
       run: |
+        # Check if NOTICES file exists
         if [ ! -f "NOTICES" ]; then
           echo "Error: NOTICES file was not generated"
           exit 1
         fi
-        echo "NOTICES file generated successfully"
+        
+        # Generate a fresh NOTICES file to compare
+        cp NOTICES NOTICES.original
+        pnpm run generate-notices
+        
+        # Compare the files
+        if ! diff -q NOTICES.original NOTICES > /dev/null; then
+          echo "::error::NOTICES file is out of date. Please run 'pnpm run generate-notices' and commit the changes."
+          echo ""
+          echo "Differences found:"
+          diff -u NOTICES.original NOTICES || true
+          exit 1
+        else
+          echo "✅ NOTICES file is up-to-date"
+        fi
+        
         echo "File size: $(ls -lh NOTICES | awk '{print $5}')"
         echo "License count: $(grep -c "^Package:" NOTICES)"
-
-    - name: Upload NOTICES as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: notices-file
-        path: NOTICES
-        retention-days: 7
 
     - name: Check for problematic licenses
       run: |
