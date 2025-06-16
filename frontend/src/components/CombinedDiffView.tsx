@@ -4,6 +4,7 @@ import ExecutionList from './ExecutionList';
 import { API } from '../utils/api';
 import type { CombinedDiffViewProps } from '../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../types/diff';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({ 
   sessionId, 
@@ -16,6 +17,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
   const [combinedDiff, setCombinedDiff] = useState<GitDiffResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Load executions for the session
   useEffect(() => {
@@ -108,6 +110,10 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
     setSelectedExecutions(newSelection);
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   if (loading && executions.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -126,7 +132,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
   }
 
   return (
-    <div className="combined-diff-view h-full flex flex-col overflow-hidden">
+    <div className={`combined-diff-view flex flex-col overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900' : 'h-full'}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">File Changes</h2>
@@ -147,22 +153,35 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
               <span className="text-gray-400">{combinedDiff.stats.filesChanged} {combinedDiff.stats.filesChanged === 1 ? 'file' : 'files'}</span>
             </div>
           )}
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <Maximize2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            )}
+          </button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Commits selection sidebar */}
-        <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex flex-col">
-          <ExecutionList
-            sessionId={sessionId}
-            executions={executions}
-            selectedExecutions={selectedExecutions}
-            onSelectionChange={handleSelectionChange}
-          />
-        </div>
+        {!isFullscreen && (
+          <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex flex-col">
+            <ExecutionList
+              sessionId={sessionId}
+              executions={executions}
+              selectedExecutions={selectedExecutions}
+              onSelectionChange={handleSelectionChange}
+            />
+          </div>
+        )}
 
         {/* Diff preview */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto bg-white dark:bg-gray-900 min-w-0">
+        <div className={`${isFullscreen ? 'w-full' : 'flex-1'} overflow-x-auto overflow-y-auto bg-white dark:bg-gray-900 min-w-0`}>
           {isGitOperationRunning ? (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <svg className="animate-spin h-12 w-12 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
