@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { parseDiff, Diff, Hunk } from 'react-diff-view';
+import ReactDiffViewer from 'react-diff-viewer-continued';
 import type { DiffViewerProps } from '../types/diff';
 
 const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
-  const [viewType, setViewType] = useState<'unified' | 'split'>('unified');
+  const [viewType, setViewType] = useState<'unified' | 'split'>('split');
   
   // Load saved preference from localStorage
   useEffect(() => {
@@ -18,6 +18,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
     setViewType(type);
     localStorage.setItem('diffViewType', type);
   };
+  
   if (!diff || diff.trim() === '') {
     return (
       <div className={`p-4 text-gray-500 dark:text-gray-400 text-center ${className}`}>
@@ -27,8 +28,8 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
   }
 
   try {
-    // Parse the git diff
-    const files = parseDiff(diff);
+    // Parse the unified diff to extract individual files
+    const files = parseUnifiedDiff(diff);
 
     if (files.length === 0) {
       return (
@@ -37,11 +38,77 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
         </div>
       );
     }
+    
+    // Dark mode styles for react-diff-viewer - toned down colors
+    const darkStyles = {
+      variables: {
+        dark: {
+          diffViewerBackground: '#1f2937',
+          diffViewerColor: '#e5e7eb',
+          addedBackground: '#1e4e3a',
+          addedColor: '#86efac',
+          removedBackground: '#4c1d1d',
+          removedColor: '#fca5a5',
+          wordAddedBackground: '#166534',
+          wordRemovedBackground: '#7f1d1d',
+          addedGutterBackground: '#1e4e3a',
+          removedGutterBackground: '#4c1d1d',
+          gutterBackground: '#374151',
+          gutterBackgroundDark: '#374151',
+          highlightBackground: '#fbbf24',
+          highlightGutterBackground: '#f59e0b',
+          codeFoldGutterBackground: '#21232c',
+          codeFoldBackground: '#262831',
+          emptyLineBackground: '#1f2937',
+          gutterColor: '#9ca3af',
+          addedGutterColor: '#86efac',
+          removedGutterColor: '#fca5a5',
+          codeFoldContentColor: '#cbd5e1',
+          diffViewerTitleBackground: '#2d3748',
+          diffViewerTitleColor: '#cbd5e1',
+          diffViewerTitleBorderColor: '#4b5563',
+        },
+      },
+    };
+    
+    const lightStyles = {
+      variables: {
+        light: {
+          diffViewerBackground: '#ffffff',
+          diffViewerColor: '#374151',
+          addedBackground: '#f0fdf4',
+          addedColor: '#166534',
+          removedBackground: '#fef2f2',
+          removedColor: '#991b1b',
+          wordAddedBackground: '#dcfce7',
+          wordRemovedBackground: '#fee2e2',
+          addedGutterBackground: '#dcfce7',
+          removedGutterBackground: '#fee2e2',
+          gutterBackground: '#f9fafb',
+          gutterBackgroundDark: '#f3f4f6',
+          highlightBackground: '#fbbf24',
+          highlightGutterBackground: '#f59e0b',
+          codeFoldGutterBackground: '#e0e7ff',
+          codeFoldBackground: '#f0f4ff',
+          emptyLineBackground: '#fafbfc',
+          gutterColor: '#6b7280',
+          addedGutterColor: '#166534',
+          removedGutterColor: '#991b1b',
+          codeFoldContentColor: '#6b7280',
+          diffViewerTitleBackground: '#f9fafb',
+          diffViewerTitleColor: '#6b7280',
+          diffViewerTitleBorderColor: '#e5e7eb',
+        },
+      },
+    };
+    
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const currentStyles = isDarkMode ? darkStyles : lightStyles;
 
     return (
-      <div className={`diff-viewer ${className}`}>
+      <div className={`diff-viewer ${className}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* View toggle */}
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end mb-4 flex-shrink-0">
           <div className="inline-flex rounded-lg border border-gray-600 bg-gray-700">
             <button
               onClick={() => handleViewTypeChange('unified')}
@@ -72,235 +139,235 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           </div>
         </div>
         
-        {files.map((file, index) => (
-          <div key={`${file.oldPath}-${file.newPath}-${index}`} className="mb-6">
-            {/* File header */}
-            <div className="bg-gray-700 border border-gray-600 rounded-t-lg px-4 py-2 font-mono text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {file.type === 'delete' && (
-                    <span className="text-red-600 mr-2">−</span>
+        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+        {files.map((file, index) => {
+          // For binary files or files with no content
+          if (file.isBinary || (!file.oldValue && !file.newValue)) {
+            return (
+              <div key={`${file.oldFileName}-${file.newFileName}-${index}`} className="mb-6">
+                <div className="bg-gray-700 border border-gray-600 rounded px-4 py-2 font-mono text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {file.type === 'deleted' && (
+                        <span className="text-red-600 mr-2">−</span>
+                      )}
+                      {file.type === 'added' && (
+                        <span className="text-green-600 mr-2">+</span>
+                      )}
+                      {file.type === 'modified' && (
+                        <span className="text-blue-600 mr-2">~</span>
+                      )}
+                      {file.newFileName || file.oldFileName}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {file.isBinary ? 'binary' : file.type}
+                    </span>
+                  </div>
+                  {file.type === 'renamed' && file.oldFileName !== file.newFileName && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {file.oldFileName} → {file.newFileName}
+                    </div>
                   )}
-                  {file.type === 'add' && (
-                    <span className="text-green-600 mr-2">+</span>
-                  )}
-                  {file.type === 'modify' && (
-                    <span className="text-blue-600 mr-2">~</span>
-                  )}
-                  {file.newPath || file.oldPath}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {file.type === 'delete' && 'deleted'}
-                  {file.type === 'add' && 'added'}
-                  {file.type === 'modify' && 'modified'}
-                  {file.type === 'rename' && 'renamed'}
-                </span>
-              </div>
-              {file.type === 'rename' && file.oldPath !== file.newPath && (
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {file.oldPath} → {file.newPath}
                 </div>
-              )}
-            </div>
+              </div>
+            );
+          }
+          
+          return (
+            <div key={`${file.oldFileName}-${file.newFileName}-${index}`} className="mb-6">
+              {/* File header */}
+              <div className="bg-gray-700 border border-gray-600 rounded-t-lg px-4 py-2 font-mono text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {file.type === 'deleted' && (
+                      <span className="text-red-600 mr-2">−</span>
+                    )}
+                    {file.type === 'added' && (
+                      <span className="text-green-600 mr-2">+</span>
+                    )}
+                    {file.type === 'modified' && (
+                      <span className="text-blue-600 mr-2">~</span>
+                    )}
+                    {file.newFileName || file.oldFileName}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {file.type}
+                  </span>
+                </div>
+                {file.type === 'renamed' && file.oldFileName !== file.newFileName && (
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {file.oldFileName} → {file.newFileName}
+                  </div>
+                )}
+              </div>
 
-            {/* Diff content */}
-            <div className="border border-t-0 border-gray-600 rounded-b-lg overflow-x-hidden">
-              <Diff 
-                viewType={viewType} 
-                diffType={file.type} 
-                hunks={file.hunks}
-                className="diff-content"
-              >
-                {(hunks) =>
-                  hunks.map((hunk) => (
-                    <Hunk 
-                      key={hunk.content} 
-                      hunk={hunk}
-                    />
-                  ))
-                }
-              </Diff>
+              {/* Diff content */}
+              <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ maxHeight: '600px', overflow: 'auto' }}>
+                <div className="diff-viewer-wrapper" style={{ minWidth: viewType === 'split' ? '800px' : 'auto' }}>
+                  <ReactDiffViewer
+                    oldValue={file.oldValue || ''}
+                    newValue={file.newValue || ''}
+                    splitView={viewType === 'split'}
+                    useDarkTheme={isDarkMode}
+                    styles={currentStyles}
+                    showDiffOnly={false}
+                    disableWordDiff={false}
+                    hideLineNumbers={false}
+                    hideMarkers={viewType === 'split'}
+                    leftTitle={file.oldFileName}
+                    rightTitle={file.newFileName}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
-
+          );
+        })}
+        </div>
+        
         <style dangerouslySetInnerHTML={{__html: `
-          /* Ensure all text in dark mode is visible */
-          .dark .diff-viewer {
-            color: #ffffff !important;
-          }
-          
-          .dark .diff-viewer * {
-            color: inherit;
-          }
-          
-          .diff-viewer .diff-content {
+          /* Override react-diff-viewer-continued styles */
+          .diff-viewer-wrapper {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-          }
-
-          .diff-viewer .diff-line {
-            padding: 2px 8px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            border: none;
-          }
-
-          .diff-viewer .diff-line-normal {
-            background-color: white;
-            color: #333;
+            font-size: 13px;
+            line-height: 1.5;
           }
           
-          .dark .diff-viewer .diff-line-normal {
-            background-color: #1f2937;
-            color: #ffffff;
+          /* Preserve code formatting - only break on word boundaries */
+          .diff-viewer-wrapper pre,
+          .diff-viewer-wrapper code {
+            white-space: pre !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
           }
           
-          /* Target the actual code content more specifically */
-          .dark .diff-viewer .diff-code-cell {
-            color: #ffffff !important;
-          }
-          
-          .dark .diff-viewer .diff-line-content {
-            color: #ffffff !important;
-          }
-          
-          /* Ensure all text in diff lines is visible */
-          .dark .diff-viewer .diff-line {
-            color: #ffffff !important;
-          }
-
-          .diff-viewer .diff-line-insert {
-            background-color: #e6ffed;
-            color: #22863a;
-          }
-          
-          .dark .diff-viewer .diff-line-insert {
-            background-color: #064e3b;
-            color: #10b981;
-          }
-          
-          /* Override for insert line content */
-          .dark .diff-viewer .diff-line-insert .diff-code-cell,
-          .dark .diff-viewer .diff-line-insert .diff-line-content {
-            color: #10b981 !important;
-          }
-
-          .diff-viewer .diff-line-delete {
-            background-color: #ffeef0;
-            color: #cb2431;
-          }
-          
-          .dark .diff-viewer .diff-line-delete {
-            background-color: #7f1d1d;
-            color: #ef4444;
-          }
-          
-          /* Override for delete line content */
-          .dark .diff-viewer .diff-line-delete .diff-code-cell,
-          .dark .diff-viewer .diff-line-delete .diff-line-content {
-            color: #ef4444 !important;
-          }
-
-          .diff-viewer .diff-line-number {
-            padding: 2px 8px;
-            color: #586069;
-            background-color: #f6f8fa;
-            border-right: 1px solid #e1e4e8;
-            text-align: right;
-            min-width: 40px;
-            user-select: none;
-          }
-          
-          .dark .diff-viewer .diff-line-number {
-            color: #9ca3af;
-            background-color: #374151;
-            border-right-color: #4b5563;
-          }
-
-          .diff-viewer .diff-gutter {
-            width: 80px;
-            background-color: #f6f8fa;
-          }
-          
-          .dark .diff-viewer .diff-gutter {
-            background-color: #374151;
-          }
-
-          .diff-viewer .diff-gutter-insert {
-            background-color: #cdffd8;
-          }
-          
-          .dark .diff-viewer .diff-gutter-insert {
-            background-color: #065f46;
-          }
-
-          .diff-viewer .diff-gutter-delete {
-            background-color: #ffdce0;
-          }
-          
-          .dark .diff-viewer .diff-gutter-delete {
-            background-color: #991b1b;
-          }
-          
-          /* Split view styles */
-          .diff-viewer .diff-split-table {
+          /* Table layout for unified view */
+          .diff-viewer-wrapper table {
+            table-layout: auto !important;
             width: 100%;
-            table-layout: auto;
-            min-width: 800px;
+            min-width: fit-content;
+            border-spacing: 0;
+            border-collapse: collapse;
           }
           
-          .diff-viewer .diff-split-cell {
-            width: 50%;
-            vertical-align: top;
-            min-width: 400px;
+          /* Split view specific table layout - target tables with split view class */
+          .diff-viewer-wrapper table.css-${viewType === 'split' ? '*' : 'none'}-split-view,
+          .diff-viewer-wrapper table[class*="split-view"] {
+            table-layout: fixed !important;
+            width: 100%;
           }
           
-          .diff-viewer .diff-split-gutter {
-            width: 40px;
+          /* Target all TD elements based on their position for split view */
+          ${viewType === 'split' ? `
+          /* Split view: First and third columns are line numbers */
+          .diff-viewer-wrapper td:nth-child(1),
+          .diff-viewer-wrapper td:nth-child(3) {
+            width: 55px !important;
+            min-width: 55px !important;
+            max-width: 55px !important;
+            padding: 0 10px !important;
+            text-align: right !important;
+            user-select: none !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
           }
           
-          .diff-viewer .diff-code-cell {
-            overflow-x: visible;
-            word-break: break-all;
+          /* Split view: Second and fourth columns are code content */
+          .diff-viewer-wrapper td:nth-child(2),
+          .diff-viewer-wrapper td:nth-child(4) {
+            width: calc(50% - 55px) !important;
+            max-width: calc(50% - 55px) !important;
+            overflow: hidden !important;
+            position: relative;
           }
           
-          .diff-viewer .diff-line-content {
-            white-space: pre-wrap;
-            word-break: break-all;
+          /* Split view: Pre elements inside code cells should handle overflow */
+          .diff-viewer-wrapper td:nth-child(2) pre,
+          .diff-viewer-wrapper td:nth-child(4) pre {
+            overflow-x: auto !important;
+            max-width: 100% !important;
+            display: block !important;
+            margin: 0;
           }
-
-          .diff-viewer .hunk-header {
-            background-color: #f1f8ff;
-            color: #586069;
-            padding: 4px 8px;
-            border-top: 1px solid #e1e4e8;
-            border-bottom: 1px solid #e1e4e8;
-            font-weight: 600;
-          }
-          
-          .dark .diff-viewer .hunk-header {
-            background-color: #1e3a8a;
-            color: #cbd5e1;
-            border-top-color: #3b82f6;
-            border-bottom-color: #3b82f6;
-          }
-
-          .diff-viewer .diff-omit {
-            background-color: #f6f8fa;
-            color: #586069;
-            text-align: center;
-            padding: 8px;
-            border-top: 1px solid #e1e4e8;
-            border-bottom: 1px solid #e1e4e8;
+          ` : `
+          /* Unified view: Line number columns */
+          .diff-viewer-wrapper td:nth-child(1),
+          .diff-viewer-wrapper td:nth-child(2) {
+            width: 55px !important;
+            min-width: 55px !important;
+            max-width: 55px !important;
+            padding: 0 10px !important;
+            text-align: right !important;
+            user-select: none !important;
+            white-space: nowrap !important;
           }
           
-          .dark .diff-viewer .diff-omit {
-            background-color: #374151;
-            color: #9ca3af;
-            border-top-color: #4b5563;
-            border-bottom-color: #4b5563;
+          /* Unified view: Marker column */
+          .diff-viewer-wrapper td:nth-child(3) {
+            width: 25px !important;
+            min-width: 25px !important;
+            max-width: 25px !important;
+            padding: 0 5px !important;
+            text-align: center !important;
+          }
+          
+          /* Unified view: Code content column */
+          .diff-viewer-wrapper td:nth-child(4) {
+            width: auto !important;
+            overflow: hidden !important;
+          }
+          
+          /* Unified view: Pre elements inside code cells */
+          .diff-viewer-wrapper td:nth-child(4) pre {
+            overflow-x: auto !important;
+            display: block !important;
+            margin: 0;
+          }
+          `}
+          
+          /* Code cells should not break words */
+          .diff-viewer-wrapper td {
+            white-space: pre !important;
+            word-break: normal !important;
+            padding: 0 10px !important;
+            vertical-align: top !important;
+          }
+          
+          /* Improve readability */
+          .diff-viewer-wrapper .line-content {
+            white-space: pre !important;
+            tab-size: 4;
+          }
+          
+          /* Better file titles */
+          .diff-viewer-wrapper .diff-title {
+            padding: 8px 12px !important;
+            font-weight: 600 !important;
+          }
+          
+          /* Fix container width */
+          .diff-viewer-wrapper > div {
+            width: 100% !important;
+            overflow-x: auto !important;
+          }
+          
+          /* Ensure tables use full width properly */
+          .diff-viewer-wrapper table {
+            min-width: 100% !important;
+          }
+          
+          /* Hide markers in split view as they don't display properly */
+          ${viewType === 'split' ? `
+          .diff-viewer-wrapper td[class*="marker"] {
+            display: none !important;
+          }
+          ` : ''}
+          
+          /* Ensure pre elements respect their container */
+          .diff-viewer-wrapper pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            border: none;
           }
         `}} />
       </div>
@@ -317,5 +384,122 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
     );
   }
 };
+
+// Parse unified diff format to extract individual file diffs
+function parseUnifiedDiff(diff: string): Array<{
+  oldFileName: string;
+  newFileName: string;
+  oldValue: string;
+  newValue: string;
+  type: 'added' | 'deleted' | 'modified' | 'renamed';
+  isBinary: boolean;
+}> {
+  const files: Array<{
+    oldFileName: string;
+    newFileName: string;
+    oldValue: string;
+    newValue: string;
+    type: 'added' | 'deleted' | 'modified' | 'renamed';
+    isBinary: boolean;
+  }> = [];
+  
+  // Split by file headers
+  const fileMatches = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
+  
+  if (!fileMatches) {
+    return files;
+  }
+  
+  for (const fileContent of fileMatches) {
+    // Extract file names
+    const fileNameMatch = fileContent.match(/diff --git a\/(.*?) b\/(.*?)\n/);
+    if (!fileNameMatch) continue;
+    
+    const oldFileName = fileNameMatch[1];
+    const newFileName = fileNameMatch[2];
+    
+    // Check if binary
+    const isBinary = fileContent.includes('Binary files') || fileContent.includes('GIT binary patch');
+    
+    // Determine file type
+    let type: 'added' | 'deleted' | 'modified' | 'renamed' = 'modified';
+    if (fileContent.includes('new file mode')) {
+      type = 'added';
+    } else if (fileContent.includes('deleted file mode')) {
+      type = 'deleted';
+    } else if (fileContent.includes('rename from') && fileContent.includes('rename to')) {
+      type = 'renamed';
+    }
+    
+    if (isBinary) {
+      files.push({
+        oldFileName,
+        newFileName,
+        oldValue: '',
+        newValue: '',
+        type,
+        isBinary: true,
+      });
+      continue;
+    }
+    
+    // Extract the actual diff content (skip the headers)
+    const lines = fileContent.split('\n');
+    const diffStartIndex = lines.findIndex(line => line.startsWith('@@'));
+    
+    if (diffStartIndex === -1) {
+      // No actual diff content, might be a mode change or empty file
+      files.push({
+        oldFileName,
+        newFileName,
+        oldValue: '',
+        newValue: '',
+        type,
+        isBinary: false,
+      });
+      continue;
+    }
+    
+    // Build old and new file content from the diff
+    const oldLines: string[] = [];
+    const newLines: string[] = [];
+    
+    for (let i = diffStartIndex; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('@@')) {
+        // Skip hunk headers but keep context
+        continue;
+      } else if (line.startsWith('-')) {
+        // Removed line (only in old file)
+        oldLines.push(line.substring(1));
+      } else if (line.startsWith('+')) {
+        // Added line (only in new file)
+        newLines.push(line.substring(1));
+      } else if (line.startsWith(' ')) {
+        // Context line (in both files)
+        oldLines.push(line.substring(1));
+        newLines.push(line.substring(1));
+      } else if (line.startsWith('\\')) {
+        // "No newline at end of file" marker - skip
+        continue;
+      } else if (line === '') {
+        // Empty context line
+        oldLines.push('');
+        newLines.push('');
+      }
+    }
+    
+    files.push({
+      oldFileName,
+      newFileName,
+      oldValue: type === 'added' ? '' : oldLines.join('\n'),
+      newValue: type === 'deleted' ? '' : newLines.join('\n'),
+      type,
+      isBinary: false,
+    });
+  }
+  
+  return files;
+}
 
 export default DiffViewer;

@@ -184,8 +184,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
               <p>{error}</p>
             </div>
           ) : combinedDiff ? (
-            <div className="p-4">
-              <DiffViewer diff={combinedDiff.diff} />
+            <div className="p-4" style={{ width: '100%' }}>
+              <DiffViewer diff={combinedDiff.diff} className="w-full" />
             </div>
           ) : isMainRepo ? (
             <div className="flex items-center justify-center h-full text-gray-600 dark:text-gray-400">
