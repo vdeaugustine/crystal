@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API } from '../utils/api';
+import { createVisibilityAwareInterval } from '../utils/performanceUtils';
 
 interface ConnectionState {
   status: 'disconnected' | 'connecting' | 'connected' | 'expired' | 'error';
@@ -20,10 +21,14 @@ export function StravuStatusIndicator() {
   useEffect(() => {
     checkConnectionStatus();
     
-    // Check connection status every 30 seconds
-    const interval = setInterval(checkConnectionStatus, 30000);
+    // Check connection status with visibility-aware polling
+    const cleanup = createVisibilityAwareInterval(
+      checkConnectionStatus,
+      30000, // 30 seconds when visible
+      120000 // 2 minutes when not visible
+    );
     
-    return () => clearInterval(interval);
+    return cleanup;
   }, []);
 
   const checkConnectionStatus = async () => {

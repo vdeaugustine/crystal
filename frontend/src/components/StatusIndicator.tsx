@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Session } from '../types/session';
 import { AlertCircle, CheckCircle, Loader2, PauseCircle, Bell } from 'lucide-react';
+import { isDocumentVisible } from '../utils/performanceUtils';
 
 interface StatusIndicatorProps {
   session: Session;
@@ -9,12 +10,23 @@ interface StatusIndicatorProps {
   showProgress?: boolean;
 }
 
-export function StatusIndicator({ 
+export const StatusIndicator = React.memo(({ 
   session, 
   size = 'medium', 
   showText = false, 
   showProgress = false 
-}: StatusIndicatorProps) {
+}: StatusIndicatorProps) => {
+  const [animationsEnabled, setAnimationsEnabled] = useState(isDocumentVisible());
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setAnimationsEnabled(isDocumentVisible());
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
   const getStatusConfig = (status: Session['status']) => {
     switch (status) {
       case 'initializing':
@@ -129,6 +141,10 @@ export function StatusIndicator({
 
   const config = getStatusConfig(session.status);
   const sizeClasses = getSizeClasses(size);
+  
+  // Disable animations when not visible or for non-active states
+  const shouldAnimate = animationsEnabled && config.animated && 
+    ['running', 'initializing', 'waiting', 'completed_unviewed'].includes(session.status);
 
   const estimateProgress = (): number => {
     if (session.status === 'stopped') return 100;
@@ -153,19 +169,19 @@ export function StatusIndicator({
             ${config.bgColor} 
             border 
             ${config.borderColor}
-            ${config.animated ? 'relative overflow-hidden' : ''}
+            ${shouldAnimate ? 'relative overflow-hidden' : ''}
             transition-all duration-200
           `}
         >
           {/* Animated background effect for active states */}
-          {config.animated && (
+          {shouldAnimate && (
             <div className="absolute inset-0 -z-10">
               <div 
                 className={`
                   absolute inset-0 
                   ${config.color} 
                   opacity-20 
-                  animate-pulse
+                  ${animationsEnabled ? 'animate-pulse' : ''}
                 `} 
               />
               {(config.status === 'running' || config.status === 'initializing') && (
@@ -181,16 +197,16 @@ export function StatusIndicator({
           
           {/* Status icon and text */}
           {React.createElement(config.icon, {
-            className: `w-4 h-4 ${config.textColor} ${config.spin ? 'animate-spin' : ''}` 
+            className: `w-4 h-4 ${config.textColor} ${config.spin && animationsEnabled ? 'animate-spin' : ''}` 
           })}
           <span className={`${sizeClasses.text} font-medium ${config.textColor}`}>
             {config.text}
           </span>
           
           {/* Pulsing dot for waiting/new activity status */}
-          {config.pulse && (
+          {config.pulse && shouldAnimate && (
             <div className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${config.color} opacity-75`}></span>
+              <span className={`${animationsEnabled ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full ${config.color} opacity-75`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${config.color}`}></span>
             </div>
           )}
@@ -215,17 +231,17 @@ export function StatusIndicator({
   return (
     <div className={`flex items-center ${sizeClasses.spacing}`}>
       {/* Status Indicator Dot */}
-      <div className={`relative ${sizeClasses.container} flex items-center justify-center`}>
+      <div className={`relative ${sizeClasses.container} flex items-center justify-center`} ref={elementRef}>
         <div
           className={`
             ${sizeClasses.dot} 
             ${config.color} 
             rounded-full 
-            ${config.animated ? 'animate-pulse' : ''}
-            ${config.pulse ? 'animate-ping' : ''}
+            ${shouldAnimate && config.animated && animationsEnabled ? 'animate-pulse' : ''}
+            ${shouldAnimate && config.pulse && animationsEnabled ? 'animate-ping' : ''}
           `}
         />
-        {config.pulse && (
+        {config.pulse && shouldAnimate && (
           <div
             className={`
               absolute inset-0 
@@ -239,4 +255,6 @@ export function StatusIndicator({
       </div>
     </div>
   );
-}
+});
+
+StatusIndicator.displayName = 'StatusIndicator';

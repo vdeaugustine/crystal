@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { JsonMessageView } from './JsonMessageView';
 import { EmptyState } from './EmptyState';
@@ -12,11 +12,22 @@ import { SessionInputWithImages } from './session/SessionInputWithImages';
 import { GitErrorDialog } from './session/GitErrorDialog';
 import { CommitMessageDialog } from './session/CommitMessageDialog';
 import { PromptNavigation } from './PromptNavigation';
+import { isDocumentVisible } from '../utils/performanceUtils';
 
-export function SessionView() {
+export const SessionView = memo(() => {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const sessions = useSessionStore((state) => state.sessions);
   const activeMainRepoSession = useSessionStore((state) => state.activeMainRepoSession);
+  const [animationsEnabled, setAnimationsEnabled] = useState(isDocumentVisible());
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setAnimationsEnabled(isDocumentVisible());
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
   
   const activeSession = activeSessionId 
     ? (activeMainRepoSession && activeMainRepoSession.id === activeSessionId 
@@ -92,9 +103,9 @@ export function SessionView() {
                 <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
                     <div className="flex items-center space-x-3">
                         <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot"></div>
-                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.2s' }}></div>
-                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.4s' }}></div>
+                            <div className={`w-2 h-2 bg-blue-400 rounded-full ${animationsEnabled ? 'animate-typing-dot' : ''}`}></div>
+                            <div className={`w-2 h-2 bg-blue-400 rounded-full ${animationsEnabled ? 'animate-typing-dot' : ''}`} style={{ animationDelay: '0.2s' }}></div>
+                            <div className={`w-2 h-2 bg-blue-400 rounded-full ${animationsEnabled ? 'animate-typing-dot' : ''}`} style={{ animationDelay: '0.4s' }}></div>
                         </div>
                         <span className="text-sm font-medium">
                             {activeSession.status === 'initializing' ? 'Starting Claude Code...' : 'Claude is working...'}
@@ -181,4 +192,6 @@ export function SessionView() {
       />
     </div>
   );
-}
+});
+
+SessionView.displayName = 'SessionView';

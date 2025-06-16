@@ -5,6 +5,7 @@ import { API } from '../utils/api';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { Session, GitCommands, GitErrorDetails } from '../types/session';
+import { createVisibilityAwareInterval } from '../utils/performanceUtils';
 
 export type ViewMode = 'output' | 'messages' | 'changes' | 'terminal';
 
@@ -303,7 +304,10 @@ export const useSessionView = (
         convertEol: true,
         rows: 30,
         cols: 80,
-        scrollback: 50000,
+        scrollback: isScript ? 5000 : 10000, // Reduced from 50000 for better performance
+        fastScrollModifier: 'ctrl',
+        fastScrollSensitivity: 5,
+        scrollSensitivity: 1,
         theme: theme === 'light' ? lightTheme : (isScript ? scriptDarkTheme : darkTheme)
     });
 
@@ -326,7 +330,11 @@ export const useSessionView = (
     
     // After terminal is initialized, trigger a check for loading output
     if (activeSession && !terminalInstance.current) {
+      // Check less frequently and with a maximum number of attempts
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds maximum wait
       const checkInterval = setInterval(() => {
+        attempts++;
         if (terminalInstance.current) {
           console.log(`[useSessionView] Terminal initialized, checking if output needs to be loaded`);
           clearInterval(checkInterval);
@@ -334,11 +342,15 @@ export const useSessionView = (
           if (activeSession.status !== 'initializing') {
             loadOutputContent(activeSession.id);
           }
+        } else if (attempts >= maxAttempts) {
+          console.log(`[useSessionView] Terminal initialization timed out, loading output anyway`);
+          clearInterval(checkInterval);
+          // Try to load output even without terminal
+          if (activeSession.status !== 'initializing') {
+            loadOutputContent(activeSession.id);
+          }
         }
       }, 100);
-      
-      // Clear interval after 5 seconds to prevent memory leak
-      setTimeout(() => clearInterval(checkInterval), 5000);
     }
   }, [terminalRef, initTerminal, activeSession, loadOutputContent]);
   
@@ -422,8 +434,13 @@ export const useSessionView = (
       }
     };
     checkStravuConnection();
-    const interval = setInterval(checkStravuConnection, 30000);
-    return () => clearInterval(interval);
+    // Use visibility-aware interval for Stravu connection checking
+    const cleanup = createVisibilityAwareInterval(
+      checkStravuConnection,
+      30000, // 30 seconds when visible
+      120000 // 2 minutes when not visible
+    );
+    return cleanup;
   }, [activeSessionId]);
 
   useEffect(() => {
@@ -471,24 +488,23 @@ export const useSessionView = (
       return;
     }
 
-    // Clear terminal if this is a new session
-    if (lastProcessedOutputLength.current === 0 && formattedOutput.length > 0) {
-      console.log(`[Terminal Write Effect] New session output detected, clearing terminal first`);
-      terminalInstance.current.clear();
-    }
-
+    // Write to terminal
     if (lastProcessedOutputLength.current === 0) {
-      console.log(`[Terminal Write Effect] Writing all content to terminal, length: ${formattedOutput.length}`);
+      // Clear terminal and write all content for new session
+      console.log(`[Terminal Write Effect] New session output detected, clearing terminal and writing all content, length: ${formattedOutput.length}`);
+      terminalInstance.current.clear();
       terminalInstance.current.write(formattedOutput);
+      lastProcessedOutputLength.current = formattedOutput.length;
     } else if (formattedOutput.length > lastProcessedOutputLength.current) {
+      // Write only new content for existing session
       const newContent = formattedOutput.substring(lastProcessedOutputLength.current);
       console.log(`[Terminal Write Effect] Writing new content to terminal, length: ${newContent.length}`);
       terminalInstance.current.write(newContent);
+      lastProcessedOutputLength.current = formattedOutput.length;
     } else if (formattedOutput.length < lastProcessedOutputLength.current) {
       // This shouldn't happen, but log it if it does
       console.warn(`[Terminal Write Effect] Formatted output shrank from ${lastProcessedOutputLength.current} to ${formattedOutput.length}`);
     }
-    lastProcessedOutputLength.current = formattedOutput.length;
     
     if (formattedOutput.length > 0) {
       terminalInstance.current.scrollToBottom();
@@ -584,8 +600,13 @@ export const useSessionView = (
       if (!startTime || startTime !== sessionStartTime) setStartTime(sessionStartTime);
       
       setElapsedTime(Math.floor((Date.now() - sessionStartTime) / 1000));
-      const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - sessionStartTime) / 1000)), 5000);
-      return () => clearInterval(interval);
+      // Use visibility-aware interval that slows down when tab is not visible
+      const cleanup = createVisibilityAwareInterval(
+        () => setElapsedTime(Math.floor((Date.now() - sessionStartTime) / 1000)),
+        5000, // 5 seconds when visible
+        30000 // 30 seconds when not visible
+      );
+      return cleanup;
     } else {
       setStartTime(null);
       setElapsedTime(0);
