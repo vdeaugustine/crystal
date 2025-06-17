@@ -281,7 +281,6 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
           // Calculate line changes for the file
           const additions = (file.newValue || '').split('\n').length;
           const deletions = (file.oldValue || '').split('\n').length;
-          const lineChanges = Math.abs(additions - deletions);
           
           return (
             <div key={fileKey} className="mb-6">
