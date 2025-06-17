@@ -25,6 +25,9 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [ultrathink, setUltrathink] = useState(false);
+  const [showWorktreeWarning, setShowWorktreeWarning] = useState(false);
+  const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
+  const [mainBranch, setMainBranch] = useState<string>('main');
   const { showError } = useErrorStore();
   
   useEffect(() => {
@@ -45,20 +48,47 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
         console.error('Failed to fetch config:', err);
       });
       
-      // Fetch branches if projectId is provided
+      // Fetch branches and project details if projectId is provided
       if (projectId) {
         setIsLoadingBranches(true);
-        API.projects.listBranches(projectId.toString()).then(response => {
-          if (response.success && response.data) {
-            setBranches(response.data);
+        
+        // Fetch project details and branches in parallel
+        Promise.all([
+          API.projects.getAll(),
+          API.projects.listBranches(projectId.toString())
+        ]).then(([projectsResponse, branchesResponse]) => {
+          let projectMainBranch = 'main';
+          
+          if (projectsResponse.success && projectsResponse.data) {
+            const project = projectsResponse.data.find((p: any) => p.id === projectId);
+            if (project) {
+              projectMainBranch = project.main_branch || 'main';
+              setMainBranch(projectMainBranch);
+            }
+          }
+          
+          if (branchesResponse.success && branchesResponse.data) {
+            setBranches(branchesResponse.data);
             // Set the current branch as default if available
-            const currentBranch = response.data.find((b: any) => b.isCurrent);
+            const currentBranch = branchesResponse.data.find((b: any) => b.isCurrent);
             if (currentBranch && !formData.baseBranch) {
               setFormData(prev => ({ ...prev, baseBranch: currentBranch.name }));
+              // Check if the current branch has a worktree
+              setShowWorktreeWarning(!!currentBranch.hasWorktree);
+              
+              // Check if this is main branch and if we should show warning
+              if (currentBranch.name === projectMainBranch) {
+                // Check if we've shown this warning before
+                const warningKey = `mainBranchWarning_${projectId}`;
+                const hasShownWarning = localStorage.getItem(warningKey);
+                if (!hasShownWarning) {
+                  setShowMainBranchWarning(true);
+                }
+              }
             }
           }
         }).catch(err => {
-          console.error('Failed to fetch branches:', err);
+          console.error('Failed to fetch project/branches:', err);
         }).finally(() => {
           setIsLoadingBranches(false);
         });
@@ -283,7 +313,24 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                 <select
                   id="baseBranch"
                   value={formData.baseBranch || ''}
-                  onChange={(e) => setFormData({ ...formData, baseBranch: e.target.value })}
+                  onChange={(e) => {
+                    const selectedBranch = e.target.value;
+                    setFormData({ ...formData, baseBranch: selectedBranch });
+                    // Check if the selected branch has a worktree
+                    const branch = branches.find(b => b.name === selectedBranch);
+                    setShowWorktreeWarning(!!branch?.hasWorktree);
+                    
+                    // Check if this is main branch and if we should show warning
+                    if (selectedBranch === mainBranch && projectId) {
+                      const warningKey = `mainBranchWarning_${projectId}`;
+                      const hasShownWarning = localStorage.getItem(warningKey);
+                      if (!hasShownWarning) {
+                        setShowMainBranchWarning(true);
+                      }
+                    } else {
+                      setShowMainBranchWarning(false);
+                    }
+                  }}
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
                   disabled={isLoadingBranches}
                 >
@@ -311,6 +358,54 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Create the new session branch from this existing branch
               </p>
+              {showWorktreeWarning && (
+                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                        Creating session from worktree branch
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                        You're creating a new session based on a branch that already has an active worktree. 
+                        This means your new session will branch off from the current state of that worktree, 
+                        including any uncommitted changes. Consider committing or stashing changes in the source 
+                        worktree first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {showMainBranchWarning && (
+                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 dark:text-blue-400 text-lg">💡</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                        Working in the {mainBranch} branch
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                        You're creating a session in the {mainBranch} branch. It's recommended to create worktrees 
+                        instead by clicking the <span className="font-mono bg-blue-100 dark:bg-blue-800/30 px-1 rounded">+</span> button 
+                        next to the project name. This allows you to run multiple sessions in parallel without conflicts.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMainBranchWarning(false);
+                          if (projectId) {
+                            const warningKey = `mainBranchWarning_${projectId}`;
+                            localStorage.setItem(warningKey, 'true');
+                          }
+                        }}
+                        className="text-xs text-blue-600 dark:text-blue-400 underline mt-1 hover:text-blue-700 dark:hover:text-blue-300"
+                      >
+                        Don't show this again for this project
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           

@@ -4,6 +4,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useErrorStore } from '../stores/errorStore';
 import { SessionListItem } from './SessionListItem';
 import { CreateSessionDialog } from './CreateSessionDialog';
+import { MainBranchWarningDialog } from './MainBranchWarningDialog';
 import ProjectSettings from './ProjectSettings';
 import { EmptyState } from './EmptyState';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -28,6 +29,8 @@ export function ProjectTreeView() {
   const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '' });
   const [hasPendingUpdates, setHasPendingUpdates] = useState(false);
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
+  const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
+  const [pendingMainBranchProject, setPendingMainBranchProject] = useState<Project | null>(null);
   const { showError } = useErrorStore();
 
   useEffect(() => {
@@ -202,6 +205,21 @@ export function ProjectTreeView() {
   };
 
   const handleProjectClick = async (project: Project) => {
+    // Check if we should show the warning
+    const warningKey = `mainBranchWarning_${project.id}`;
+    const hasShownWarning = localStorage.getItem(warningKey);
+    
+    if (!hasShownWarning) {
+      // Show warning dialog
+      setPendingMainBranchProject(project);
+      setShowMainBranchWarning(true);
+    } else {
+      // Proceed directly
+      await openMainRepoSession(project);
+    }
+  };
+  
+  const openMainRepoSession = async (project: Project) => {
     try {
       // Get or create the main repo session
       const response = await API.sessions.getOrCreateMainRepoSession(project.id);
@@ -551,6 +569,27 @@ export function ProjectTreeView() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Main Branch Warning Dialog */}
+      {pendingMainBranchProject && (
+        <MainBranchWarningDialog
+          isOpen={showMainBranchWarning}
+          onClose={() => {
+            setShowMainBranchWarning(false);
+            setPendingMainBranchProject(null);
+          }}
+          onContinue={() => {
+            setShowMainBranchWarning(false);
+            if (pendingMainBranchProject) {
+              openMainRepoSession(pendingMainBranchProject);
+            }
+            setPendingMainBranchProject(null);
+          }}
+          projectName={pendingMainBranchProject.name}
+          projectId={pendingMainBranchProject.id}
+          mainBranch={pendingMainBranchProject.main_branch || 'main'}
+        />
       )}
     </>
   );
