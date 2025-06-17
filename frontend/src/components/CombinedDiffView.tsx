@@ -61,49 +61,54 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
 
   // Load combined diff when selection changes
   useEffect(() => {
-    const loadCombinedDiff = async () => {
-      // For main repo sessions, we don't show diffs, just commit history
-      if (isMainRepo) {
-        setCombinedDiff(null);
-        return;
-      }
-      
-      if (selectedExecutions.length === 0) {
-        setCombinedDiff(null);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        let response;
-        if (selectedExecutions.length === executions.length) {
-          // Get all diffs
-          response = await API.sessions.getCombinedDiff(sessionId);
-        } else if (selectedExecutions.length === 1) {
-          // For single commit selection, pass it as a range with the same ID
-          response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
-        } else {
-          // Get selected diffs (range)
-          response = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
+    // Add debouncing to prevent rapid API calls
+    const timeoutId = setTimeout(() => {
+      const loadCombinedDiff = async () => {
+        // For main repo sessions, we don't show diffs, just commit history
+        if (isMainRepo) {
+          setCombinedDiff(null);
+          return;
         }
         
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to load combined diff');
+        if (selectedExecutions.length === 0) {
+          setCombinedDiff(null);
+          return;
         }
-        
-        const data = response.data;
-        setCombinedDiff(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load combined diff');
-        setCombinedDiff(null);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    loadCombinedDiff();
+        try {
+          setLoading(true);
+          setError(null);
+          
+          let response;
+          if (selectedExecutions.length === executions.length) {
+            // Get all diffs
+            response = await API.sessions.getCombinedDiff(sessionId);
+          } else if (selectedExecutions.length === 1) {
+            // For single commit selection, pass it as a range with the same ID
+            response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
+          } else {
+            // Get selected diffs (range)
+            response = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
+          }
+          
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to load combined diff');
+          }
+          
+          const data = response.data;
+          setCombinedDiff(data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to load combined diff');
+          setCombinedDiff(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadCombinedDiff();
+    }, 300); // 300ms debounce for diff loading
+
+    return () => clearTimeout(timeoutId);
   }, [selectedExecutions, sessionId, executions.length, isMainRepo]);
 
   const handleSelectionChange = (newSelection: number[]) => {

@@ -521,7 +521,7 @@ export const useSessionView = (
         convertEol: true,
         rows: 30,
         cols: 80,
-        scrollback: isScript ? 5000 : 10000, // Reduced from 50000 for better performance
+        scrollback: isScript ? 2000 : 5000, // Further reduced for better performance
         fastScrollModifier: 'ctrl',
         fastScrollSensitivity: 5,
         scrollSensitivity: 1,

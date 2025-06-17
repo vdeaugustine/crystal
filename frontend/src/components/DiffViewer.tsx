@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import type { DiffViewerProps } from '../types/diff';
 
 const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
   const [viewType, setViewType] = useState<'unified' | 'split'>('split');
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [showAllFiles, setShowAllFiles] = useState(false);
   
   // Load saved preference from localStorage
   useEffect(() => {
@@ -27,17 +29,66 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
     );
   }
 
-  try {
-    // Parse the unified diff to extract individual files
-    const files = parseUnifiedDiff(diff);
-
-    if (files.length === 0) {
-      return (
-        <div className={`p-4 text-gray-500 dark:text-gray-400 text-center ${className}`}>
-          No changes to display
-        </div>
-      );
+  // Memoize parsed files to avoid re-parsing on every render
+  const files = useMemo(() => {
+    try {
+      return parseUnifiedDiff(diff);
+    } catch (error) {
+      console.error('Error parsing diff:', error);
+      return [];
     }
+  }, [diff]);
+
+  // Auto-expand first few files if there aren't too many
+  useEffect(() => {
+    if (files.length > 0 && files.length <= 5) {
+      setShowAllFiles(true);
+    } else if (files.length > 5) {
+      // For many files, only expand the first 3 by default
+      const firstThree = new Set(files.slice(0, 3).map((f, i) => `${f.oldFileName}-${f.newFileName}-${i}`));
+      setExpandedFiles(firstThree);
+    }
+  }, [files]);
+
+  const toggleFile = (fileKey: string) => {
+    setExpandedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileKey)) {
+        newSet.delete(fileKey);
+      } else {
+        newSet.add(fileKey);
+      }
+      return newSet;
+    });
+  };
+
+  const expandAll = () => {
+    setShowAllFiles(true);
+    setExpandedFiles(new Set());
+  };
+
+  const collapseAll = () => {
+    setShowAllFiles(false);
+    setExpandedFiles(new Set());
+  };
+
+  if (!diff || diff.trim() === '') {
+    return (
+      <div className={`p-4 text-gray-500 dark:text-gray-400 text-center ${className}`}>
+        No changes to display
+      </div>
+    );
+  }
+
+  if (files.length === 0) {
+    return (
+      <div className={`p-4 text-gray-500 dark:text-gray-400 text-center ${className}`}>
+        No changes to display
+      </div>
+    );
+  }
+
+  try {
     
     // Dark mode styles for react-diff-viewer - toned down colors
     const darkStyles = {
@@ -137,8 +188,29 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
 
     return (
       <div className={`diff-viewer ${className}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* View toggle - sticky header */}
-        <div className="flex justify-end px-4 py-2 flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+        {/* View toggle and controls - sticky header */}
+        <div className="flex justify-between items-center px-4 py-2 flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {files.length} {files.length === 1 ? 'file' : 'files'} changed
+            </span>
+            {files.length > 5 && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={expandAll}
+                  className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded transition-colors"
+                >
+                  Expand All
+                </button>
+                <button
+                  onClick={collapseAll}
+                  className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded transition-colors"
+                >
+                  Collapse All
+                </button>
+              </div>
+            )}
+          </div>
           <div className="inline-flex rounded-lg border border-gray-600 bg-gray-700">
             <button
               onClick={() => handleViewTypeChange('unified')}
@@ -171,10 +243,13 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
         
         <div className="flex-1 overflow-auto p-4">
         {files.map((file, index) => {
+          const fileKey = `${file.oldFileName}-${file.newFileName}-${index}`;
+          const isExpanded = showAllFiles || expandedFiles.has(fileKey);
+          
           // For binary files or files with no content
           if (file.isBinary || (!file.oldValue && !file.newValue)) {
             return (
-              <div key={`${file.oldFileName}-${file.newFileName}-${index}`} className="mb-6">
+              <div key={fileKey} className="mb-6">
                 <div className="bg-gray-700 border border-gray-600 rounded px-4 py-2 font-mono text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-gray-900 dark:text-gray-100">
@@ -203,12 +278,28 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
             );
           }
           
+          // Calculate line changes for the file
+          const additions = (file.newValue || '').split('\n').length;
+          const deletions = (file.oldValue || '').split('\n').length;
+          const lineChanges = Math.abs(additions - deletions);
+          
           return (
-            <div key={`${file.oldFileName}-${file.newFileName}-${index}`} className="mb-6">
-              {/* File header */}
-              <div className="bg-gray-700 border border-gray-600 rounded-t-lg px-4 py-2 font-mono text-sm">
+            <div key={fileKey} className="mb-6">
+              {/* File header - always visible */}
+              <div 
+                className={`bg-gray-700 border border-gray-600 ${isExpanded ? 'rounded-t-lg' : 'rounded-lg'} px-4 py-2 font-mono text-sm cursor-pointer hover:bg-gray-600 transition-colors`}
+                onClick={() => toggleFile(fileKey)}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                  <span className="font-medium text-gray-900 dark:text-gray-100 flex items-center">
+                    <svg 
+                      className={`w-4 h-4 mr-2 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                     {file.type === 'deleted' && (
                       <span className="text-red-600 mr-2">−</span>
                     )}
@@ -221,7 +312,9 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
                     {file.newFileName || file.oldFileName}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {file.type}
+                    {file.type !== 'deleted' && <span className="text-green-500">+{additions}</span>}
+                    {file.type === 'modified' && <span className="mx-1">/</span>}
+                    {file.type !== 'added' && <span className="text-red-500">-{deletions}</span>}
                   </span>
                 </div>
                 {file.type === 'renamed' && file.oldFileName !== file.newFileName && (
@@ -231,22 +324,24 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
                 )}
               </div>
 
-              {/* Diff content */}
-              <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ overflow: 'auto', maxHeight: '600px' }}>
-                <ReactDiffViewer
-                  oldValue={file.oldValue || ''}
-                  newValue={file.newValue || ''}
-                  splitView={viewType === 'split'}
-                  useDarkTheme={isDarkMode}
-                  styles={currentStyles}
-                  showDiffOnly={false}
-                  disableWordDiff={true}
-                  hideLineNumbers={false}
-                  hideMarkers={viewType === 'split'}
-                  leftTitle={file.oldFileName}
-                  rightTitle={file.newFileName}
-                />
-              </div>
+              {/* Diff content - only render when expanded */}
+              {isExpanded && (
+                <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ overflow: 'auto', maxHeight: '600px' }}>
+                  <ReactDiffViewer
+                    oldValue={file.oldValue || ''}
+                    newValue={file.newValue || ''}
+                    splitView={viewType === 'split'}
+                    useDarkTheme={isDarkMode}
+                    styles={currentStyles}
+                    showDiffOnly={false}
+                    disableWordDiff={true}
+                    hideLineNumbers={false}
+                    hideMarkers={viewType === 'split'}
+                    leftTitle={file.oldFileName}
+                    rightTitle={file.newFileName}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -283,6 +378,14 @@ function parseUnifiedDiff(diff: string): Array<{
     type: 'added' | 'deleted' | 'modified' | 'renamed';
     isBinary: boolean;
   }> = [];
+  
+  // Early return for empty diff
+  if (!diff || diff.trim().length === 0) {
+    return files;
+  }
+  
+  // For very large diffs, use a more efficient parsing approach
+  const isLargeDiff = diff.length > 1_000_000; // 1MB threshold
   
   // Split by file headers
   const fileMatches = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
@@ -345,7 +448,11 @@ function parseUnifiedDiff(diff: string): Array<{
     const oldLines: string[] = [];
     const newLines: string[] = [];
     
-    for (let i = diffStartIndex; i < lines.length; i++) {
+    // For large diffs, limit the number of lines to parse per file
+    const maxLinesToParse = isLargeDiff ? 10000 : lines.length;
+    const endIndex = Math.min(lines.length, diffStartIndex + maxLinesToParse);
+    
+    for (let i = diffStartIndex; i < endIndex; i++) {
       const line = lines[i];
       if (line.startsWith('@@')) {
         // Skip hunk headers but keep context
@@ -368,6 +475,14 @@ function parseUnifiedDiff(diff: string): Array<{
         oldLines.push('');
         newLines.push('');
       }
+    }
+    
+    // If we hit the limit, add a truncation notice
+    if (isLargeDiff && endIndex < lines.length) {
+      const truncatedLines = lines.length - endIndex;
+      const truncationNotice = `\n... (${truncatedLines} more lines truncated for performance)`;
+      oldLines.push(truncationNotice);
+      newLines.push(truncationNotice);
     }
     
     files.push({
