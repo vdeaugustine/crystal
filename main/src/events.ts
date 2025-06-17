@@ -74,10 +74,10 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
       await sessionManager.updateSession(output.sessionId, { status: 'waiting' });
     }
 
-    // Check if Claude has completed (when it sends a completion message)
-    if (output.type === 'json' && output.data.type === 'completion') {
+    // Check if Claude has completed (when it sends a result message)
+    if (output.type === 'json' && output.data.type === 'system' && output.data.subtype === 'result') {
       console.log(`[Main] Claude completed task in session ${output.sessionId}`);
-      await sessionManager.updateSession(output.sessionId, { status: 'stopped' });
+      // Don't update status here - let the exit handler determine if it should be completed_unviewed
     }
 
     // Send real-time updates to renderer
@@ -143,9 +143,24 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
   claudeCodeManager.on('exit', async ({ sessionId, exitCode, signal }: { sessionId: string; exitCode: number; signal: string }) => {
     console.log(`[Main] Claude Code exited for session ${sessionId} with code ${exitCode}, signal ${signal}`);
     await sessionManager.setSessionExitCode(sessionId, exitCode);
-    console.log(`[Main] Updating session ${sessionId} status to 'stopped'`);
-    await sessionManager.updateSession(sessionId, { status: 'stopped' });
-    console.log(`[Main] Session ${sessionId} status update complete`);
+    
+    // Get the current session to check its current status
+    const session = sessionManager.getSession(sessionId);
+    if (session) {
+      // Only update to 'stopped' if the session hasn't already been marked as completed
+      const dbSession = sessionManager.getDbSession(sessionId);
+      if (dbSession && dbSession.status !== 'completed') {
+        console.log(`[Main] Updating session ${sessionId} status to 'stopped'`);
+        await sessionManager.updateSession(sessionId, { status: 'stopped' });
+      } else {
+        console.log(`[Main] Session ${sessionId} already marked as completed, preserving status`);
+        // Trigger a re-conversion to ensure the UI gets the correct status
+        const updatedSession = sessionManager.getSession(sessionId);
+        if (updatedSession) {
+          console.log(`[Main] Session ${sessionId} final status: ${updatedSession.status}`);
+        }
+      }
+    }
 
     // Stop run commands
     try {

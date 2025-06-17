@@ -133,8 +133,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         set({ activeSessionId: sessionId, activeMainRepoSession: null });
       }
       
-      // Mark session as viewed
-      get().markSessionAsViewed(sessionId);
+      // Only mark session as viewed if it wasn't already active
+      // This prevents the blue dot from disappearing when the session completes while you're viewing it
+      const wasAlreadyActive = state.activeSessionId === sessionId;
+      if (!wasAlreadyActive) {
+        get().markSessionAsViewed(sessionId);
+      }
       return;
     }
     
@@ -178,8 +182,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           console.log('[SessionStore] Setting fetched regular session as active');
           set({ activeSessionId: sessionId, activeMainRepoSession: null });
         }
-        // Mark session as viewed when it becomes active
-        get().markSessionAsViewed(sessionId);
+        // Only mark session as viewed if it wasn't already active
+        const currentState = get();
+        const wasAlreadyActive = currentState.activeSessionId === sessionId;
+        if (!wasAlreadyActive) {
+          get().markSessionAsViewed(sessionId);
+        }
       } else {
         console.error('[SessionStore] Failed to fetch session:', sessionId, response);
       }

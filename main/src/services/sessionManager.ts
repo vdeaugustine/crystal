@@ -262,9 +262,11 @@ export class SessionManager extends EventEmitter {
 
     const session = this.convertDbSessionToSession(updatedDbSession);
     
-    // Ensure the status from the update is used if provided
-    if (update.status !== undefined) {
-      session.status = update.status;
+    // Don't override the status if convertDbSessionToSession determined it should be completed_unviewed
+    // This allows the blue dot indicator to work properly when a session completes
+    if (update.status !== undefined && session.status === 'completed_unviewed') {
+      console.log(`[SessionManager] Preserving completed_unviewed status for session ${id}`);
+      delete update.status; // Remove status from update to preserve completed_unviewed
     }
     
     // Apply any additional updates not stored in DB
@@ -310,6 +312,22 @@ export class SessionManager extends EventEmitter {
       const completionTimestamp = output.timestamp instanceof Date ? output.timestamp.toISOString() : output.timestamp;
       this.db.updatePromptMarkerCompletion(id, completionTimestamp);
       console.log(`[SessionManager] Marked prompt as complete for session ${id} at ${completionTimestamp}`);
+      
+      // Mark the session as completed (this will trigger the completed_unviewed logic if not viewed)
+      const dbSession = this.db.getSession(id);
+      if (dbSession && dbSession.status === 'running') {
+        console.log(`[SessionManager] Claude completed task, marking session ${id} as completed`);
+        this.db.updateSession(id, { status: 'completed' });
+        
+        // Re-convert to get the proper status (completed_unviewed if not viewed)
+        const updatedDbSession = this.db.getSession(id);
+        if (updatedDbSession) {
+          const session = this.convertDbSessionToSession(updatedDbSession);
+          this.activeSessions.set(id, session);
+          console.log(`[SessionManager] Session ${id} status after completion: ${session.status}`);
+          this.emit('session-updated', session);
+        }
+      }
     }
     
     // Check if this is a user message in JSON format to track prompts
