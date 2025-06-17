@@ -43,6 +43,7 @@ export const useSessionView = (
   const [isMerging, setIsMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [outputLoadState, setOutputLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [gitCommands, setGitCommands] = useState<GitCommands | null>(null);
   const [hasChangesToRebase, setHasChangesToRebase] = useState<boolean>(false);
   const [showCommitMessageDialog, setShowCommitMessageDialog] = useState(false);
@@ -69,19 +70,83 @@ export const useSessionView = (
   const previousStatusRef = useRef<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const isContinuingConversationRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const outputLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Debug function to check state health
+  const debugState = useCallback(() => {
+    console.log('[DEBUG STATE]', {
+      loadingRef: loadingRef.current,
+      outputLoadState,
+      activeSessionId,
+      currentSessionIdForOutput,
+      formattedOutputLength: formattedOutput.length,
+      lastProcessedOutputLength: lastProcessedOutputLength.current,
+      terminalExists: !!terminalInstance.current,
+      viewMode,
+      abortController: !!abortControllerRef.current,
+      pendingTimeout: !!outputLoadTimeoutRef.current
+    });
+  }, [outputLoadState, activeSessionId, currentSessionIdForOutput, formattedOutput.length, viewMode]);
+  
+  // Force reset stuck state
+  const forceResetLoadingState = useCallback(() => {
+    console.log('[forceResetLoadingState] Forcing reset of all loading states');
+    loadingRef.current = false;
+    setIsLoadingOutput(false);
+    setOutputLoadState('idle');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (outputLoadTimeoutRef.current) {
+      clearTimeout(outputLoadTimeoutRef.current);
+      outputLoadTimeoutRef.current = null;
+    }
+  }, []);
 
 
   const loadOutputContent = useCallback(async (sessionId: string, retryCount = 0) => {
-    console.log(`[loadOutputContent] Called for session ${sessionId}, retry: ${retryCount}, terminal exists: ${!!terminalInstance.current}`);
-    // Don't check for terminal instance here - it might not be ready yet but we still want to load the data
+    console.log(`[loadOutputContent] Called for session ${sessionId}, retry: ${retryCount}, loadingRef: ${loadingRef.current}`);
+    
+    // Cancel any existing load request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Clear any pending timeout
+    if (outputLoadTimeoutRef.current) {
+      clearTimeout(outputLoadTimeoutRef.current);
+      outputLoadTimeoutRef.current = null;
+    }
+    
+    // Check if already loading
     if (loadingRef.current) {
       console.log(`[loadOutputContent] Already loading, skipping`);
       return;
     }
+    
+    // Check if session is still active
+    const currentActiveSession = useSessionStore.getState().getActiveSession();
+    if (!currentActiveSession || currentActiveSession.id !== sessionId) {
+      console.log(`[loadOutputContent] Session ${sessionId} not active, skipping`);
+      return;
+    }
 
+    // Set loading state - CRITICAL: Must be reset in all code paths
     loadingRef.current = true;
     setIsLoadingOutput(true);
+    setOutputLoadState('loading');
     setLoadError(null);
+    
+    // Show loading message in terminal if this is the first load
+    if (terminalInstance.current && retryCount === 0 && lastProcessedOutputLength.current === 0) {
+      terminalInstance.current.writeln('\r\n⏳ Loading session output...\r\n');
+    }
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
 
     try {
       const response = await API.sessions.getOutput(sessionId);
@@ -90,56 +155,74 @@ export const useSessionView = (
       const outputs = response.data || [];
       console.log(`[loadOutputContent] Received ${outputs.length} outputs for session ${sessionId}`);
       
-      const currentActiveSession = useSessionStore.getState().getActiveSession();
-      if (!currentActiveSession || currentActiveSession.id !== sessionId) {
-        console.log(`[loadOutputContent] Session ${sessionId} no longer active, aborting`);
-        return;
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Check if still the active session after async operation
       const stillActiveSession = useSessionStore.getState().getActiveSession();
       if (!stillActiveSession || stillActiveSession.id !== sessionId) {
-        console.log(`[loadOutputContent] Session ${sessionId} changed during delay, aborting`);
+        console.log(`[loadOutputContent] Session ${sessionId} no longer active, aborting`);
+        // CRITICAL: Reset loading state before returning
+        loadingRef.current = false;
+        setIsLoadingOutput(false);
+        setOutputLoadState('idle');
         return;
       }
       
-      if (outputs.length > 0 || retryCount === 0) {
-        console.log(`[loadOutputContent] Setting outputs for session ${sessionId}, count: ${outputs.length}`);
-        
-        // Log some sample output to verify content
-        if (outputs.length > 0) {
-          console.log(`[loadOutputContent] First output type: ${outputs[0].type}, data length: ${outputs[0].data?.length}`);
-          console.log(`[loadOutputContent] First 200 chars of first output: ${outputs[0].data?.substring(0, 200)}`);
-        }
-        
-        useSessionStore.getState().setSessionOutputs(sessionId, outputs);
-        
-        // Verify the output was set
-        const updatedSession = useSessionStore.getState().getActiveSession();
-        console.log(`[loadOutputContent] After setSessionOutputs - session output length: ${updatedSession?.output?.length}, jsonMessages length: ${updatedSession?.jsonMessages?.length}`);
-        
-        if (updatedSession && isWaitingForFirstOutput && (updatedSession.output?.length > 0 || updatedSession.jsonMessages?.length > 0)) {
-          setIsWaitingForFirstOutput(false);
-        }
+      // Clear loading message if we showed one
+      if (terminalInstance.current && retryCount === 0 && lastProcessedOutputLength.current === 0) {
+        terminalInstance.current.clear();
       }
+      
+      // Set outputs
+      console.log(`[loadOutputContent] Setting outputs in store for session ${sessionId}, count: ${outputs.length}`);
+      useSessionStore.getState().setSessionOutputs(sessionId, outputs);
+      
+      // Verify the outputs were set
+      const verifySession = useSessionStore.getState().getActiveSession();
+      console.log(`[loadOutputContent] After setSessionOutputs - activeSession output: ${verifySession?.output?.length}, jsonMessages: ${verifySession?.jsonMessages?.length}`);
+      
+      setOutputLoadState('loaded');
+      
+      if (isWaitingForFirstOutput && outputs.length > 0) {
+        setIsWaitingForFirstOutput(false);
+      }
+      
       setLoadError(null);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log(`[loadOutputContent] Request aborted for session ${sessionId}`);
+        // CRITICAL: Reset loading state before returning
+        loadingRef.current = false;
+        setIsLoadingOutput(false);
+        setOutputLoadState('idle');
+        return;
+      }
+      
       console.error(`[loadOutputContent] Error loading output for session ${sessionId}:`, error);
-      const isNewSession = activeSession?.status === 'initializing' || (activeSession?.status === 'running' && retryCount < 2);
-      const maxRetries = isNewSession ? 10 : 3;
+      setOutputLoadState('error');
+      
+      // Retry logic for new sessions only
+      const isNewSession = activeSession?.status === 'initializing';
+      const maxRetries = isNewSession ? 3 : 0;
+      
       if (retryCount < maxRetries) {
-        const delay = (isNewSession ? 2000 : 1000) + (retryCount * 500) + Math.random() * 500;
+        const delay = 1000 * (retryCount + 1);
         console.log(`[loadOutputContent] Retrying in ${delay}ms for session ${sessionId}`);
-        setTimeout(() => {
+        // Reset loading state before retry
+        loadingRef.current = false;
+        setIsLoadingOutput(false);
+        outputLoadTimeoutRef.current = setTimeout(() => {
           const currentActiveSession = useSessionStore.getState().getActiveSession();
           if (currentActiveSession && currentActiveSession.id === sessionId) {
             loadOutputContent(sessionId, retryCount + 1);
           }
         }, delay);
-      } else if (!isNewSession) {
+      } else {
         setLoadError(error instanceof Error ? error.message : 'Failed to load output content');
+        if (terminalInstance.current && lastProcessedOutputLength.current === 0) {
+          terminalInstance.current.writeln(`\r\n❌ Error loading output: ${error.message || 'Unknown error'}\r\n`);
+        }
       }
     } finally {
+      // Always reset loading state
       loadingRef.current = false;
       setIsLoadingOutput(false);
     }
@@ -197,15 +280,20 @@ export const useSessionView = (
     console.log(`[useSessionView] Session changed from ${previousSessionIdRef.current} to ${currentSessionId}`);
     previousSessionIdRef.current = currentSessionId;
     
+    // Force reset any stuck loading state when switching sessions
+    forceResetLoadingState();
+    
     // Clear terminal immediately when session changes
     if (terminalInstance.current) {
+      console.log(`[useSessionView] Clearing terminal for session switch`);
       terminalInstance.current.clear();
     }
     setFormattedOutput('');
-    setCurrentSessionIdForOutput(null);
+    lastProcessedOutputLength.current = 0;
 
     if (!activeSession) {
       console.log(`[useSessionView] No active session, returning`);
+      setCurrentSessionIdForOutput(null);
       return;
     }
 
@@ -271,6 +359,10 @@ export const useSessionView = (
       const outputArray = currentActiveSession.output || [];
       console.log(`[formatOutput] Session ${activeSession.id} has ${outputArray.length} output items`);
       
+      if (outputArray.length > 0) {
+        console.log(`[formatOutput] First output item preview: ${outputArray[0].substring(0, 200)}`);
+      }
+      
       const formatted = outputArray.join('');
       
       // Double-check we're still on the same session before updating
@@ -279,7 +371,7 @@ export const useSessionView = (
         console.log(`[formatOutput] Setting formatted output for session ${activeSession.id}, length: ${formatted.length}, first 100 chars: ${formatted.substring(0, 100)}`);
         setFormattedOutput(formatted);
       } else {
-        console.log(`[formatOutput] Session mismatch during final check, not setting formatted output`);
+        console.log(`[formatOutput] Session mismatch during final check - finalActiveSession.id: ${finalActiveSession?.id}, activeSession.id: ${activeSession.id}, currentSessionIdForOutput: ${currentSessionIdForOutput}`);
       }
     };
     
@@ -289,15 +381,106 @@ export const useSessionView = (
     });
   }, [activeSession?.id, messageCount, outputCount, currentSessionIdForOutput, isWaitingForFirstOutput]);
   
+  // Consolidated effect for loading output
   useEffect(() => {
-    if (shouldReloadOutput && activeSession) {
-      loadOutputContent(activeSession.id);
-      setShouldReloadOutput(false);
+    console.log(`[Output Load Effect] Checking - activeSession: ${activeSession?.id}, currentSessionIdForOutput: ${currentSessionIdForOutput}, outputLoadState: ${outputLoadState}, loadingRef: ${loadingRef.current}`);
+    
+    if (!activeSession || !currentSessionIdForOutput || currentSessionIdForOutput !== activeSession.id) {
+      return;
     }
-  }, [shouldReloadOutput, activeSession, loadOutputContent]);
+    
+    // Skip if continuing conversation
+    if (isContinuingConversationRef.current) {
+      console.log(`[Output Load Effect] Skipping - continuing conversation`);
+      return;
+    }
+    
+    const hasOutput = (activeSession.output?.length || 0) > 0;
+    const hasMessages = (activeSession.jsonMessages?.length || 0) > 0;
+    
+    console.log(`[Output Load Effect] Session ${activeSession.id} - hasOutput: ${hasOutput}, hasMessages: ${hasMessages}, status: ${activeSession.status}`);
+    
+    // Check for stuck loading state and force reset if needed
+    if (loadingRef.current && outputLoadState === 'idle') {
+      console.warn(`[Output Load Effect] Detected stuck loading state, forcing reset`);
+      forceResetLoadingState();
+    }
+    
+    // Determine if we need to load output
+    let shouldLoad = false;
+    let loadDelay = 0;
+    
+    if (outputLoadState === 'idle') {
+      // Always load when idle - let the backend be the source of truth
+      shouldLoad = true;
+      loadDelay = activeSession.status === 'initializing' ? 500 : 200;
+    } else if (shouldReloadOutput) {
+      // Explicit reload requested
+      shouldLoad = true;
+      loadDelay = 0;
+      setShouldReloadOutput(false);
+    } else if (outputLoadState === 'error' && !loadingRef.current) {
+      // Retry after error if not currently loading
+      console.log(`[Output Load Effect] Previous load errored, retrying`);
+      shouldLoad = true;
+      loadDelay = 1000;
+    }
+    
+    if (shouldLoad && !loadingRef.current) {
+      console.log(`[Output Load Effect] Scheduling load for session ${activeSession.id} in ${loadDelay}ms`);
+      if (loadDelay > 0) {
+        outputLoadTimeoutRef.current = setTimeout(() => {
+          if (!loadingRef.current) {
+            loadOutputContent(activeSession.id);
+          }
+        }, loadDelay);
+      } else {
+        loadOutputContent(activeSession.id);
+      }
+    } else if (shouldLoad && loadingRef.current) {
+      console.log(`[Output Load Effect] Want to load but already loading, will retry later`);
+    }
+  }, [
+    activeSession?.id,
+    activeSession?.status,
+    activeSession?.output?.length,
+    activeSession?.jsonMessages?.length,
+    currentSessionIdForOutput,
+    outputLoadState,
+    shouldReloadOutput,
+    loadOutputContent,
+    forceResetLoadingState
+  ]);
+  
+  // Listen for output available events
+  useEffect(() => {
+    const handleOutputAvailable = (event: CustomEvent) => {
+      const { sessionId } = event.detail;
+      
+      // Check if this is for the active session
+      if (activeSession?.id === sessionId && outputLoadState === 'loaded') {
+        // If we're already loaded and receive new output, trigger a reload
+        console.log(`[Output Available] New output for active session ${sessionId}, requesting reload`);
+        setShouldReloadOutput(true);
+      }
+    };
+    
+    window.addEventListener('session-output-available', handleOutputAvailable as EventListener);
+    return () => window.removeEventListener('session-output-available', handleOutputAvailable as EventListener);
+  }, [activeSession?.id, outputLoadState]);
 
   const initTerminal = useCallback((termRef: React.RefObject<HTMLDivElement | null>, instanceRef: React.MutableRefObject<Terminal | null>, fitAddonRef: React.MutableRefObject<FitAddon | null>, isScript: boolean) => {
-    if (!termRef.current || instanceRef.current) return;
+    console.log(`[initTerminal] Called - termRef.current: ${!!termRef.current}, instanceRef.current: ${!!instanceRef.current}, isScript: ${isScript}`);
+    
+    if (!termRef.current) {
+      console.log(`[initTerminal] No terminal ref element, cannot initialize`);
+      return;
+    }
+    
+    if (instanceRef.current) {
+      console.log(`[initTerminal] Terminal instance already exists, skipping`);
+      return;
+    }
 
     const term = new Terminal({
         cursorBlink: !isScript,
@@ -318,6 +501,8 @@ export const useSessionView = (
 
     instanceRef.current = term;
     fitAddonRef.current = addon;
+    
+    console.log(`[initTerminal] Terminal initialized successfully`);
 
     if (isScript) {
         term.writeln('Terminal ready for script execution...\r\n');
@@ -325,104 +510,43 @@ export const useSessionView = (
   }, [theme]);
 
   useEffect(() => {
-    console.log(`[useSessionView] Initializing main terminal`);
-    initTerminal(terminalRef, terminalInstance, fitAddon, false);
-    
-    // After terminal is initialized, trigger a check for loading output
-    if (activeSession && !terminalInstance.current) {
-      // Check less frequently and with a maximum number of attempts
-      let attempts = 0;
-      const maxAttempts = 50; // 5 seconds maximum wait
-      const checkInterval = setInterval(() => {
-        attempts++;
-        if (terminalInstance.current) {
-          console.log(`[useSessionView] Terminal initialized, checking if output needs to be loaded`);
-          clearInterval(checkInterval);
-          // Force a re-evaluation of whether to load output
-          if (activeSession.status !== 'initializing') {
-            loadOutputContent(activeSession.id);
+    console.log(`[useSessionView] Terminal initialization effect - viewMode: ${viewMode}, terminalRef.current: ${!!terminalRef.current}`);
+    if (viewMode === 'output' && terminalRef.current) {
+      initTerminal(terminalRef, terminalInstance, fitAddon, false);
+      
+      // After terminal is initialized, trigger a check for loading output
+      if (activeSession && !terminalInstance.current) {
+        // Check less frequently and with a maximum number of attempts
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds maximum wait
+        const checkInterval = setInterval(() => {
+          attempts++;
+          if (terminalInstance.current) {
+            console.log(`[useSessionView] Terminal initialized, checking if output needs to be loaded`);
+            clearInterval(checkInterval);
+            // Force a re-evaluation of whether to load output
+            if (activeSession.status !== 'initializing') {
+              loadOutputContent(activeSession.id);
+            }
+          } else if (attempts >= maxAttempts) {
+            console.log(`[useSessionView] Terminal initialization timed out, loading output anyway`);
+            clearInterval(checkInterval);
+            // Try to load output even without terminal
+            if (activeSession.status !== 'initializing') {
+              loadOutputContent(activeSession.id);
+            }
           }
-        } else if (attempts >= maxAttempts) {
-          console.log(`[useSessionView] Terminal initialization timed out, loading output anyway`);
-          clearInterval(checkInterval);
-          // Try to load output even without terminal
-          if (activeSession.status !== 'initializing') {
-            loadOutputContent(activeSession.id);
-          }
-        }
-      }, 100);
+        }, 100);
+      }
     }
-  }, [terminalRef, initTerminal, activeSession, loadOutputContent]);
-  
+  }, [viewMode, terminalRef, initTerminal, activeSession, loadOutputContent]);  
   useEffect(() => {
     if (viewMode === 'terminal') {
       initTerminal(scriptTerminalRef, scriptTerminalInstance, scriptFitAddon, true);
     }
   }, [viewMode, scriptTerminalRef, initTerminal]);
   
-  // Effect to load output once terminal is ready
-  useEffect(() => {
-    if (!terminalRef.current || !activeSession) {
-      console.log(`[useSessionView] Not ready to load output - terminalRef: ${!!terminalRef.current}, activeSession: ${!!activeSession}`);
-      return;
-    }
-    
-    // Skip loading if we're continuing a conversation
-    if (isContinuingConversationRef.current) {
-      console.log(`[useSessionView] Skipping output load - continuing conversation`);
-      return;
-    }
-  
-    const hasOutput = activeSession.output?.length > 0;
-    const hasMessages = activeSession.jsonMessages?.length > 0;
-    
-    console.log(`[useSessionView] Session ${activeSession.id} load check - hasOutput: ${hasOutput} (${activeSession.output?.length}), hasMessages: ${hasMessages} (${activeSession.jsonMessages?.length}), status: ${activeSession.status}`);
-  
-    // Wait a bit for terminal to initialize if needed
-    const loadDelay = terminalInstance.current ? 200 : 500;
-  
-    if (activeSession.status === 'initializing' && !hasOutput && !hasMessages) {
-      if (terminalInstance.current) {
-        terminalInstance.current.writeln('\r\n🚀 Starting Claude Code session...\r\n');
-      }
-      setTimeout(() => {
-        const currentActiveSession = useSessionStore.getState().getActiveSession();
-        if (currentActiveSession?.id === activeSession.id && !isContinuingConversationRef.current) {
-          console.log(`[useSessionView] Loading output for initializing session ${activeSession.id}`);
-          loadOutputContent(activeSession.id);
-        }
-      }, 1000);
-    } else {
-      // Always load output for non-initializing sessions
-      console.log(`[useSessionView] Session ${activeSession.id} needs output load - scheduling load with delay ${loadDelay}ms`);
-      setTimeout(() => {
-        const currentActiveSession = useSessionStore.getState().getActiveSession();
-        if (currentActiveSession?.id === activeSession.id && !isContinuingConversationRef.current) {
-          console.log(`[useSessionView] Loading output for session ${activeSession.id} (hasOutput: ${hasOutput}, hasMessages: ${hasMessages})`);
-          loadOutputContent(activeSession.id);
-        }
-      }, loadDelay);
-    }
-  }, [activeSession?.id, activeSession?.status, loadOutputContent]); // Removed terminalInstance.current from deps to avoid loops
 
-  // Force reload output when session becomes active with empty arrays
-  // This handles the case where WebSocket events arrive before session is loaded
-  useEffect(() => {
-    if (!activeSession || !terminalInstance.current) return;
-    
-    const hasEmptyOutput = (!activeSession.output || activeSession.output.length === 0) && 
-                          (!activeSession.jsonMessages || activeSession.jsonMessages.length === 0);
-    const isNotNew = activeSession.status !== 'initializing';
-    
-    if (hasEmptyOutput && isNotNew && currentSessionIdForOutput === activeSession.id) {
-      console.log(`[useSessionView] Active session ${activeSession.id} has empty output but status is ${activeSession.status}, forcing reload`);
-      setTimeout(() => {
-        if (terminalInstance.current) {
-          loadOutputContent(activeSession.id);
-        }
-      }, 300);
-    }
-  }, [activeSession?.id, activeSession?.status, currentSessionIdForOutput, loadOutputContent]);
 
   useEffect(() => {
     const checkStravuConnection = async () => {
@@ -470,10 +594,30 @@ export const useSessionView = (
   }, [viewMode, activeSessionId]);
 
   useEffect(() => {
-    console.log(`[Terminal Write Effect] Called, formatted output length: ${formattedOutput.length}, session: ${currentSessionIdForOutput}, lastProcessed: ${lastProcessedOutputLength.current}`);
+    console.log(`[Terminal Write Effect] Called, formatted output length: ${formattedOutput.length}, session: ${currentSessionIdForOutput}, lastProcessed: ${lastProcessedOutputLength.current}, viewMode: ${viewMode}`);
+    
+    // Skip if not in output view mode
+    if (viewMode !== 'output') {
+      console.log(`[Terminal Write Effect] Not in output view mode, skipping`);
+      return;
+    }
     
     if (!terminalInstance.current) {
-      console.log(`[Terminal Write Effect] No terminal instance`);
+      console.log(`[Terminal Write Effect] No terminal instance yet`);
+      // If we have formatted output but no terminal, retry after a delay
+      if (formattedOutput && formattedOutput.length > 0 && terminalRef.current) {
+        console.log(`[Terminal Write Effect] Have output but no terminal, attempting init`);
+        initTerminal(terminalRef, terminalInstance, fitAddon, false);
+        // Give terminal time to initialize then write
+        setTimeout(() => {
+          if (terminalInstance.current && formattedOutput.length > 0 && lastProcessedOutputLength.current === 0) {
+            console.log(`[Terminal Write Effect] Writing buffered output after init`);
+            terminalInstance.current.write(formattedOutput);
+            lastProcessedOutputLength.current = formattedOutput.length;
+            terminalInstance.current.scrollToBottom();
+          }
+        }, 100);
+      }
       return;
     }
     
@@ -509,7 +653,7 @@ export const useSessionView = (
     if (formattedOutput.length > 0) {
       terminalInstance.current.scrollToBottom();
     }
-  }, [formattedOutput, currentSessionIdForOutput]);
+  }, [formattedOutput, currentSessionIdForOutput, initTerminal, terminalRef, viewMode]);
 
   useEffect(() => {
     if (!scriptTerminalInstance.current || !activeSession) return;
@@ -529,6 +673,13 @@ export const useSessionView = (
 
   useEffect(() => {
     return () => {
+      // Cancel any pending operations
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (outputLoadTimeoutRef.current) {
+        clearTimeout(outputLoadTimeoutRef.current);
+      }
       terminalInstance.current?.dispose();
       terminalInstance.current = null;
       scriptTerminalInstance.current?.dispose();
@@ -617,13 +768,6 @@ export const useSessionView = (
     setUnreadActivity({ output: false, messages: false, changes: false, terminal: false });
   }, [activeSessionId]);
 
-  useEffect(() => {
-    if (!activeSession || !terminalInstance.current) return;
-    const hasEmptyOutput = !activeSession.output?.length && !activeSession.jsonMessages?.length;
-    if (hasEmptyOutput && activeSession.status !== 'initializing' && currentSessionIdForOutput === activeSession.id && !isContinuingConversationRef.current) {
-      setTimeout(() => loadOutputContent(activeSession.id), 200);
-    }
-  }, [activeSessionId, currentSessionIdForOutput, loadOutputContent]);
 
   useEffect(() => {
     if (!activeSession) {
@@ -656,28 +800,30 @@ export const useSessionView = (
     if (!activeSession) return;
     const { status } = activeSession;
     const prevStatus = previousStatusRef.current;
-    if (prevStatus && ['stopped', 'waiting'].includes(prevStatus) && status === 'initializing') {
-      // Don't reload output when continuing a conversation - existing output should remain
-      // Only reload for truly new sessions that have no output yet
-      const hasExistingOutput = activeSession.output && activeSession.output.length > 0;
-      if (!hasExistingOutput && !isContinuingConversationRef.current) {
-        setTimeout(() => loadOutputContent(activeSession.id), 200);
-      }
-    }
+    
     if (prevStatus === 'initializing' && status === 'running') {
       // Only clear terminal for new sessions, not when continuing conversations
       const hasExistingOutput = activeSession.output && activeSession.output.length > 0;
       if (!hasExistingOutput && !isContinuingConversationRef.current) {
         terminalInstance.current?.clear();
-        setTimeout(() => loadOutputContent(activeSession.id), 100);
       }
       // Reset the flag after status changes to running
       if (isContinuingConversationRef.current) {
         isContinuingConversationRef.current = false;
       }
     }
+    
+    // Trigger reload when status changes indicate output might be available
+    if (prevStatus && prevStatus !== status) {
+      if (['stopped', 'waiting'].includes(prevStatus) && status === 'initializing') {
+        setShouldReloadOutput(true);
+      } else if (prevStatus === 'initializing' && status === 'running') {
+        setShouldReloadOutput(true);
+      }
+    }
+    
     previousStatusRef.current = status;
-  }, [activeSession?.status, activeSessionId, loadOutputContent]);
+  }, [activeSession?.status, activeSessionId]);
   
   const handleNavigateToPrompt = useCallback((marker: any) => {
     if (!terminalInstance.current) return;
@@ -738,6 +884,27 @@ export const useSessionView = (
     window.addEventListener('navigateToPrompt', handlePromptNavigation as EventListener);
     return () => window.removeEventListener('navigateToPrompt', handlePromptNavigation as EventListener);
   }, [activeSession?.id, handleNavigateToPrompt]);
+  
+  // Add debug keyboard shortcut (Cmd/Ctrl + Shift + D)
+  useEffect(() => {
+    const handleDebugKeyboard = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        console.log('=== DEBUG STATE DUMP ===');
+        debugState();
+        console.log('=== END DEBUG STATE ===');
+      }
+      // Force reset with Cmd/Ctrl + Shift + R
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        console.log('=== FORCE RESET LOADING STATE ===');
+        forceResetLoadingState();
+        setShouldReloadOutput(true);
+      }
+    };
+    window.addEventListener('keydown', handleDebugKeyboard);
+    return () => window.removeEventListener('keydown', handleDebugKeyboard);
+  }, [debugState, forceResetLoadingState]);
 
   const handleSendInput = async (attachedImages?: any[]) => {
     if (!input.trim() || !activeSession) return;
@@ -1077,6 +1244,7 @@ export const useSessionView = (
     ultrathink,
     setUltrathink,
     isLoadingOutput,
+    outputLoadState,
     isMerging,
     mergeError,
     loadError,
@@ -1119,6 +1287,8 @@ export const useSessionView = (
     formatGitOutput,
     getGitErrorTips,
     handleNavigateToPrompt,
+    debugState,
+    forceResetLoadingState,
   };
 };
 

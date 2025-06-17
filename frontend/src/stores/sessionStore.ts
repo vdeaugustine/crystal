@@ -192,36 +192,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   addSessionOutput: (output) => set((state) => {
     console.log(`[SessionStore] Adding output for session ${output.sessionId}, type: ${output.type}`);
     
-    // Check if this is for the active main repo session
-    if (state.activeMainRepoSession && state.activeMainRepoSession.id === output.sessionId) {
-      const session = state.activeMainRepoSession;
-      
-      if (output.type === 'json') {
-        // Update jsonMessages array
-        const newJsonMessages = [...(session.jsonMessages || [])];
-        newJsonMessages.push({...output.data, timestamp: output.timestamp});
-        return { 
-          ...state,
-          activeMainRepoSession: { ...session, jsonMessages: newJsonMessages }
-        };
-      } else {
-        // Add stdout/stderr to output array
-        const newOutput = [...(session.output || [])];
-        newOutput.push(output.data);
-        return {
-          ...state,
-          activeMainRepoSession: { ...session, output: newOutput }
-        };
-      }
-    }
-    
-    // Otherwise handle regular sessions
+    // Find session in sessions array
     const sessionIndex = state.sessions.findIndex(s => s.id === output.sessionId);
     if (sessionIndex === -1) {
       console.warn(`[SessionStore] Session ${output.sessionId} not found in store, cannot add output`);
       return state;
     }
     
+    // Update sessions array
     const sessions = [...state.sessions];
     const session = sessions[sessionIndex];
     
@@ -237,24 +215,45 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessions[sessionIndex] = { ...session, output: newOutput };
     }
     
-    return { sessions };
+    // Also update activeMainRepoSession if it matches
+    let updatedActiveMainRepoSession = state.activeMainRepoSession;
+    if (state.activeMainRepoSession && state.activeMainRepoSession.id === output.sessionId) {
+      if (output.type === 'json') {
+        const newJsonMessages = [...(state.activeMainRepoSession.jsonMessages || [])];
+        newJsonMessages.push({...output.data, timestamp: output.timestamp});
+        updatedActiveMainRepoSession = { ...state.activeMainRepoSession, jsonMessages: newJsonMessages };
+      } else {
+        const newOutput = [...(state.activeMainRepoSession.output || [])];
+        newOutput.push(output.data);
+        updatedActiveMainRepoSession = { ...state.activeMainRepoSession, output: newOutput };
+      }
+    }
+    
+    return { 
+      ...state,
+      sessions,
+      activeMainRepoSession: updatedActiveMainRepoSession
+    };
   }),
   
   setSessionOutput: (sessionId, output) => set((state) => {
-    // Check if this is for the active main repo session
+    // Update sessions array
+    const updatedSessions = state.sessions.map(session => 
+      session.id === sessionId
+        ? { ...session, output: [output] }
+        : session
+    );
+    
+    // Update activeMainRepoSession if it matches
+    let updatedActiveMainRepoSession = state.activeMainRepoSession;
     if (state.activeMainRepoSession && state.activeMainRepoSession.id === sessionId) {
-      return {
-        ...state,
-        activeMainRepoSession: { ...state.activeMainRepoSession, output: [output] }
-      };
+      updatedActiveMainRepoSession = { ...state.activeMainRepoSession, output: [output] };
     }
     
     return {
-      sessions: state.sessions.map(session => 
-        session.id === sessionId
-          ? { ...session, output: [output] }
-          : session
-      )
+      ...state,
+      sessions: updatedSessions,
+      activeMainRepoSession: updatedActiveMainRepoSession
     };
   }),
   
@@ -275,15 +274,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     
     console.log(`[SessionStore] Processed outputs - stdout: ${stdOutputs.length}, json: ${jsonMessages.length}`);
     
-    // Check if this is for the active main repo session
-    if (state.activeMainRepoSession && state.activeMainRepoSession.id === sessionId) {
-      return {
-        ...state,
-        activeMainRepoSession: { ...state.activeMainRepoSession, output: stdOutputs, jsonMessages }
-      };
-    }
-    
-    // For regular sessions, update in the sessions array
+    // Always update the sessions array
     const updatedSessions = state.sessions.map(session => {
       if (session.id === sessionId) {
         console.log(`[SessionStore] Updating session ${sessionId} with outputs`);
@@ -292,24 +283,38 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return session;
     });
     
-    return { sessions: updatedSessions };
-  }),
-  
-  clearSessionOutput: (sessionId) => set((state) => {
-    // Check if this is for the active main repo session
+    // Also update activeMainRepoSession if it matches
+    let updatedActiveMainRepoSession = state.activeMainRepoSession;
     if (state.activeMainRepoSession && state.activeMainRepoSession.id === sessionId) {
-      return {
-        ...state,
-        activeMainRepoSession: { ...state.activeMainRepoSession, output: [], jsonMessages: [] }
-      };
+      console.log(`[SessionStore] Also updating activeMainRepoSession`);
+      updatedActiveMainRepoSession = { ...state.activeMainRepoSession, output: stdOutputs, jsonMessages };
     }
     
     return {
-      sessions: state.sessions.map(session => 
-        session.id === sessionId
-          ? { ...session, output: [], jsonMessages: [] }
-          : session
-      )
+      ...state,
+      sessions: updatedSessions,
+      activeMainRepoSession: updatedActiveMainRepoSession
+    };
+  }),
+  
+  clearSessionOutput: (sessionId) => set((state) => {
+    // Update sessions array
+    const updatedSessions = state.sessions.map(session => 
+      session.id === sessionId
+        ? { ...session, output: [], jsonMessages: [] }
+        : session
+    );
+    
+    // Update activeMainRepoSession if it matches
+    let updatedActiveMainRepoSession = state.activeMainRepoSession;
+    if (state.activeMainRepoSession && state.activeMainRepoSession.id === sessionId) {
+      updatedActiveMainRepoSession = { ...state.activeMainRepoSession, output: [], jsonMessages: [] };
+    }
+    
+    return {
+      ...state,
+      sessions: updatedSessions,
+      activeMainRepoSession: updatedActiveMainRepoSession
     };
   }),
   
