@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, memo } from 'react';
+import { useRef, useEffect, useState, memo, useMemo } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { JsonMessageView } from './JsonMessageView';
 import { EmptyState } from './EmptyState';
@@ -39,6 +39,10 @@ export const SessionView = memo(() => {
   const scriptTerminalRef = useRef<HTMLDivElement>(null);
 
   const hook = useSessionView(activeSession, terminalRef, scriptTerminalRef);
+  
+  // Memoize props to prevent unnecessary re-renders
+  const emptySelectedExecutions = useMemo(() => [], []);
+  const isMainRepo = useMemo(() => activeSession?.isMainRepo || false, [activeSession?.isMainRepo]);
 
   if (!activeSession) {
     return (
@@ -129,10 +133,11 @@ export const SessionView = memo(() => {
           <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'} overflow-hidden`}>
             {hook.viewMode === 'changes' && (
               <CombinedDiffView 
+                key={activeSession.id}
                 sessionId={activeSession.id} 
-                selectedExecutions={[]} 
+                selectedExecutions={emptySelectedExecutions} 
                 isGitOperationRunning={hook.isMerging}
-                isMainRepo={activeSession.isMainRepo}
+                isMainRepo={isMainRepo}
               />
             )}
           </div>
