@@ -2,6 +2,21 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.3] - 2025-06-17
+
+### Added
+- Image support - Claude can now read and analyze images through the Read tool
+
+### Changed
+- Replaced custom diff viewer with react-diff-viewer-continued for better performance and reliability
+- Improved state management by removing global refreshes for targeted updates
+- Diff viewer now supports full-screen mode for better visibility
+
+### Fixed
+- Dark mode rendering problems
+- Session list and output loading reliability
+- Misc UX improvements
+
 ## [0.1.2] - 2025-06-14
 
 ### Added
