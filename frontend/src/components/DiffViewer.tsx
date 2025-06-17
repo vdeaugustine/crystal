@@ -240,7 +240,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
                   useDarkTheme={isDarkMode}
                   styles={currentStyles}
                   showDiffOnly={false}
-                  disableWordDiff={false}
+                  disableWordDiff={true}
                   hideLineNumbers={false}
                   hideMarkers={viewType === 'split'}
                   leftTitle={file.oldFileName}
