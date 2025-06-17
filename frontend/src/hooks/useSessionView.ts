@@ -63,6 +63,7 @@ export const useSessionView = (
   // Refs
   const previousSessionIdRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  const loadingSessionIdRef = useRef<string | null>(null); // Track which session is loading
   const previousMessageCountRef = useRef(0);
   const lastProcessedOutputLength = useRef(0);
   const lastProcessedScriptOutputLength = useRef(0);
@@ -93,6 +94,7 @@ export const useSessionView = (
   const forceResetLoadingState = useCallback(() => {
     console.log('[forceResetLoadingState] Forcing reset of all loading states');
     loadingRef.current = false;
+    loadingSessionIdRef.current = null;
     setIsLoadingOutput(false);
     setOutputLoadState('idle');
     if (abortControllerRef.current) {
@@ -121,10 +123,17 @@ export const useSessionView = (
       outputLoadTimeoutRef.current = null;
     }
     
-    // Check if already loading
-    if (loadingRef.current) {
-      console.log(`[loadOutputContent] Already loading, skipping`);
+    // Check if already loading this session
+    if (loadingRef.current && loadingSessionIdRef.current === sessionId) {
+      console.log(`[loadOutputContent] Already loading session ${sessionId}, skipping`);
       return;
+    }
+    
+    // If loading a different session, abort the old one
+    if (loadingRef.current && loadingSessionIdRef.current !== sessionId) {
+      console.log(`[loadOutputContent] Currently loading session ${loadingSessionIdRef.current}, will switch to ${sessionId}`);
+      loadingRef.current = false;
+      loadingSessionIdRef.current = null;
     }
     
     // Check if session is still active
@@ -136,6 +145,7 @@ export const useSessionView = (
 
     // Set loading state - CRITICAL: Must be reset in all code paths
     loadingRef.current = true;
+    loadingSessionIdRef.current = sessionId;
     setIsLoadingOutput(true);
     setOutputLoadState('loading');
     setLoadError(null);
@@ -150,7 +160,24 @@ export const useSessionView = (
 
     try {
       const response = await API.sessions.getOutput(sessionId);
-      if (!response.success) throw new Error(response.error || 'Failed to load output');
+      if (!response.success) {
+        // Check if the session was archived (404 error)
+        if (response.error && response.error.includes('not found')) {
+          console.log(`[loadOutputContent] Session ${sessionId} not found (possibly archived), aborting`);
+          // CRITICAL: Reset loading state before returning
+          loadingRef.current = false;
+          loadingSessionIdRef.current = null;
+          setIsLoadingOutput(false);
+          setOutputLoadState('idle');
+          // Clear any loading message
+          if (terminalInstance.current && lastProcessedOutputLength.current === 0) {
+            terminalInstance.current.clear();
+            terminalInstance.current.writeln('\r\n⚠️ Session has been archived\r\n');
+          }
+          return;
+        }
+        throw new Error(response.error || 'Failed to load output');
+      }
       
       const outputs = response.data || [];
       console.log(`[loadOutputContent] Received ${outputs.length} outputs for session ${sessionId}`);
@@ -161,6 +188,7 @@ export const useSessionView = (
         console.log(`[loadOutputContent] Session ${sessionId} no longer active, aborting`);
         // CRITICAL: Reset loading state before returning
         loadingRef.current = false;
+        loadingSessionIdRef.current = null;
         setIsLoadingOutput(false);
         setOutputLoadState('idle');
         return;
@@ -191,6 +219,7 @@ export const useSessionView = (
         console.log(`[loadOutputContent] Request aborted for session ${sessionId}`);
         // CRITICAL: Reset loading state before returning
         loadingRef.current = false;
+        loadingSessionIdRef.current = null;
         setIsLoadingOutput(false);
         setOutputLoadState('idle');
         return;
@@ -208,6 +237,7 @@ export const useSessionView = (
         console.log(`[loadOutputContent] Retrying in ${delay}ms for session ${sessionId}`);
         // Reset loading state before retry
         loadingRef.current = false;
+        loadingSessionIdRef.current = null;
         setIsLoadingOutput(false);
         outputLoadTimeoutRef.current = setTimeout(() => {
           const currentActiveSession = useSessionStore.getState().getActiveSession();
@@ -224,6 +254,7 @@ export const useSessionView = (
     } finally {
       // Always reset loading state
       loadingRef.current = false;
+      loadingSessionIdRef.current = null;
       setIsLoadingOutput(false);
     }
   }, [activeSession?.status, isWaitingForFirstOutput]);
@@ -294,6 +325,9 @@ export const useSessionView = (
     if (!activeSession) {
       console.log(`[useSessionView] No active session, returning`);
       setCurrentSessionIdForOutput(null);
+      // Clear any error states when no session is active
+      setLoadError(null);
+      setOutputLoadState('idle');
       return;
     }
 
@@ -321,7 +355,7 @@ export const useSessionView = (
     } else {
       setIsWaitingForFirstOutput(false);
     }
-  }, [activeSession?.id]);
+  }, [activeSession?.id, forceResetLoadingState]);
 
   const messageCount = activeSession?.jsonMessages?.length || 0;
   const outputCount = activeSession?.output?.length || 0;
@@ -383,7 +417,7 @@ export const useSessionView = (
   
   // Consolidated effect for loading output
   useEffect(() => {
-    console.log(`[Output Load Effect] Checking - activeSession: ${activeSession?.id}, currentSessionIdForOutput: ${currentSessionIdForOutput}, outputLoadState: ${outputLoadState}, loadingRef: ${loadingRef.current}`);
+    console.log(`[Output Load Effect] Checking - activeSession: ${activeSession?.id}, currentSessionIdForOutput: ${currentSessionIdForOutput}, outputLoadState: ${outputLoadState}, loadingRef: ${loadingRef.current}, loadingSessionId: ${loadingSessionIdRef.current}`);
     
     if (!activeSession || !currentSessionIdForOutput || currentSessionIdForOutput !== activeSession.id) {
       return;
@@ -672,7 +706,25 @@ export const useSessionView = (
   }, [scriptOutput, activeSessionId]);
 
   useEffect(() => {
+    // Listen for session deletion events
+    const handleSessionDeleted = (event: CustomEvent) => {
+      // The event detail contains just { id } from the backend
+      if (event.detail?.id === activeSessionId) {
+        console.log(`[useSessionView] Active session ${activeSessionId} was deleted/archived`);
+        // Force reset loading states
+        forceResetLoadingState();
+        // Clear terminal
+        if (terminalInstance.current) {
+          terminalInstance.current.clear();
+          terminalInstance.current.writeln('\r\n⚠️ Session has been archived\r\n');
+        }
+      }
+    };
+
+    window.addEventListener('session-deleted', handleSessionDeleted as EventListener);
+
     return () => {
+      window.removeEventListener('session-deleted', handleSessionDeleted as EventListener);
       // Cancel any pending operations
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -685,7 +737,7 @@ export const useSessionView = (
       scriptTerminalInstance.current?.dispose();
       scriptTerminalInstance.current = null;
     };
-  }, []);
+  }, [activeSessionId, forceResetLoadingState]);
 
   useEffect(() => {
     const handleResize = () => {

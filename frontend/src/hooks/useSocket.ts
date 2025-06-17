@@ -52,9 +52,18 @@ export function useSocket() {
     });
     unsubscribeFunctions.push(unsubscribeSessionUpdated);
 
-    const unsubscribeSessionDeleted = window.electronAPI.events.onSessionDeleted((session: Session) => {
-      console.log('[useSocket] Session deleted:', session.id);
-      deleteSession(session);
+    const unsubscribeSessionDeleted = window.electronAPI.events.onSessionDeleted((sessionData: any) => {
+      console.log('[useSocket] Session deleted:', sessionData);
+      // The backend sends just { id } for deleted sessions
+      const sessionId = sessionData.id || sessionData;
+      
+      // Dispatch a custom event for other components to listen to
+      window.dispatchEvent(new CustomEvent('session-deleted', {
+        detail: { id: sessionId }
+      }));
+      
+      // Create a minimal session object for deletion
+      deleteSession({ id: sessionId } as Session);
     });
     unsubscribeFunctions.push(unsubscribeSessionDeleted);
 

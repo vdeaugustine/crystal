@@ -96,10 +96,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     };
   }),
   
-  deleteSession: (deletedSession) => set((state) => ({
-    sessions: state.sessions.filter(session => session.id !== deletedSession.id),
-    activeSessionId: state.activeSessionId === deletedSession.id ? null : state.activeSessionId
-  })),
+  deleteSession: (deletedSession) => set((state) => {
+    // Clear the active main repo session if it's being deleted
+    const newActiveMainRepoSession = state.activeMainRepoSession?.id === deletedSession.id 
+      ? null 
+      : state.activeMainRepoSession;
+    
+    return {
+      sessions: state.sessions.filter(session => session.id !== deletedSession.id),
+      activeSessionId: state.activeSessionId === deletedSession.id ? null : state.activeSessionId,
+      activeMainRepoSession: newActiveMainRepoSession
+    };
+  }),
   
   setActiveSession: async (sessionId) => {
     console.log('[SessionStore] setActiveSession called with:', sessionId);
