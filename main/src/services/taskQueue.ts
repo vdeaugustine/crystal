@@ -7,6 +7,7 @@ import type { ClaudeCodeManager } from './claudeCodeManager';
 import type { GitDiffManager } from './gitDiffManager';
 import type { ExecutionTracker } from './executionTracker';
 import { formatForDisplay } from '../utils/timestampUtils';
+import * as os from 'os';
 
 interface TaskQueueOptions {
   sessionManager: SessionManager;
@@ -48,10 +49,17 @@ export class TaskQueue {
     // Check if we're in Electron without Redis
     this.useSimpleQueue = !process.env.REDIS_URL && typeof process.versions.electron !== 'undefined';
     
+    // Determine concurrency based on platform
+    // Linux has stricter PTY and file descriptor limits, so we reduce concurrency
+    const isLinux = os.platform() === 'linux';
+    const sessionConcurrency = isLinux ? 1 : 5;
+    
+    console.log(`[TaskQueue] Platform: ${os.platform()}, Session concurrency: ${sessionConcurrency}`);
+    
     if (this.useSimpleQueue) {
       console.log('[TaskQueue] Using SimpleQueue for Electron environment');
       
-      this.sessionQueue = new SimpleQueue<CreateSessionJob>('session-creation', 5);
+      this.sessionQueue = new SimpleQueue<CreateSessionJob>('session-creation', sessionConcurrency);
       this.inputQueue = new SimpleQueue<SendInputJob>('session-input', 10);
       this.continueQueue = new SimpleQueue<ContinueSessionJob>('session-continue', 10);
     } else {
@@ -107,7 +115,11 @@ export class TaskQueue {
   }
 
   private setupProcessors() {
-    this.sessionQueue.process(5, async (job) => {
+    // Use platform-specific concurrency for session processing
+    const isLinux = os.platform() === 'linux';
+    const sessionConcurrency = isLinux ? 1 : 5;
+    
+    this.sessionQueue.process(sessionConcurrency, async (job) => {
       const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch } = job.data;
       const { sessionManager, worktreeManager, claudeCodeManager } = this.options;
 

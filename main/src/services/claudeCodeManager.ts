@@ -505,6 +505,12 @@ export class ClaudeCodeManager extends EventEmitter {
         console.log(`[ClaudeManager] PATH entries: ${shellPath.split(':').length}`);
         const startTime = Date.now();
         
+        // On Linux, add a small delay before spawning to avoid resource contention
+        if (isLinux && this.processes.size > 0) {
+          console.log(`[ClaudeManager] Linux: Adding 500ms delay before spawn (${this.processes.size} active processes)`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
         ptyProcess = pty.spawn(claudeCommand, args, {
           name: 'xterm-color',
           cols: 80,
@@ -652,6 +658,16 @@ export class ClaudeCodeManager extends EventEmitter {
           if (!hasReceivedOutput) {
             this.logger?.error(`No output received from Claude. This might indicate a startup failure.`);
             
+            // Linux-specific troubleshooting info
+            const linuxSpecificInfo = isLinux ? [
+              '',
+              'Linux-specific issues:',
+              `- Active Claude processes: ${this.processes.size}`,
+              '- Common causes: PTY resource limits, file descriptor limits',
+              '- Try: ulimit -n 4096 (increase file descriptor limit)',
+              '- Try: Check /proc/sys/kernel/pty/max for PTY limit'
+            ] : [];
+            
             // Emit a pseudo-message to show the error in the UI
             const errorMessage = {
               type: 'session',
@@ -669,6 +685,7 @@ export class ClaudeCodeManager extends EventEmitter {
                   `Full command attempted: ${claudeCommand} ${args.join(' ')}`,
                   `Working directory: ${worktreePath}`,
                   `Exit code: ${exitCode}${signal ? `, Signal: ${signal}` : ''}`,
+                  ...linuxSpecificInfo,
                   '',
                   'You can also set a custom Claude executable path in the Settings.'
                 ].join('\n')
