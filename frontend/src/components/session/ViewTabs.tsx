@@ -26,7 +26,7 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
   const tabs: { mode: ViewMode; label: string; count?: number, activity?: boolean, status?: boolean }[] = [
     { mode: 'output', label: 'Output', activity: unreadActivity.output },
     { mode: 'messages', label: 'Messages', count: jsonMessagesCount, activity: unreadActivity.messages },
-    { mode: 'changes', label: 'Changes', activity: unreadActivity.changes },
+    { mode: 'changes', label: 'View Diff', activity: unreadActivity.changes },
     { mode: 'terminal', label: 'Terminal', activity: unreadActivity.terminal, status: isTerminalRunning },
   ];
 

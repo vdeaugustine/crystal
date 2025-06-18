@@ -53,7 +53,7 @@ All core features have been successfully implemented with significant enhancemen
 - **Multiple view modes**:
   - Output View: Formatted terminal output with syntax highlighting
   - Messages View: Raw JSON message inspection for debugging
-  - Changes View: Git diff viewer with file statistics
+  - View Diff View: Git diff viewer with file statistics
   - Terminal View: Dedicated terminal for running project scripts
 - **Sidebar navigation**: Session list, project selector, prompt history
 - **Real-time updates**: WebSocket-based live output streaming
@@ -644,7 +644,7 @@ crystal/
 1. **Create/Select Project**: Choose a project directory or create a new one
 2. **Create Session**: Click "Create Session" and enter a prompt
 3. **Parallel Sessions**: Run multiple sessions for different approaches
-4. **View Results**: Switch between Output, Changes, and Terminal views
+4. **View Results**: Switch between Output, View Diff, and Terminal views
 
 ### Using the Help System
 - Click the **?** button in the sidebar to open the comprehensive help dialog
@@ -666,7 +666,7 @@ crystal/
 ### Best Practices
 1. Use descriptive prompts for better AI-generated session names
 2. Create multiple sessions to explore different solutions
-3. Review Changes tab before git operations
+3. Review View Diff tab before git operations
 4. Use Terminal tab to run tests after changes
 5. Archive completed sessions to keep the list manageable
 6. Set up project-specific prompts for consistency

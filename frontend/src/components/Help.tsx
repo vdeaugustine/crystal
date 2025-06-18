@@ -57,7 +57,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                     </li>
                     <li><strong>Work with results:</strong>
                       <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                        <li>View changes in the Changes tab</li>
+                        <li>View changes in the View Diff tab</li>
                         <li>Continue conversations to refine the solution</li>
                         <li>Rebase back to your main branch when done</li>
                       </ul>
@@ -119,7 +119,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mt-1 space-y-1">
                     <li><strong>Rebase from main</strong> - Pull latest changes from main branch</li>
                     <li><strong>Squash and rebase to main</strong> - Combine commits and rebase onto main</li>
-                    <li>View diffs in the Changes tab</li>
+                    <li>View diffs in the View Diff tab</li>
                     <li>Track changes per execution</li>
                   </ul>
                 </div>
@@ -142,7 +142,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <p className="text-gray-700 dark:text-gray-300">Raw JSON messages for debugging</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Changes</h4>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">View Diff</h4>
                   <p className="text-gray-700 dark:text-gray-300">Git diffs showing all file changes</p>
                 </div>
                 <div>
@@ -239,7 +239,7 @@ export default function Help({ isOpen, onClose }: HelpProps) {
               <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2">
                 <li>Run multiple sessions with different approaches to compare results</li>
                 <li>Use descriptive worktree names to organize your experiments</li>
-                <li>Check the Changes tab to review what Claude modified</li>
+                <li>Check the View Diff tab to review what Claude modified</li>
                 <li>Use the Terminal tab to run tests after Claude makes changes</li>
                 <li>Archive sessions you no longer need to keep your list clean</li>
                 <li>Set up project-specific system prompts for consistent behavior</li>

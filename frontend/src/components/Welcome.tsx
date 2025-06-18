@@ -92,7 +92,7 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
                   <div className="ml-4 flex-1">
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Work with Results</h4>
                     <ul className="text-gray-600 dark:text-gray-400 space-y-1 text-sm">
-                      <li>• View changes in the <strong>Changes tab</strong></li>
+                      <li>• View changes in the <strong>View Diff tab</strong></li>
                       <li>• <strong>Continue conversations</strong> to refine the solution</li>
                       <li>• <strong>Rebase back to main</strong> when you're done</li>
                     </ul>
