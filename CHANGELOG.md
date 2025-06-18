@@ -2,6 +2,16 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.4] - 2025-06-18
+
+### Added
+- Session favorites feature - mark important sessions as favorites for quick access
+- Warning when working on the main branch to prevent accidental changes
+
+### Changed
+- Renamed "Changes" tab to "View Diff" for better clarity
+- Improved diff viewer performance by disabling word diff
+
 ## [0.1.3] - 2025-06-17
 
 ### Added
