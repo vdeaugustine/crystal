@@ -387,6 +387,15 @@ export class DatabaseService {
     if (!hasCompletionTimestamp) {
       this.db.prepare("ALTER TABLE prompt_markers ADD COLUMN completion_timestamp DATETIME").run();
     }
+    
+    // Add is_favorite column to sessions table if it doesn't exist
+    const sessionTableInfoFavorite = this.db.prepare("PRAGMA table_info(sessions)").all();
+    const hasIsFavoriteColumn = sessionTableInfoFavorite.some((col: any) => col.name === 'is_favorite');
+    
+    if (!hasIsFavoriteColumn) {
+      this.db.prepare("ALTER TABLE sessions ADD COLUMN is_favorite BOOLEAN DEFAULT 0").run();
+      console.log('[Database] Added is_favorite column to sessions table');
+    }
   }
 
   // Project operations
@@ -650,12 +659,21 @@ export class DatabaseService {
         values.push(data.run_started_at);
       }
     }
+    if (data.is_favorite !== undefined) {
+      updates.push('is_favorite = ?');
+      values.push(data.is_favorite ? 1 : 0);
+    }
 
     if (updates.length === 0) {
       return this.getSession(id);
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    // Only update the updated_at timestamp if we're changing something other than is_favorite
+    // This prevents the session from showing as "unviewed" when just toggling favorites
+    const isOnlyFavoriteUpdate = updates.length === 1 && updates[0] === 'is_favorite = ?';
+    if (!isOnlyFavoriteUpdate) {
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+    }
     values.push(id);
 
     this.db.prepare(`

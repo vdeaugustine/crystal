@@ -92,6 +92,9 @@ export function DraggableProjectTreeView() {
     };
     
     const handleSessionUpdated = (updatedSession: Session) => {
+      console.log('[DraggableProjectTreeView] Session updated event received:', updatedSession);
+      console.log('[DraggableProjectTreeView] Updated session isFavorite:', updatedSession.isFavorite);
+      
       // Update only the specific session that changed
       setProjectsWithSessions(prevProjects => 
         prevProjects.map(project => {
@@ -105,6 +108,7 @@ export function DraggableProjectTreeView() {
               ...updatedSessions[sessionIndex],
               ...updatedSession
             };
+            console.log('[DraggableProjectTreeView] Updated session after merge:', updatedSessions[sessionIndex]);
             return {
               ...project,
               sessions: updatedSessions
@@ -580,7 +584,12 @@ export function DraggableProjectTreeView() {
               
               {isExpanded && sessionCount > 0 && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {project.sessions.map((session) => {
+                  {project.sessions
+                    .sort((a, b) => {
+                      // Sort by display order only
+                      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+                    })
+                    .map((session) => {
                     const isDraggingOverSession = dragState.overType === 'session' && 
                                                  dragState.overSessionId === session.id &&
                                                  dragState.overProjectId === project.id;

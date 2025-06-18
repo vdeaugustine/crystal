@@ -99,7 +99,8 @@ export class SessionManager extends EventEmitter {
       permissionMode: dbSession.permission_mode,
       runStartedAt: dbSession.run_started_at,
       isMainRepo: dbSession.is_main_repo,
-      projectId: dbSession.project_id // Add the missing projectId field
+      projectId: dbSession.project_id, // Add the missing projectId field
+      isFavorite: dbSession.is_favorite
     };
   }
 

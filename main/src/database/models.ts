@@ -43,6 +43,7 @@ export interface Session {
   run_started_at?: string;
   is_main_repo?: boolean;
   display_order?: number;
+  is_favorite?: boolean;
 }
 
 export interface SessionOutput {
@@ -81,6 +82,7 @@ export interface UpdateSessionData {
   pid?: number;
   claude_session_id?: string;
   run_started_at?: string;
+  is_favorite?: boolean;
 }
 
 export interface PromptMarker {

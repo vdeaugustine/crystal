@@ -439,6 +439,51 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
     }
   });
 
+  ipcMain.handle('sessions:toggle-favorite', async (_event, sessionId: string) => {
+    try {
+      console.log('[IPC] sessions:toggle-favorite called for sessionId:', sessionId);
+      
+      // Get current session to check current favorite status
+      const currentSession = databaseService.getSession(sessionId);
+      if (!currentSession) {
+        console.error('[IPC] Session not found in database:', sessionId);
+        return { success: false, error: 'Session not found' };
+      }
+      
+      console.log('[IPC] Current session favorite status:', currentSession.is_favorite);
+
+      // Toggle the favorite status
+      const newFavoriteStatus = !currentSession.is_favorite;
+      console.log('[IPC] Toggling favorite status to:', newFavoriteStatus);
+      
+      const updatedSession = databaseService.updateSession(sessionId, { is_favorite: newFavoriteStatus });
+      if (!updatedSession) {
+        console.error('[IPC] Failed to update session in database');
+        return { success: false, error: 'Failed to update session' };
+      }
+      
+      console.log('[IPC] Database updated successfully. Updated session:', updatedSession.is_favorite);
+
+      // Emit update event so frontend gets notified
+      const session = sessionManager.getSession(sessionId);
+      if (session) {
+        session.isFavorite = newFavoriteStatus;
+        console.log('[IPC] Emitting session-updated event with favorite status:', session.isFavorite);
+        sessionManager.emit('session-updated', session);
+      } else {
+        console.warn('[IPC] Session not found in session manager:', sessionId);
+      }
+
+      return { success: true, data: { isFavorite: newFavoriteStatus } };
+    } catch (error) {
+      console.error('Failed to toggle favorite status:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      return { success: false, error: 'Failed to toggle favorite status' };
+    }
+  });
+
   ipcMain.handle('sessions:reorder', async (_event, sessionOrders: Array<{ id: string; displayOrder: number }>) => {
     try {
       databaseService.reorderSessions(sessionOrders);

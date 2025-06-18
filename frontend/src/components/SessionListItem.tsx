@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { StatusIndicator } from './StatusIndicator';
 import { API } from '../utils/api';
+import { Star } from 'lucide-react';
 import type { Session } from '../types/session';
 
 interface SessionListItemProps {
@@ -231,6 +232,25 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     closeContextMenu();
     handleDelete({ stopPropagation: () => {} } as React.MouseEvent);
   };
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log('[SessionListItem] Toggling favorite for session:', session.id, 'Current status:', session.isFavorite);
+    
+    try {
+      const response = await API.sessions.toggleFavorite(session.id);
+      console.log('[SessionListItem] Toggle favorite response:', response);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to toggle favorite status');
+      }
+      
+      console.log('[SessionListItem] Successfully toggled favorite status to:', response.data?.isFavorite);
+    } catch (error) {
+      console.error('Error toggling favorite status:', error);
+      alert('Failed to toggle favorite status');
+    }
+  };
   
   return (
     <>
@@ -276,6 +296,21 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
         <div className="flex items-center space-x-1">
           {!isEditing && (
             <>
+              <button
+                onClick={handleToggleFavorite}
+                className={`p-1 rounded transition-all ${
+                  session.isFavorite 
+                    ? 'text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300' 
+                    : 'text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100'
+                } hover:bg-gray-100 dark:hover:bg-gray-700/50`}
+                title={session.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Star 
+                  className="w-4 h-4" 
+                  fill={session.isFavorite ? 'currentColor' : 'none'}
+                  strokeWidth={session.isFavorite ? 0 : 2}
+                />
+              </button>
               {hasRunScript && (
                 <button
                   onClick={isRunning ? handleStopScript : handleRunScript}

@@ -17,6 +17,7 @@ export interface Session {
   isMainRepo?: boolean;
   displayOrder?: number;
   projectId?: number;
+  isFavorite?: boolean;
 }
 
 export interface CreateSessionRequest {
