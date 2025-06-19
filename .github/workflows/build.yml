@@ -9,7 +9,23 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            build_cmd: build:mac
+            artifact_name: crystal-macos
+            artifact_path: dist-electron/*.dmg
+          - os: ubuntu-latest
+            build_cmd: build:linux
+            artifact_name: crystal-linux
+            artifact_path: |
+              dist-electron/*.deb
+              dist-electron/*.AppImage
+              dist-electron/*.snap
+    
+    runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout code
@@ -42,23 +58,23 @@ jobs:
       run: pnpm run generate-notices
 
     - name: Build application
-      run: pnpm run build:mac
+      run: pnpm run ${{ matrix.build_cmd }}
       env:
         # macOS code signing (optional for CI builds)
-        CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
-        CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
+        CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
         # macOS notarization (optional for CI builds)
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_ID || '' }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.APPLE_APP_PASSWORD || '' }}
+        APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
         # Only enable signing when certificates are available
-        CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+        CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os == 'macos-latest' && 'true' || 'false' }}
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: crystal-macos
-        path: dist-electron/*.dmg
+        name: ${{ matrix.artifact_name }}
+        path: ${{ matrix.artifact_path }}
         if-no-files-found: error
         retention-days: 7
 

@@ -24,7 +24,9 @@
     "build:main": "pnpm run --filter main build",
     "build:electron": "electron-builder",
     "build:mac": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --mac --publish never",
+    "build:linux": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --linux --publish never",
     "release:mac": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --mac --publish always",
+    "release:linux": "pnpm run build:frontend && pnpm run build:main && pnpm run generate-notices && electron-builder --linux --publish always",
     "preview": "pnpm run --filter frontend preview",
     "lint": "pnpm run -r lint",
     "typecheck": "pnpm run -r typecheck",
@@ -97,6 +99,40 @@
         "node_modules/@anthropic-ai/claude-code/vendor/.*\\.jar$"
       ],
       "notarize": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "AppImage",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "snap",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Development",
+      "icon": "main/assets/icon.png",
+      "desktop": {
+        "Name": "Crystal",
+        "Comment": "Claude Code Commander for managing multiple Claude Code instances",
+        "Categories": "Development;IDE;",
+        "StartupWMClass": "crystal"
+      }
+    },
+    "deb": {
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1"]
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "snap": {
+      "grade": "stable",
+      "confinement": "classic"
     },
     "publish": {
       "provider": "github",
