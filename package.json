@@ -3,7 +3,10 @@
   "version": "0.1.4",
   "private": true,
   "description": "Crystal - Claude Code Commander for managing multiple Claude Code instances",
-  "author": "Crystal Team",
+  "author": {
+    "name": "Crystal Team",
+    "email": "jordan@stravu.com"
+  },
   "license": "MIT",
   "main": "main/dist/index.js",
   "engines": {
