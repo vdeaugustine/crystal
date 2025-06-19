@@ -70,6 +70,9 @@ jobs:
         # Only enable signing when certificates are available
         CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os == 'macos-latest' && 'true' || 'false' }}
 
+    - name: List build artifacts
+      run: ls -la dist-electron/
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:

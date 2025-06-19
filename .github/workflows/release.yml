@@ -74,6 +74,9 @@ jobs:
         # Enable automatic certificate discovery
         CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.os == 'macos-latest' && 'true' || 'false' }}
 
+    - name: List release artifacts
+      run: ls -la dist-electron/
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
