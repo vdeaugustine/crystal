@@ -37,20 +37,20 @@ modules:
       # Extract the AppImage
       - cd /app/bin && ./crystal-appimage --appimage-extract
       - rm /app/bin/crystal-appimage
-      - mv /app/bin/squashfs-root /app/bin/crystal
+      - mv /app/bin/squashfs-root /app/bin/crystal-app
       # Create wrapper script
       - |
         cat > /app/bin/crystal <<EOF
         #!/bin/bash
         export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
-        exec /app/bin/crystal/crystal "$@"
+        exec /app/bin/crystal-app/crystal "$@"
         EOF
       - chmod +x /app/bin/crystal
       # Install desktop file
-      - install -Dm644 /app/bin/crystal/crystal.desktop /app/share/applications/com.stravu.crystal.desktop
+      - install -Dm644 /app/bin/crystal-app/crystal.desktop /app/share/applications/com.stravu.crystal.desktop
       - desktop-file-edit --set-key=Icon --set-value=com.stravu.crystal /app/share/applications/com.stravu.crystal.desktop
       # Install icon
-      - install -Dm644 /app/bin/crystal/crystal.png /app/share/icons/hicolor/512x512/apps/com.stravu.crystal.png
+      - install -Dm644 /app/bin/crystal-app/crystal.png /app/share/icons/hicolor/512x512/apps/com.stravu.crystal.png
     sources:
       - type: file
         path: dist-electron/Crystal-*.AppImage
