@@ -91,8 +91,19 @@ jobs:
         # Install required runtime and SDK
         sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.electronjs.Electron2.BaseApp//23.08
         
+        # Find the actual AppImage file
+        echo "Looking for AppImage files..."
+        ls -la dist-electron/*.AppImage || true
+        
+        # Get the AppImage path (handle different naming patterns)
+        APPIMAGE=$(ls dist-electron/*.AppImage 2>/dev/null | head -n1)
+        if [ -z "$APPIMAGE" ]; then
+          echo "Error: No AppImage found in dist-electron/"
+          exit 1
+        fi
+        echo "Found AppImage: $APPIMAGE"
+        
         # Update manifest with actual AppImage path
-        APPIMAGE=$(ls dist-electron/Crystal-*-x64.AppImage | head -n1)
         sed -i "s|path: dist-electron/Crystal-\*.AppImage|path: $APPIMAGE|" com.stravu.crystal.yml
         
         # Build Flatpak
