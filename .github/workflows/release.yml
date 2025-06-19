@@ -25,6 +25,7 @@ jobs:
               dist-electron/*.deb
               dist-electron/*.AppImage
               dist-electron/*.snap
+              dist-electron/*.flatpak
               dist-electron/latest-linux.yml
     
     runs-on: ${{ matrix.os }}
@@ -76,6 +77,32 @@ jobs:
 
     - name: List release artifacts
       run: ls -la dist-electron/
+
+    - name: Build Flatpak
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        # Install flatpak-builder
+        sudo apt-get update
+        sudo apt-get install -y flatpak flatpak-builder
+        
+        # Add flathub repository
+        sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        
+        # Install required runtime and SDK
+        sudo flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.electronjs.Electron2.BaseApp//23.08
+        
+        # Update manifest with actual AppImage path
+        APPIMAGE=$(ls dist-electron/Crystal-*-x64.AppImage | head -n1)
+        sed -i "s|path: dist-electron/Crystal-\*.AppImage|path: $APPIMAGE|" com.stravu.crystal.yml
+        
+        # Build Flatpak
+        flatpak-builder --force-clean --repo=repo build-dir com.stravu.crystal.yml
+        
+        # Create bundle
+        flatpak build-bundle repo dist-electron/crystal.flatpak com.stravu.crystal
+        
+        # List artifacts again to confirm
+        ls -la dist-electron/
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
