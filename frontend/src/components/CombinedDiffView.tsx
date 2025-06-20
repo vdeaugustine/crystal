@@ -79,15 +79,32 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           setLoading(true);
           setError(null);
           
+          console.log('CombinedDiffView loadCombinedDiff called:', {
+            sessionId,
+            selectedExecutions,
+            executionsLength: executions.length,
+            isMainRepo
+          });
+          
           let response;
-          if (selectedExecutions.length === executions.length) {
+          if (selectedExecutions.length === 1) {
+            // For single commit selection
+            if (selectedExecutions[0] === 0) {
+              // Special case for uncommitted changes - pass as single element array
+              console.log('Requesting uncommitted changes for session:', sessionId, 'with executionIds:', [0]);
+              response = await API.sessions.getCombinedDiff(sessionId, [0]);
+            } else {
+              // For regular commits, pass it as a range with the same ID
+              console.log('Requesting single commit:', selectedExecutions[0]);
+              response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
+            }
+          } else if (selectedExecutions.length === executions.length) {
             // Get all diffs
+            console.log('Getting all diffs');
             response = await API.sessions.getCombinedDiff(sessionId);
-          } else if (selectedExecutions.length === 1) {
-            // For single commit selection, pass it as a range with the same ID
-            response = await API.sessions.getCombinedDiff(sessionId, [selectedExecutions[0], selectedExecutions[0]]);
           } else {
             // Get selected diffs (range)
+            console.log('Requesting range of diffs:', selectedExecutions);
             response = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
           }
           
@@ -96,6 +113,12 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           }
           
           const data = response.data;
+          console.log('Received diff data:', {
+            hasDiff: !!data?.diff,
+            diffLength: data?.diff?.length,
+            stats: data?.stats,
+            isUncommitted: selectedExecutions.length === 1 && selectedExecutions[0] === 0
+          });
           setCombinedDiff(data);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load combined diff');

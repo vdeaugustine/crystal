@@ -5,10 +5,156 @@ import type { DiffViewerProps } from '../types/diff';
 // Memoize ReactDiffViewer to prevent re-renders
 const MemoizedReactDiffViewer = memo(ReactDiffViewer);
 
+// Parse unified diff format to extract individual file diffs
+// Moved outside component to avoid recreating on each render
+const parseUnifiedDiff = (diff: string): Array<{
+  oldFileName: string;
+  newFileName: string;
+  oldValue: string;
+  newValue: string;
+  type: 'added' | 'deleted' | 'modified' | 'renamed';
+  isBinary: boolean;
+}> => {
+  const files: Array<{
+    oldFileName: string;
+    newFileName: string;
+    oldValue: string;
+    newValue: string;
+    type: 'added' | 'deleted' | 'modified' | 'renamed';
+    isBinary: boolean;
+  }> = [];
+  
+  // Early return for empty diff
+  if (!diff || diff.trim().length === 0) {
+    return files;
+  }
+  
+  // For very large diffs, use a more efficient parsing approach
+  const isLargeDiff = diff.length > 1_000_000; // 1MB threshold
+  
+  // Split by file headers
+  const fileMatches = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
+  
+  if (!fileMatches) {
+    return files;
+  }
+  
+  for (const fileContent of fileMatches) {
+    // Extract file names
+    const fileNameMatch = fileContent.match(/diff --git a\/(.*?) b\/(.*?)\n/);
+    if (!fileNameMatch) continue;
+    
+    const oldFileName = fileNameMatch[1];
+    const newFileName = fileNameMatch[2];
+    
+    // Check if binary
+    const isBinary = fileContent.includes('Binary files') || fileContent.includes('GIT binary patch');
+    
+    // Determine file type
+    let type: 'added' | 'deleted' | 'modified' | 'renamed' = 'modified';
+    if (fileContent.includes('new file mode')) {
+      type = 'added';
+    } else if (fileContent.includes('deleted file mode')) {
+      type = 'deleted';
+    } else if (fileContent.includes('rename from') && fileContent.includes('rename to')) {
+      type = 'renamed';
+    }
+    
+    if (isBinary) {
+      files.push({
+        oldFileName,
+        newFileName,
+        oldValue: '',
+        newValue: '',
+        type,
+        isBinary: true,
+      });
+      continue;
+    }
+    
+    // Extract the actual diff content (skip the headers)
+    const lines = fileContent.split('\n');
+    const diffStartIndex = lines.findIndex(line => line.startsWith('@@'));
+    
+    if (diffStartIndex === -1) {
+      // No actual diff content, might be a mode change or empty file
+      files.push({
+        oldFileName,
+        newFileName,
+        oldValue: '',
+        newValue: '',
+        type,
+        isBinary: false,
+      });
+      continue;
+    }
+    
+    // Build old and new file content from the diff
+    const oldLines: string[] = [];
+    const newLines: string[] = [];
+    
+    // For large diffs, limit the number of lines to parse per file
+    const maxLinesToParse = isLargeDiff ? 10000 : lines.length;
+    const endIndex = Math.min(lines.length, diffStartIndex + maxLinesToParse);
+    
+    for (let i = diffStartIndex; i < endIndex; i++) {
+      const line = lines[i];
+      if (line.startsWith('@@')) {
+        // Skip hunk headers but keep context
+        continue;
+      } else if (line.startsWith('-')) {
+        // Removed line (only in old file)
+        oldLines.push(line.substring(1));
+      } else if (line.startsWith('+')) {
+        // Added line (only in new file)
+        newLines.push(line.substring(1));
+      } else if (line.startsWith(' ')) {
+        // Context line (in both files)
+        oldLines.push(line.substring(1));
+        newLines.push(line.substring(1));
+      } else if (line.startsWith('\\')) {
+        // "No newline at end of file" marker - skip
+        continue;
+      } else if (line === '') {
+        // Empty context line
+        oldLines.push('');
+        newLines.push('');
+      }
+    }
+    
+    // If we hit the limit, add a truncation notice
+    if (isLargeDiff && endIndex < lines.length) {
+      const truncatedLines = lines.length - endIndex;
+      const truncationNotice = `\n... (${truncatedLines} more lines truncated for performance)`;
+      oldLines.push(truncationNotice);
+      newLines.push(truncationNotice);
+    }
+    
+    files.push({
+      oldFileName,
+      newFileName,
+      oldValue: type === 'added' ? '' : oldLines.join('\n'),
+      newValue: type === 'deleted' ? '' : newLines.join('\n'),
+      type,
+      isBinary: false,
+    });
+  }
+  
+  return files;
+};
+
 const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, className = '' }) => {
   const [viewType, setViewType] = useState<'unified' | 'split'>('split');
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [showAllFiles, setShowAllFiles] = useState(false);
+  
+  // Debug log
+  console.log('DiffViewer received diff:', {
+    hasDiff: !!diff,
+    diffLength: diff?.length,
+    diffPreview: diff?.substring(0, 200),
+    isEmpty: !diff || diff.trim() === ''
+  });
   
   // Load saved preference from localStorage
   useEffect(() => {
@@ -367,143 +513,5 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, className = '' }) =>
 });
 
 DiffViewer.displayName = 'DiffViewer';
-
-// Parse unified diff format to extract individual file diffs
-// Moved outside component to avoid recreating on each render
-const parseUnifiedDiff = (diff: string): Array<{
-  oldFileName: string;
-  newFileName: string;
-  oldValue: string;
-  newValue: string;
-  type: 'added' | 'deleted' | 'modified' | 'renamed';
-  isBinary: boolean;
-}> => {
-  const files: Array<{
-    oldFileName: string;
-    newFileName: string;
-    oldValue: string;
-    newValue: string;
-    type: 'added' | 'deleted' | 'modified' | 'renamed';
-    isBinary: boolean;
-  }> = [];
-  
-  // Early return for empty diff
-  if (!diff || diff.trim().length === 0) {
-    return files;
-  }
-  
-  // For very large diffs, use a more efficient parsing approach
-  const isLargeDiff = diff.length > 1_000_000; // 1MB threshold
-  
-  // Split by file headers
-  const fileMatches = diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
-  
-  if (!fileMatches) {
-    return files;
-  }
-  
-  for (const fileContent of fileMatches) {
-    // Extract file names
-    const fileNameMatch = fileContent.match(/diff --git a\/(.*?) b\/(.*?)\n/);
-    if (!fileNameMatch) continue;
-    
-    const oldFileName = fileNameMatch[1];
-    const newFileName = fileNameMatch[2];
-    
-    // Check if binary
-    const isBinary = fileContent.includes('Binary files') || fileContent.includes('GIT binary patch');
-    
-    // Determine file type
-    let type: 'added' | 'deleted' | 'modified' | 'renamed' = 'modified';
-    if (fileContent.includes('new file mode')) {
-      type = 'added';
-    } else if (fileContent.includes('deleted file mode')) {
-      type = 'deleted';
-    } else if (fileContent.includes('rename from') && fileContent.includes('rename to')) {
-      type = 'renamed';
-    }
-    
-    if (isBinary) {
-      files.push({
-        oldFileName,
-        newFileName,
-        oldValue: '',
-        newValue: '',
-        type,
-        isBinary: true,
-      });
-      continue;
-    }
-    
-    // Extract the actual diff content (skip the headers)
-    const lines = fileContent.split('\n');
-    const diffStartIndex = lines.findIndex(line => line.startsWith('@@'));
-    
-    if (diffStartIndex === -1) {
-      // No actual diff content, might be a mode change or empty file
-      files.push({
-        oldFileName,
-        newFileName,
-        oldValue: '',
-        newValue: '',
-        type,
-        isBinary: false,
-      });
-      continue;
-    }
-    
-    // Build old and new file content from the diff
-    const oldLines: string[] = [];
-    const newLines: string[] = [];
-    
-    // For large diffs, limit the number of lines to parse per file
-    const maxLinesToParse = isLargeDiff ? 10000 : lines.length;
-    const endIndex = Math.min(lines.length, diffStartIndex + maxLinesToParse);
-    
-    for (let i = diffStartIndex; i < endIndex; i++) {
-      const line = lines[i];
-      if (line.startsWith('@@')) {
-        // Skip hunk headers but keep context
-        continue;
-      } else if (line.startsWith('-')) {
-        // Removed line (only in old file)
-        oldLines.push(line.substring(1));
-      } else if (line.startsWith('+')) {
-        // Added line (only in new file)
-        newLines.push(line.substring(1));
-      } else if (line.startsWith(' ')) {
-        // Context line (in both files)
-        oldLines.push(line.substring(1));
-        newLines.push(line.substring(1));
-      } else if (line.startsWith('\\')) {
-        // "No newline at end of file" marker - skip
-        continue;
-      } else if (line === '') {
-        // Empty context line
-        oldLines.push('');
-        newLines.push('');
-      }
-    }
-    
-    // If we hit the limit, add a truncation notice
-    if (isLargeDiff && endIndex < lines.length) {
-      const truncatedLines = lines.length - endIndex;
-      const truncationNotice = `\n... (${truncatedLines} more lines truncated for performance)`;
-      oldLines.push(truncationNotice);
-      newLines.push(truncationNotice);
-    }
-    
-    files.push({
-      oldFileName,
-      newFileName,
-      oldValue: type === 'added' ? '' : oldLines.join('\n'),
-      newValue: type === 'deleted' ? '' : newLines.join('\n'),
-      type,
-      isBinary: false,
-    });
-  }
-  
-  return files;
-};
 
 export default DiffViewer;

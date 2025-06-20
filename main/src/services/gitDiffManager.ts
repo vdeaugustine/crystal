@@ -31,6 +31,7 @@ export class GitDiffManager {
    */
   async captureWorkingDirectoryDiff(worktreePath: string): Promise<GitDiffResult> {
     try {
+      console.log(`captureWorkingDirectoryDiff called for: ${worktreePath}`);
       this.logger?.verbose(`Capturing git diff in ${worktreePath}`);
       
       // Get current commit hash
@@ -38,6 +39,7 @@ export class GitDiffManager {
       
       // Get diff of working directory vs HEAD
       const diff = this.getGitDiffString(worktreePath);
+      console.log(`Captured diff length: ${diff.length}`);
       
       // Get changed files
       const changedFiles = this.getChangedFiles(worktreePath);
@@ -46,6 +48,7 @@ export class GitDiffManager {
       const stats = this.getDiffStats(worktreePath);
       
       this.logger?.verbose(`Captured diff: ${stats.filesChanged} files, +${stats.additions} -${stats.deletions}`);
+      console.log(`Diff stats:`, stats);
       
       return {
         diff,
@@ -359,13 +362,36 @@ export class GitDiffManager {
 
   private getGitDiffString(worktreePath: string): string {
     try {
-      // Get diff of staged and unstaged changes
-      return execSync('git diff HEAD', { 
+      // First check if we're in a valid git repository
+      try {
+        execSync('git rev-parse --git-dir', { cwd: worktreePath, encoding: 'utf8' });
+      } catch {
+        console.error(`Not a git repository: ${worktreePath}`);
+        return '';
+      }
+
+      // Check git status to see what files have changes
+      const status = execSync('git status --porcelain', { cwd: worktreePath, encoding: 'utf8' });
+      console.log(`Git status in ${worktreePath}:`, status || '(no changes)');
+
+      // Get diff of both staged and unstaged changes against HEAD
+      // Using 'git diff HEAD' to include both staged and unstaged changes
+      const diff = execSync('git diff HEAD', { 
         cwd: worktreePath, 
-        encoding: 'utf8' 
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large diffs
       });
+      console.log(`Git diff in ${worktreePath}: ${diff.length} characters`);
+      
+      // If no diff but status shows changes, might be untracked files
+      if (!diff && status) {
+        console.log('No diff but status shows changes - might be untracked files only');
+      }
+      
+      return diff;
     } catch (error) {
-      this.logger?.warn(`Could not get git diff in ${worktreePath}`);
+      this.logger?.warn(`Could not get git diff in ${worktreePath}`, error instanceof Error ? error : undefined);
+      console.error(`Error getting git diff:`, error);
       return '';
     }
   }

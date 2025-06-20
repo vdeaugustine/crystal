@@ -1,0 +1,2 @@
+This is a test file to verify uncommitted changes display in the diff viewer.
+This file is untracked and won't show in git diff HEAD.
