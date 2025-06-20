@@ -25,6 +25,7 @@ interface CreateSessionJob {
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
   baseBranch?: string;
+  autoCommit?: boolean;
 }
 
 interface ContinueSessionJob {
@@ -120,7 +121,7 @@ export class TaskQueue {
     const sessionConcurrency = isLinux ? 1 : 5;
     
     this.sessionQueue.process(sessionConcurrency, async (job) => {
-      const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch } = job.data;
+      const { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch, autoCommit } = job.data;
       const { sessionManager, worktreeManager, claudeCodeManager } = this.options;
 
       console.log(`[TaskQueue] Processing session creation job ${job.id}`, { prompt, worktreeTemplate, index, permissionMode, projectId, baseBranch });
@@ -176,7 +177,8 @@ export class TaskQueue {
           worktreeName,
           permissionMode,
           targetProject.id,
-          false // isMainRepo = false for regular sessions
+          false, // isMainRepo = false for regular sessions
+          autoCommit
         );
         console.log(`[TaskQueue] Session created with ID: ${session.id}`);
 
@@ -259,10 +261,10 @@ export class TaskQueue {
     return job;
   }
 
-  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
+  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string, autoCommit?: boolean): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
     const jobs = [];
     for (let i = 0; i < count; i++) {
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId, baseBranch }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId, baseBranch, autoCommit }));
     }
     return Promise.all(jobs);
   }

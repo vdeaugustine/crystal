@@ -15,6 +15,7 @@ interface SessionInputProps {
   setShowStravuSearch: (show: boolean) => void;
   ultrathink: boolean;
   setUltrathink: (ultra: boolean) => void;
+  handleToggleAutoCommit: () => void;
 }
 
 export const SessionInput: React.FC<SessionInputProps> = ({
@@ -30,6 +31,7 @@ export const SessionInput: React.FC<SessionInputProps> = ({
   setShowStravuSearch,
   ultrathink,
   setUltrathink,
+  handleToggleAutoCommit,
 }) => {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const shouldSend = e.key === 'Enter' && (e.metaKey || e.ctrlKey);
@@ -88,10 +90,14 @@ export const SessionInput: React.FC<SessionInputProps> = ({
           {viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting' ? 'Run' : (activeSession.status === 'waiting' ? 'Send' : 'Continue')}
         </button>
       </div>
-      <div className="mt-2">
+      <div className="mt-2 flex items-center gap-4">
         <label className="flex items-center gap-2 cursor-pointer group" title="Triggers Claude Code to use its maximum thinking token limit. Slower but better for difficult tasks.">
           <input type="checkbox" checked={ultrathink} onChange={(e) => setUltrathink(e.target.checked)} className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500" />
           <span className="text-sm text-gray-700 dark:text-gray-300">ultrathink</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer group" title="Automatically commit changes after each prompt">
+          <input type="checkbox" checked={activeSession.autoCommit ?? true} onChange={handleToggleAutoCommit} className="h-4 w-4 text-green-600 rounded border-gray-300 dark:border-gray-600 focus:ring-green-500" />
+          <span className="text-sm text-gray-700 dark:text-gray-300">auto-commit</span>
         </label>
       </div>
       {activeSession.status !== 'waiting' && !(viewMode === 'terminal' && !activeSession.isRunning) && (

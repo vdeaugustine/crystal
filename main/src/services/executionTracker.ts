@@ -71,29 +71,36 @@ export class ExecutionTracker extends EventEmitter {
 
       this.logger?.verbose(`Ending execution tracking for session ${sessionId}`);
       
-      // Auto-commit any uncommitted changes
-      try {
-        // Check if there are uncommitted changes
-        const statusOutput = execSync('git status --porcelain', { 
-          cwd: context.worktreePath, 
-          encoding: 'utf8' 
-        }).trim();
-        
-        if (statusOutput) {
-          this.logger?.verbose(`Found uncommitted changes, auto-committing...`);
+      // Check if auto-commit is enabled for this session
+      const session = await this.sessionManager.getSession(sessionId);
+      const autoCommitEnabled = session?.autoCommit ?? true; // Default to true if not set
+      
+      this.logger?.verbose(`Session ${sessionId} auto-commit setting: ${session?.autoCommit} (enabled: ${autoCommitEnabled})`);
+      
+      // Auto-commit any uncommitted changes if enabled
+      if (autoCommitEnabled) {
+        try {
+          // Check if there are uncommitted changes
+          const statusOutput = execSync('git status --porcelain', { 
+            cwd: context.worktreePath, 
+            encoding: 'utf8' 
+          }).trim();
           
-          // Stage all changes
-          execSync('git add -A', { cwd: context.worktreePath });
-          
-          // Create commit message from prompt or use default
-          const commitMessage = context.prompt || `Claude Code execution ${context.executionSequence}`;
-          
-          // Commit with the prompt as the message
-          execSync(`git commit -m ${JSON.stringify(commitMessage)}`, { cwd: context.worktreePath });
-          
-          this.logger?.verbose(`Auto-committed changes with message: ${commitMessage}`);
-        }
-      } catch (commitError: any) {
+          if (statusOutput) {
+            this.logger?.verbose(`Found uncommitted changes, auto-committing...`);
+            
+            // Stage all changes
+            execSync('git add -A', { cwd: context.worktreePath });
+            
+            // Create commit message from prompt or use default
+            const commitMessage = context.prompt || `Claude Code execution ${context.executionSequence}`;
+            
+            // Commit with the prompt as the message
+            execSync(`git commit -m ${JSON.stringify(commitMessage)}`, { cwd: context.worktreePath });
+            
+            this.logger?.verbose(`Auto-committed changes with message: ${commitMessage}`);
+          }
+        } catch (commitError: any) {
         this.logger?.error(`Failed to auto-commit changes:`, commitError instanceof Error ? commitError : undefined);
         
         // Add error to session output so users can see what went wrong
@@ -114,6 +121,9 @@ export class ExecutionTracker extends EventEmitter {
         });
         
         // Continue with diff capture even if commit fails
+        }
+      } else {
+        this.logger?.verbose(`Auto-commit is disabled for session ${sessionId}, skipping commit`);
       }
       
       // Get the current commit hash after auto-commit

@@ -183,6 +183,11 @@ export class API {
       return window.electronAPI.sessions.toggleFavorite(sessionId);
     },
 
+    async toggleAutoCommit(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.toggleAutoCommit(sessionId);
+    },
+
     async getGitCommands(sessionId: string) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.getGitCommands(sessionId);

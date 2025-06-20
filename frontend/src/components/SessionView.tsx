@@ -166,6 +166,7 @@ export const SessionView = memo(() => {
         setShowStravuSearch={hook.setShowStravuSearch}
         ultrathink={hook.ultrathink}
         setUltrathink={hook.setUltrathink}
+        handleToggleAutoCommit={hook.handleToggleAutoCommit}
       />
 
       <CommitMessageDialog

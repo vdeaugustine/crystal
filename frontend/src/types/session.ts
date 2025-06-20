@@ -18,6 +18,7 @@ export interface Session {
   isMainRepo?: boolean;
   displayOrder?: number;
   isFavorite?: boolean;
+  autoCommit?: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -28,6 +29,7 @@ export interface CreateSessionRequest {
   projectId?: number;
   isMainRepo?: boolean;
   baseBranch?: string;
+  autoCommit?: boolean;
 }
 
 export interface SessionOutput {

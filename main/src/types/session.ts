@@ -18,6 +18,7 @@ export interface Session {
   displayOrder?: number;
   projectId?: number;
   isFavorite?: boolean;
+  autoCommit?: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -27,6 +28,7 @@ export interface CreateSessionRequest {
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
   baseBranch?: string;
+  autoCommit?: boolean;
 }
 
 export interface SessionUpdate {

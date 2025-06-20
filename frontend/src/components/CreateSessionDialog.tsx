@@ -25,6 +25,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [ultrathink, setUltrathink] = useState(false);
+  const [autoCommit, setAutoCommit] = useState(true); // Default to true
   const { showError } = useErrorStore();
   
   useEffect(() => {
@@ -122,7 +123,8 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
       const response = await API.sessions.create({
         ...formData,
         prompt: finalPrompt,
-        projectId
+        projectId,
+        autoCommit
       });
       
       if (!response.success) {
@@ -144,6 +146,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
       setFormData({ prompt: '', worktreeTemplate: '', count: 1, permissionMode: defaultPermissionMode as 'ignore' | 'approve' });
       setWorktreeError(null);
       setUltrathink(false);
+      setAutoCommit(true); // Reset to default
     } catch (error: any) {
       console.error('Error creating session:', error);
       showError({
@@ -189,21 +192,39 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               required
               placeholder="Enter the prompt for Claude Code..."
             />
-            <div className="mt-2">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={ultrathink}
-                  onChange={(e) => setUltrathink(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Enable ultrathink mode
-                </span>
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
-                Triggers Claude Code to use its maximum thinking token limit. Slower but better for difficult tasks.
-              </p>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={ultrathink}
+                    onChange={(e) => setUltrathink(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Enable ultrathink mode
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                  Triggers Claude Code to use its maximum thinking token limit. Slower but better for difficult tasks.
+                </p>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={autoCommit}
+                    onChange={(e) => setAutoCommit(e.target.checked)}
+                    className="h-4 w-4 text-green-600 rounded border-gray-300 dark:border-gray-600 focus:ring-green-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Enable auto-commit
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                  Automatically commit changes after each prompt. Can be toggled later during the session.
+                </p>
+              </div>
             </div>
           </div>
           

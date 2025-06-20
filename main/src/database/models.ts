@@ -44,6 +44,7 @@ export interface Session {
   is_main_repo?: boolean;
   display_order?: number;
   is_favorite?: boolean;
+  auto_commit?: boolean;
 }
 
 export interface SessionOutput {
@@ -72,6 +73,7 @@ export interface CreateSessionData {
   permission_mode?: 'approve' | 'ignore';
   is_main_repo?: boolean;
   display_order?: number;
+  auto_commit?: boolean;
 }
 
 export interface UpdateSessionData {
@@ -83,6 +85,7 @@ export interface UpdateSessionData {
   claude_session_id?: string;
   run_started_at?: string;
   is_favorite?: boolean;
+  auto_commit?: boolean;
 }
 
 export interface PromptMarker {

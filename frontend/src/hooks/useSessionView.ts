@@ -1084,6 +1084,18 @@ export const useSessionView = (
         setIsMerging(false);
     }
   };
+
+  const handleToggleAutoCommit = async () => {
+    if (!activeSession) return;
+    try {
+      const response = await API.sessions.toggleAutoCommit(activeSession.id);
+      if (!response.success) {
+        console.error('Failed to toggle auto-commit:', response.error);
+      }
+    } catch (error) {
+      console.error('Error toggling auto-commit:', error);
+    }
+  };
   
   const handleRebaseMainIntoWorktree = async () => {
     if (!activeSession) return;
@@ -1324,6 +1336,7 @@ export const useSessionView = (
     handleStopSession,
     handleGitPull,
     handleGitPush,
+    handleToggleAutoCommit,
     handleRebaseMainIntoWorktree,
     handleAbortRebaseAndUseClaude,
     handleSquashAndRebaseToMain,

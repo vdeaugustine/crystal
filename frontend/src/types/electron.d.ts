@@ -74,6 +74,7 @@ interface ElectronAPI {
     generateName: (prompt: string) => Promise<IPCResponse>;
     rename: (sessionId: string, newName: string) => Promise<IPCResponse>;
     toggleFavorite: (sessionId: string) => Promise<IPCResponse>;
+    toggleAutoCommit: (sessionId: string) => Promise<IPCResponse>;
 
     // Main repo session
     getOrCreateMainRepoSession: (projectId: number) => Promise<IPCResponse>;

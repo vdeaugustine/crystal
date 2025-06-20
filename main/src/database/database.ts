@@ -396,6 +396,14 @@ export class DatabaseService {
       this.db.prepare("ALTER TABLE sessions ADD COLUMN is_favorite BOOLEAN DEFAULT 0").run();
       console.log('[Database] Added is_favorite column to sessions table');
     }
+
+    // Add auto_commit column to sessions table if it doesn't exist
+    const hasAutoCommitColumn = sessionTableInfoFavorite.some((col: any) => col.name === 'auto_commit');
+    
+    if (!hasAutoCommitColumn) {
+      this.db.prepare("ALTER TABLE sessions ADD COLUMN auto_commit BOOLEAN DEFAULT 1").run();
+      console.log('[Database] Added auto_commit column to sessions table');
+    }
   }
 
   // Project operations
@@ -593,9 +601,9 @@ export class DatabaseService {
     const displayOrder = (maxOrderResult?.max_order ?? -1) + 1;
     
     this.db.prepare(`
-      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo, display_order)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
-    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0, displayOrder);
+      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo, display_order, auto_commit)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0, displayOrder, data.auto_commit !== undefined ? (data.auto_commit ? 1 : 0) : 1);
     
     const session = this.getSession(data.id);
     if (!session) {
@@ -663,15 +671,19 @@ export class DatabaseService {
       updates.push('is_favorite = ?');
       values.push(data.is_favorite ? 1 : 0);
     }
+    if (data.auto_commit !== undefined) {
+      updates.push('auto_commit = ?');
+      values.push(data.auto_commit ? 1 : 0);
+    }
 
     if (updates.length === 0) {
       return this.getSession(id);
     }
 
-    // Only update the updated_at timestamp if we're changing something other than is_favorite
-    // This prevents the session from showing as "unviewed" when just toggling favorites
-    const isOnlyFavoriteUpdate = updates.length === 1 && updates[0] === 'is_favorite = ?';
-    if (!isOnlyFavoriteUpdate) {
+    // Only update the updated_at timestamp if we're changing something other than is_favorite or auto_commit
+    // This prevents the session from showing as "unviewed" when just toggling favorites or auto_commit
+    const isOnlyToggleUpdate = updates.length === 1 && (updates[0] === 'is_favorite = ?' || updates[0] === 'auto_commit = ?');
+    if (!isOnlyToggleUpdate) {
       updates.push('updated_at = CURRENT_TIMESTAMP');
     }
     values.push(id);
