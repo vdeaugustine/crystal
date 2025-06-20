@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import type { DiffViewerProps } from '../types/diff';
 
-const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
+// Memoize ReactDiffViewer to prevent re-renders
+const MemoizedReactDiffViewer = memo(ReactDiffViewer);
+
+const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, className = '' }) => {
   const [viewType, setViewType] = useState<'unified' | 'split'>('split');
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [showAllFiles, setShowAllFiles] = useState(false);
@@ -326,7 +329,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
               {/* Diff content - only render when expanded */}
               {isExpanded && (
                 <div className="border border-t-0 border-gray-600 rounded-b-lg" style={{ overflow: 'auto', maxHeight: '600px' }}>
-                  <ReactDiffViewer
+                  <MemoizedReactDiffViewer
                     oldValue={file.oldValue || ''}
                     newValue={file.newValue || ''}
                     splitView={viewType === 'split'}
@@ -358,17 +361,23 @@ const DiffViewer: React.FC<DiffViewerProps> = ({ diff, className = '' }) => {
       </div>
     );
   }
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent re-renders when diff hasn't changed
+  return prevProps.diff === nextProps.diff && prevProps.className === nextProps.className;
+});
+
+DiffViewer.displayName = 'DiffViewer';
 
 // Parse unified diff format to extract individual file diffs
-function parseUnifiedDiff(diff: string): Array<{
+// Moved outside component to avoid recreating on each render
+const parseUnifiedDiff = (diff: string): Array<{
   oldFileName: string;
   newFileName: string;
   oldValue: string;
   newValue: string;
   type: 'added' | 'deleted' | 'modified' | 'renamed';
   isBinary: boolean;
-}> {
+}> => {
   const files: Array<{
     oldFileName: string;
     newFileName: string;
@@ -495,6 +504,6 @@ function parseUnifiedDiff(diff: string): Array<{
   }
   
   return files;
-}
+};
 
 export default DiffViewer;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, memo } from 'react';
 import { Session } from '../../types/session';
 import { ViewMode } from '../../hooks/useSessionView';
 import { X, Image as ImageIcon } from 'lucide-react';
@@ -26,7 +26,7 @@ interface SessionInputWithImagesProps {
   setUltrathink: (ultra: boolean) => void;
 }
 
-export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = ({
+export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = memo(({
   activeSession,
   viewMode,
   input,
@@ -269,4 +269,6 @@ export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = ({
       )}
     </div>
   );
-};
+});
+
+SessionInputWithImages.displayName = 'SessionInputWithImages';

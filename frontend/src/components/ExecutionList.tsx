@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import type { ExecutionListProps } from '../types/diff';
 
-const ExecutionList: React.FC<ExecutionListProps> = ({
+const ExecutionList: React.FC<ExecutionListProps> = memo(({
   executions,
   selectedExecutions,
   onSelectionChange
@@ -161,6 +161,8 @@ const ExecutionList: React.FC<ExecutionListProps> = ({
       )}
     </div>
   );
-};
+});
+
+ExecutionList.displayName = 'ExecutionList';
 
 export default ExecutionList;

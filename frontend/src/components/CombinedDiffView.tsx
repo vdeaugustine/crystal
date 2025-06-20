@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import DiffViewer from './DiffViewer';
 import ExecutionList from './ExecutionList';
 import { API } from '../utils/api';
@@ -6,7 +6,7 @@ import type { CombinedDiffViewProps } from '../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../types/diff';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
-const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({ 
+const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({ 
   sessionId, 
   selectedExecutions: initialSelected,
   isGitOperationRunning = false,
@@ -225,6 +225,18 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = ({
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison function to prevent re-renders
+  return (
+    prevProps.sessionId === nextProps.sessionId &&
+    prevProps.isGitOperationRunning === nextProps.isGitOperationRunning &&
+    prevProps.isMainRepo === nextProps.isMainRepo &&
+    // Deep comparison of selectedExecutions array
+    prevProps.selectedExecutions.length === nextProps.selectedExecutions.length &&
+    prevProps.selectedExecutions.every((val, idx) => val === nextProps.selectedExecutions[idx])
+  );
+});
+
+CombinedDiffView.displayName = 'CombinedDiffView';
 
 export default CombinedDiffView;
