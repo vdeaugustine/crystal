@@ -11,7 +11,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   sessionId, 
   selectedExecutions: initialSelected,
   isGitOperationRunning = false,
-  isMainRepo = false
+  isMainRepo = false,
+  isVisible = true
 }) => {
   const [executions, setExecutions] = useState<ExecutionDiff[]>([]);
   const [selectedExecutions, setSelectedExecutions] = useState<number[]>(initialSelected);
@@ -24,6 +25,11 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 
   // Load executions for the session
   useEffect(() => {
+    // Only load if visible
+    if (!isVisible) {
+      return;
+    }
+    
     // Add a small delay to debounce rapid updates
     const timeoutId = setTimeout(() => {
       const loadExecutions = async () => {
@@ -71,10 +77,15 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, initialSelected, isMainRepo]);
+  }, [sessionId, initialSelected, isMainRepo, isVisible]);
 
   // Load combined diff when selection changes
   useEffect(() => {
+    // Only load if visible
+    if (!isVisible) {
+      return;
+    }
+    
     // Add debouncing to prevent rapid API calls
     const timeoutId = setTimeout(() => {
       const loadCombinedDiff = async () => {
@@ -146,7 +157,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }, 300); // 300ms debounce for diff loading
 
     return () => clearTimeout(timeoutId);
-  }, [selectedExecutions, sessionId, executions.length, isMainRepo]);
+  }, [selectedExecutions, sessionId, executions.length, isMainRepo, isVisible]);
 
   const handleSelectionChange = (newSelection: number[]) => {
     setSelectedExecutions(newSelection);
@@ -217,6 +228,70 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }
   }, [sessionId]);
 
+  const handleRevert = useCallback(async (commitHash: string) => {
+    if (!window.confirm(`Are you sure you want to revert commit ${commitHash.substring(0, 7)}? This will create a new commit that undoes the changes.`)) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.invoke('git:revert', {
+        sessionId,
+        commitHash
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to revert commit');
+      }
+      
+      // Reload executions to reflect the new revert commit
+      const response = await API.sessions.getExecutions(sessionId);
+      if (response.success) {
+        setExecutions(response.data);
+        // Clear selection to show the new revert commit
+        setSelectedExecutions([]);
+      }
+    } catch (err) {
+      console.error('Error reverting commit:', err);
+      alert(`Failed to revert commit: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, [sessionId]);
+
+  const handleRestore = useCallback(async () => {
+    if (!window.confirm('Are you sure you want to restore all uncommitted changes? This will discard all your local modifications.')) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.invoke('git:restore', {
+        sessionId
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to restore changes');
+      }
+      
+      // Clear modified files after successful restore
+      setModifiedFiles(new Set());
+      
+      // Reload executions and diff
+      const response = await API.sessions.getExecutions(sessionId);
+      if (response.success) {
+        setExecutions(response.data);
+      }
+      
+      // Reload the uncommitted changes diff if selected
+      if (selectedExecutions.includes(0)) {
+        const diffResponse = await API.sessions.getCombinedDiff(sessionId, [0]);
+        if (diffResponse.success) {
+          setCombinedDiff(diffResponse.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error restoring changes:', err);
+      alert(`Failed to restore changes: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, [sessionId, selectedExecutions]);
+
   if (loading && executions.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -280,7 +355,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               selectedExecutions={selectedExecutions}
               onSelectionChange={handleSelectionChange}
               onCommit={() => setShowCommitDialog(true)}
-              hasModifiedFiles={modifiedFiles.size > 0}
+              onRevert={handleRevert}
+              onRestore={handleRestore}
             />
           </div>
         )}

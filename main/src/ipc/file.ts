@@ -241,4 +241,70 @@ EOF
       };
     }
   });
+
+  // Revert a specific commit
+  ipcMain.handle('git:revert', async (_, request: { sessionId: string; commitHash: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${request.sessionId}`);
+      }
+
+      if (!request.commitHash) {
+        throw new Error('Commit hash is required');
+      }
+
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      try {
+        // Create a revert commit
+        const command = `git revert ${request.commitHash} --no-edit`;
+        await execAsync(command, { cwd: session.worktreePath });
+
+        return { success: true };
+      } catch (error: any) {
+        throw new Error(`Git revert failed: ${error.message || error}`);
+      }
+    } catch (error) {
+      console.error('Error reverting commit:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
+
+  // Restore all uncommitted changes
+  ipcMain.handle('git:restore', async (_, request: { sessionId: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${request.sessionId}`);
+      }
+
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      try {
+        // Reset all changes to the last commit
+        await execAsync('git reset --hard HEAD', { cwd: session.worktreePath });
+        
+        // Clean untracked files
+        await execAsync('git clean -fd', { cwd: session.worktreePath });
+
+        return { success: true };
+      } catch (error: any) {
+        throw new Error(`Git restore failed: ${error.message || error}`);
+      }
+    } catch (error) {
+      console.error('Error restoring changes:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
 }

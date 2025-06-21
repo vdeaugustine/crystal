@@ -285,6 +285,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                 {isExpanded && (
                   <div className="border-t border-gray-200 dark:border-gray-700" style={{ height: '600px' }}>
                     <MonacoDiffViewer
+                      key={`${file.path}-${file.type}`}
                       file={file}
                       sessionId={sessionId || ''}
                       isDarkMode={isDarkMode}

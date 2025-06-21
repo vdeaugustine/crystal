@@ -131,15 +131,14 @@ export const SessionView = memo(() => {
             <JsonMessageView messages={activeSession.jsonMessages || []} />
           </div>
           <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'} overflow-hidden`}>
-            {hook.viewMode === 'changes' && (
-              <CombinedDiffView 
-                key={activeSession.id}
-                sessionId={activeSession.id} 
-                selectedExecutions={emptySelectedExecutions} 
-                isGitOperationRunning={hook.isMerging}
-                isMainRepo={isMainRepo}
-              />
-            )}
+            <CombinedDiffView 
+              key={activeSession.id}
+              sessionId={activeSession.id} 
+              selectedExecutions={emptySelectedExecutions} 
+              isGitOperationRunning={hook.isMerging}
+              isMainRepo={isMainRepo}
+              isVisible={hook.viewMode === 'changes'}
+            />
           </div>
           <div className={`h-full ${hook.viewMode === 'terminal' ? 'block' : 'hidden'} bg-gray-50 dark:bg-black`}>
             <div ref={scriptTerminalRef} className="h-full" />

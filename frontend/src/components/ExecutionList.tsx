@@ -1,5 +1,5 @@
 import React, { useState, memo } from 'react';
-import { GitCommit } from 'lucide-react';
+import { GitCommit, RotateCcw, RefreshCw } from 'lucide-react';
 import type { ExecutionListProps } from '../types/diff';
 
 const ExecutionList: React.FC<ExecutionListProps> = memo(({
@@ -7,7 +7,8 @@ const ExecutionList: React.FC<ExecutionListProps> = memo(({
   selectedExecutions,
   onSelectionChange,
   onCommit,
-  hasModifiedFiles = false
+  onRevert,
+  onRestore
 }) => {
   const [rangeStart, setRangeStart] = useState<number | null>(null);
 
@@ -127,17 +128,34 @@ const ExecutionList: React.FC<ExecutionListProps> = memo(({
                         <span>{truncateMessage(execution.prompt_text || `Commit ${execution.execution_sequence}`)}</span>
                       )}
                     </div>
-                    {isUncommitted && hasModifiedFiles && onCommit && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCommit();
-                        }}
-                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
-                      >
-                        <GitCommit className="w-3 h-3" />
-                        Commit
-                      </button>
+                    {isUncommitted && (
+                      <div className="flex items-center gap-2">
+                        {onCommit && execution.stats_files_changed > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCommit();
+                            }}
+                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                          >
+                            <GitCommit className="w-3 h-3" />
+                            Commit
+                          </button>
+                        )}
+                        {onRestore && execution.stats_files_changed > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRestore();
+                            }}
+                            className="text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                            title="Restore all uncommitted changes to their last committed state"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Restore
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -150,11 +168,28 @@ const ExecutionList: React.FC<ExecutionListProps> = memo(({
                     {getStatsDisplay(execution)}
                   </div>
                   
-                  {execution.after_commit_hash && execution.after_commit_hash !== 'UNCOMMITTED' && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      {execution.after_commit_hash.substring(0, 7)}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {execution.after_commit_hash && execution.after_commit_hash !== 'UNCOMMITTED' && (
+                      <>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {execution.after_commit_hash.substring(0, 7)}
+                        </div>
+                        {onRevert && !isUncommitted && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRevert(execution.after_commit_hash!);
+                            }}
+                            className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                            title="Revert this commit"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Revert
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

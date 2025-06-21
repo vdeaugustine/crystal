@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor';
 import { AlertCircle, FileText, Check, Loader2 } from 'lucide-react';
 import type { FileDiff } from '../types/diff';
 import { debounce } from '../utils/debounce';
+import { MonacoErrorBoundary } from './MonacoErrorBoundary';
 
 interface MonacoDiffViewerProps {
   file: FileDiff;
@@ -30,6 +31,24 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const [currentContent, setCurrentContent] = useState<string>(file.newValue || '');
   const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isProgrammaticUpdateRef = useRef<boolean>(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [canMountEditor, setCanMountEditor] = useState(false);
+
+  // Delay mounting editor to ensure stability
+  useEffect(() => {
+    // Reset states when important props change
+    setCanMountEditor(false);
+    setIsEditorReady(false);
+    
+    const timer = setTimeout(() => {
+      setCanMountEditor(true);
+    }, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      // Don't reset canMountEditor on cleanup to avoid race conditions
+    };
+  }, [file.path]); // Removed isReadOnly - we'll handle it dynamically
 
   // Get file extension for language detection
   const getLanguage = (filePath: string): string => {
@@ -128,41 +147,82 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   );
 
   const handleEditorDidMount: DiffEditorProps['onMount'] = useCallback((editor: MonacoDiffEditor) => {
-    editorRef.current = editor;
-    
-    // Get the modified editor (right side)
-    const modifiedEditor = editor.getModifiedEditor();
+    try {
+      editorRef.current = editor;
+      
+      // Get the modified editor (right side)
+      const modifiedEditor = editor.getModifiedEditor();
+      
+      // Store disposables for cleanup
+      const disposables: monaco.IDisposable[] = [];
+      
+      // Mark editor as ready
+      setIsEditorReady(true);
     
     // Track changes and auto-save (only if not read-only)
     if (!isReadOnly) {
-      modifiedEditor.onDidChangeModelContent(() => {
-        const newContent = modifiedEditor.getValue();
-        setCurrentContent(newContent);
-        
-        // Skip auto-save if this is a programmatic update (e.g., switching commits)
-        if (isProgrammaticUpdateRef.current) {
+      const changeDisposable = modifiedEditor.onDidChangeModelContent(() => {
+        // Check if editor and model still exist
+        if (!editorRef.current || !modifiedEditor.getModel()) {
           return;
         }
         
-        // Show pending status immediately
-        if (newContent !== file.newValue) {
-          setSaveStatus('pending');
-          setSaveError(null);
-          // Trigger debounced save
-          debouncedSave(newContent);
+        try {
+          const newContent = modifiedEditor.getValue();
+          setCurrentContent(newContent);
+          
+          // Skip auto-save if this is a programmatic update (e.g., switching commits)
+          if (isProgrammaticUpdateRef.current) {
+            return;
+          }
+          
+          // Show pending status immediately
+          if (newContent !== file.newValue) {
+            setSaveStatus('pending');
+            setSaveError(null);
+            // Trigger debounced save
+            debouncedSave(newContent);
+          }
+        } catch (error) {
+          console.debug('Error in content change handler:', error);
         }
       });
+      disposables.push(changeDisposable);
 
       // Add save keyboard shortcut for immediate save
-      modifiedEditor.addCommand(
+      const commandDisposable = modifiedEditor.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
         () => {
-          const content = modifiedEditor.getValue();
-          // Cancel any pending debounced save
-          debouncedSave.cancel?.();
-          performSave(content);
+          // Check if editor and model still exist
+          if (!editorRef.current || !modifiedEditor.getModel()) {
+            return;
+          }
+          
+          try {
+            const content = modifiedEditor.getValue();
+            // Cancel any pending debounced save
+            debouncedSave.cancel?.();
+            performSave(content);
+          } catch (error) {
+            console.debug('Error in save command:', error);
+          }
         }
       );
+      if (commandDisposable) {
+        disposables.push({ dispose: () => commandDisposable });
+      }
+    }
+    
+    // Store disposables for cleanup
+    (editor as any).__disposables = disposables;
+    } catch (error) {
+      console.error('Error mounting Monaco editor:', error);
+      setIsEditorReady(false);
+      // Try to recover by remounting
+      setTimeout(() => {
+        setCanMountEditor(false);
+        setTimeout(() => setCanMountEditor(true), 100);
+      }, 100);
     }
   }, [isReadOnly, debouncedSave, performSave, file.newValue]);
 
@@ -175,31 +235,95 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     setSaveStatus('idle');
     setSaveError(null);
     
-    // Update the editor content if it exists
-    if (editorRef.current) {
-      const modifiedEditor = editorRef.current.getModifiedEditor();
-      const currentValue = modifiedEditor.getValue();
-      
-      // Only update if content is different
-      if (currentValue !== (file.newValue || '')) {
-        modifiedEditor.setValue(file.newValue || '');
+    // Update the editor content if it exists, is ready, and hasn't been disposed
+    if (editorRef.current && isEditorReady) {
+      try {
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        if (modifiedEditor && modifiedEditor.getModel()) {
+          const currentValue = modifiedEditor.getValue();
+          
+          // Only update if content is different
+          if (currentValue !== (file.newValue || '')) {
+            modifiedEditor.setValue(file.newValue || '');
+          }
+        }
+      } catch (error) {
+        // Editor might have been disposed, ignore the error
+        console.debug('Editor update skipped, might be disposed:', error);
       }
     }
     
     // Reset flag after a small delay to ensure the change event has fired
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       isProgrammaticUpdateRef.current = false;
     }, 100);
-  }, [file.path, file.newValue]);
+    
+    // Cleanup timeout on effect cleanup
+    return () => clearTimeout(timeoutId);
+  }, [file.path, file.newValue, isEditorReady]);
 
-  // Cleanup timeout on unmount
+  // Handle readOnly prop changes dynamically
+  useEffect(() => {
+    if (editorRef.current && isEditorReady) {
+      try {
+        const modifiedEditor = editorRef.current.getModifiedEditor();
+        if (modifiedEditor) {
+          modifiedEditor.updateOptions({ readOnly: isReadOnly });
+        }
+      } catch (error) {
+        console.debug('Error updating editor readOnly option:', error);
+      }
+    }
+  }, [isReadOnly, isEditorReady]);
+
+  // Cleanup on unmount or when key props change
   useEffect(() => {
     return () => {
+      // Cancel any pending saves
+      debouncedSave.cancel?.();
+      
+      // Clear timeout
       if (savedTimeoutRef.current) {
         clearTimeout(savedTimeoutRef.current);
       }
+      
+      // Dispose of the editor to prevent memory leaks and errors
+      if (editorRef.current) {
+        try {
+          // Dispose event handlers first
+          const editor = editorRef.current as any;
+          if (editor.__disposables) {
+            editor.__disposables.forEach((d: monaco.IDisposable) => {
+              try {
+                d.dispose();
+              } catch (error) {
+                console.debug('Error disposing event handler:', error);
+              }
+            });
+            editor.__disposables = [];
+          }
+          
+          // Get both editors to ensure proper cleanup
+          const originalEditor = editorRef.current.getOriginalEditor();
+          const modifiedEditor = editorRef.current.getModifiedEditor();
+          
+          // Clear models before disposing to prevent the TextModel disposal error
+          if (originalEditor && originalEditor.getModel()) {
+            originalEditor.setModel(null);
+          }
+          if (modifiedEditor && modifiedEditor.getModel()) {
+            modifiedEditor.setModel(null);
+          }
+          
+          // Then dispose of the diff editor
+          editorRef.current.dispose();
+          editorRef.current = null;
+        } catch (error) {
+          console.debug('Error during Monaco editor cleanup:', error);
+        }
+      }
     };
-  }, []);
+  }, [debouncedSave, file.path]); // Removed isReadOnly to prevent unnecessary cleanup
 
   const options: monaco.editor.IStandaloneDiffEditorConstructionOptions = {
     readOnly: isReadOnly,
@@ -287,16 +411,28 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden">
-        <DiffEditor
-          height="100%"
-          language={getLanguage(file.path)}
-          original={file.oldValue || ''}
-          modified={currentContent}
-          theme={isDarkMode ? 'vs-dark' : 'vs'}
-          options={options}
-          onMount={handleEditorDidMount}
-        />
+      <div className="flex-1 overflow-hidden relative">
+        {(!isEditorReady || !canMountEditor) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading editor...</span>
+            </div>
+          </div>
+        )}
+        {file.path && canMountEditor && (
+          <MonacoErrorBoundary onReset={() => setIsEditorReady(false)}>
+            <DiffEditor
+              height="100%"
+              language={getLanguage(file.path)}
+              original={file.oldValue || ''}
+              modified={currentContent}
+              theme={isDarkMode ? 'vs-dark' : 'vs'}
+              options={options}
+              onMount={handleEditorDidMount}
+            />
+          </MonacoErrorBoundary>
+        )}
       </div>
     </div>
   );

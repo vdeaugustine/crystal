@@ -53,7 +53,8 @@ export interface ExecutionListProps {
   selectedExecutions: number[];
   onSelectionChange: (selectedIds: number[]) => void;
   onCommit?: () => void;
-  hasModifiedFiles?: boolean;
+  onRevert?: (commitHash: string) => void;
+  onRestore?: () => void;
 }
 
 export interface CombinedDiffViewProps {
@@ -61,4 +62,5 @@ export interface CombinedDiffViewProps {
   selectedExecutions: number[];
   isGitOperationRunning?: boolean;
   isMainRepo?: boolean;
+  isVisible?: boolean;
 }
