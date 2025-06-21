@@ -1,6 +1,7 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import DiffViewer from './DiffViewer';
 import ExecutionList from './ExecutionList';
+import { CommitDialog } from './CommitDialog';
 import { API } from '../utils/api';
 import type { CombinedDiffViewProps } from '../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../types/diff';
@@ -18,6 +19,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
+  const [showCommitDialog, setShowCommitDialog] = useState(false);
 
   // Load executions for the session
   useEffect(() => {
@@ -142,6 +145,53 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     setIsFullscreen(!isFullscreen);
   };
 
+  const handleFileSave = useCallback((filePath: string) => {
+    setModifiedFiles(prev => {
+      const newSet = new Set(prev);
+      newSet.add(filePath);
+      return newSet;
+    });
+    
+    // Refresh only uncommitted changes when a file is saved
+    if (selectedExecutions.includes(0)) {
+      // Reload the uncommitted changes diff
+      const loadUncommittedDiff = async () => {
+        try {
+          console.log('Refreshing uncommitted changes after file save');
+          const response = await API.sessions.getCombinedDiff(sessionId, [0]);
+          if (response.success) {
+            setCombinedDiff(response.data);
+          }
+        } catch (err) {
+          console.error('Failed to refresh uncommitted changes:', err);
+        }
+      };
+      loadUncommittedDiff();
+    }
+  }, [sessionId, selectedExecutions]);
+
+  const handleCommit = useCallback(async (message: string) => {
+    console.log('Committing with message:', message);
+    
+    const result = await window.electronAPI.invoke('git:commit', {
+      sessionId,
+      message
+    });
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to commit changes');
+    }
+    
+    // Clear modified files after successful commit
+    setModifiedFiles(new Set());
+    
+    // Reload executions to reflect the new commit
+    const response = await API.sessions.getExecutions(sessionId);
+    if (response.success) {
+      setExecutions(response.data);
+    }
+  }, [sessionId]);
+
   if (loading && executions.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -204,6 +254,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               executions={executions}
               selectedExecutions={selectedExecutions}
               onSelectionChange={handleSelectionChange}
+              onCommit={() => setShowCommitDialog(true)}
+              hasModifiedFiles={modifiedFiles.size > 0}
             />
           </div>
         )}
@@ -231,7 +283,12 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               <p>{error}</p>
             </div>
           ) : combinedDiff ? (
-            <DiffViewer diff={combinedDiff.diff} className="h-full" />
+            <DiffViewer 
+              diff={combinedDiff.diff} 
+              sessionId={sessionId} 
+              className="h-full" 
+              onFileSave={handleFileSave}
+            />
           ) : isMainRepo ? (
             <div className="flex items-center justify-center h-full text-gray-600 dark:text-gray-400">
               <div className="text-center">
@@ -246,6 +303,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           )}
         </div>
       </div>
+      
+      {/* Commit Dialog */}
+      <CommitDialog
+        isOpen={showCommitDialog}
+        onClose={() => setShowCommitDialog(false)}
+        onCommit={handleCommit}
+        fileCount={modifiedFiles.size}
+      />
     </div>
   );
 }, (prevProps, nextProps) => {

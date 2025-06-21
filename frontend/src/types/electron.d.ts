@@ -9,6 +9,9 @@ interface IPCResponse<T = any> {
 }
 
 interface ElectronAPI {
+  // Generic invoke method for direct IPC calls
+  invoke: (channel: string, ...args: any[]) => Promise<any>;
+  
   // Basic app info
   getAppVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;

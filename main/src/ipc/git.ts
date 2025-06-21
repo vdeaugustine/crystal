@@ -99,12 +99,49 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         return { success: false, error: 'Session or worktree path not found' };
       }
 
-      // For now, we don't have a commitChanges method - would need to implement
-      // await gitDiffManager.commitChanges(session.worktreePath, message);
-      return { success: false, error: 'Git commit not implemented yet' };
-    } catch (error) {
+      // Check if there are any changes to commit
+      const status = execSync('git status --porcelain', { 
+        cwd: session.worktreePath,
+        encoding: 'utf-8'
+      }).trim();
+
+      if (!status) {
+        return { success: false, error: 'No changes to commit' };
+      }
+
+      // Stage all changes
+      execSync('git add -A', { cwd: session.worktreePath });
+
+      // Create the commit with Crystal's signature
+      const commitCommand = `git commit -m "$(cat <<'EOF'
+${message}
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"`.replace(/\n/g, '\\n');
+
+      try {
+        execSync(commitCommand, { 
+          cwd: session.worktreePath
+        });
+        
+        // TODO: Emit event to update UI when event manager is available
+        // For now, just return success
+        
+        return { success: true };
+      } catch (commitError: any) {
+        // Check if it's a pre-commit hook failure
+        if (commitError.stdout?.includes('pre-commit') || commitError.stderr?.includes('pre-commit')) {
+          return { success: false, error: 'Pre-commit hooks failed. Please fix the issues and try again.' };
+        }
+        throw commitError;
+      }
+    } catch (error: any) {
       console.error('Failed to commit changes:', error);
-      return { success: false, error: 'Failed to commit changes' };
+      const errorMessage = error.message || error.stderr || 'Failed to commit changes';
+      return { success: false, error: errorMessage };
     }
   });
 

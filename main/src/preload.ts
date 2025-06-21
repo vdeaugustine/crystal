@@ -8,6 +8,9 @@ interface IPCResponse<T = any> {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Generic invoke method for direct IPC calls
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+  
   // Basic app info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),

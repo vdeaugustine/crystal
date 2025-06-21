@@ -28,9 +28,22 @@ export interface GitDiffResult {
   afterHash?: string;
 }
 
+export interface FileDiff {
+  path: string;
+  oldPath: string;
+  oldValue: string;
+  newValue: string;
+  type: 'added' | 'deleted' | 'modified' | 'renamed';
+  isBinary: boolean;
+  additions: number;
+  deletions: number;
+}
+
 export interface DiffViewerProps {
   diff: string;
   className?: string;
+  sessionId?: string;
+  onFileSave?: (filePath: string) => void;
 }
 
 export interface ExecutionListProps {
@@ -38,6 +51,8 @@ export interface ExecutionListProps {
   executions: ExecutionDiff[];
   selectedExecutions: number[];
   onSelectionChange: (selectedIds: number[]) => void;
+  onCommit?: () => void;
+  hasModifiedFiles?: boolean;
 }
 
 export interface CombinedDiffViewProps {

@@ -1,10 +1,13 @@
 import React, { useState, memo } from 'react';
+import { GitCommit } from 'lucide-react';
 import type { ExecutionListProps } from '../types/diff';
 
 const ExecutionList: React.FC<ExecutionListProps> = memo(({
   executions,
   selectedExecutions,
-  onSelectionChange
+  onSelectionChange,
+  onCommit,
+  hasModifiedFiles = false
 }) => {
   const [rangeStart, setRangeStart] = useState<number | null>(null);
 
@@ -116,11 +119,25 @@ const ExecutionList: React.FC<ExecutionListProps> = memo(({
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {isUncommitted ? (
-                      <span className="text-yellow-700 dark:text-yellow-300">Uncommitted changes</span>
-                    ) : (
-                      <span>{truncateMessage(execution.prompt_text || `Commit ${execution.execution_sequence}`)}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {isUncommitted ? (
+                        <span className="text-yellow-700 dark:text-yellow-300">Uncommitted changes</span>
+                      ) : (
+                        <span>{truncateMessage(execution.prompt_text || `Commit ${execution.execution_sequence}`)}</span>
+                      )}
+                    </div>
+                    {isUncommitted && hasModifiedFiles && onCommit && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCommit();
+                        }}
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                      >
+                        <GitCommit className="w-3 h-3" />
+                        Commit
+                      </button>
                     )}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">

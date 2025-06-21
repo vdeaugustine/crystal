@@ -10,6 +10,7 @@ import { registerGitHandlers } from './git';
 import { registerScriptHandlers } from './script';
 import { registerPromptHandlers } from './prompt';
 import { registerStravuHandlers } from './stravu';
+import { registerFileHandlers } from './file';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -23,4 +24,5 @@ export function registerIpcHandlers(services: AppServices): void {
   registerScriptHandlers(ipcMain, services);
   registerPromptHandlers(ipcMain, services);
   registerStravuHandlers(ipcMain, services);
+  registerFileHandlers(ipcMain, services);
 } 
