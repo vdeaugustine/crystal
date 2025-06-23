@@ -22,6 +22,23 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
+  const [mainBranch, setMainBranch] = useState<string>('main');
+
+  // Load git commands to get main branch
+  useEffect(() => {
+    const loadGitCommands = async () => {
+      try {
+        const response = await API.sessions.getGitCommands(sessionId);
+        if (response.success && response.data) {
+          setMainBranch(response.data.mainBranch || 'main');
+        }
+      } catch (err) {
+        console.error('Failed to load git commands:', err);
+      }
+    };
+    
+    loadGitCommands();
+  }, [sessionId]);
 
   // Load executions for the session
   useEffect(() => {
@@ -410,6 +427,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
                 // Otherwise, check if all commits are individually selected
                 return selectedExecutions.length === executions.length;
               })()}
+              mainBranch={mainBranch}
             />
           ) : isMainRepo ? (
             <div className="flex items-center justify-center h-full text-gray-600 dark:text-gray-400">

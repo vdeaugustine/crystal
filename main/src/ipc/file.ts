@@ -21,7 +21,7 @@ interface FilePathRequest {
 }
 
 export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): void {
-  const { sessionManager } = services;
+  const { sessionManager, databaseService } = services;
 
   // Read file contents from a session's worktree
   ipcMain.handle('file:read', async (_, request: FileReadRequest) => {
@@ -40,15 +40,39 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       const fullPath = path.join(session.worktreePath, normalizedPath);
       
       // Verify the file is within the worktree
-      const resolvedPath = await fs.realpath(fullPath).catch(() => fullPath);
-      if (!resolvedPath.startsWith(session.worktreePath)) {
+      // First resolve the worktree path to handle symlinks
+      const resolvedWorktreePath = await fs.realpath(session.worktreePath).catch(() => session.worktreePath);
+      
+      // For the file path, we need to handle the case where the file might not exist yet
+      let resolvedFilePath: string;
+      try {
+        resolvedFilePath = await fs.realpath(fullPath);
+      } catch (err) {
+        // File doesn't exist, check if its directory is within the worktree
+        const dirPath = path.dirname(fullPath);
+        try {
+          const resolvedDirPath = await fs.realpath(dirPath);
+          if (!resolvedDirPath.startsWith(resolvedWorktreePath)) {
+            throw new Error('File path is outside worktree');
+          }
+          // File doesn't exist but directory is valid
+          resolvedFilePath = fullPath;
+        } catch {
+          // Directory doesn't exist either, just use the full path for validation
+          resolvedFilePath = fullPath;
+        }
+      }
+      
+      // Check if the resolved path is within the worktree
+      if (!resolvedFilePath.startsWith(resolvedWorktreePath) && !fullPath.startsWith(session.worktreePath)) {
         throw new Error('File path is outside worktree');
       }
 
-      const content = await fs.readFile(resolvedPath, 'utf-8');
+      const content = await fs.readFile(resolvedFilePath, 'utf-8');
       return { success: true, content };
     } catch (error) {
       console.error('Error reading file:', error);
+      console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -71,6 +95,16 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       }
 
       console.log('Session found:', { sessionId: session.id, worktreePath: session.worktreePath });
+
+      // Get project information if available
+      let mainBranch = 'main'; // default
+      if (session.projectId) {
+        const project = databaseService.getProject(session.projectId);
+        if (project && project.main_branch) {
+          mainBranch = project.main_branch;
+          console.log('Using project main branch:', mainBranch);
+        }
+      }
 
       if (!session.worktreePath) {
         throw new Error(`Session worktree path is undefined for session: ${request.sessionId}`);
@@ -301,6 +335,55 @@ EOF
       }
     } catch (error) {
       console.error('Error restoring changes:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
+
+  // Read file contents at a specific git revision
+  ipcMain.handle('file:readAtRevision', async (_, request: { sessionId: string; filePath: string; revision?: string }) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${request.sessionId}`);
+      }
+
+      // Ensure the file path is relative and safe
+      const normalizedPath = path.normalize(request.filePath);
+      if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+        throw new Error('Invalid file path');
+      }
+
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      try {
+        // Default to HEAD if no revision specified
+        const revision = request.revision || 'HEAD';
+        
+        // Use git show to get file content at specific revision
+        const { stdout } = await execAsync(
+          `git show ${revision}:${normalizedPath}`,
+          { 
+            cwd: session.worktreePath,
+            encoding: 'utf8',
+            maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+          }
+        );
+
+        return { success: true, content: stdout };
+      } catch (error: any) {
+        // If file doesn't exist at that revision, return empty content
+        if (error.message?.includes('does not exist') || error.message?.includes('bad file')) {
+          return { success: true, content: '' };
+        }
+        throw new Error(`Failed to read file at revision: ${error.message || error}`);
+      }
+    } catch (error) {
+      console.error('Error reading file at revision:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

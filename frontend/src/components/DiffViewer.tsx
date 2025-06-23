@@ -131,9 +131,12 @@ const parseUnifiedDiff = (diff: string): FileDiff[] => {
   return files;
 };
 
-const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className = '', onFileSave, isAllCommitsSelected = true }) => {
+const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className = '', onFileSave, isAllCommitsSelected = true, mainBranch = 'main' }) => {
   const [viewType, setViewType] = useState<'split' | 'inline'>('split');
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [filesWithFullContent, setFilesWithFullContent] = useState<FileDiff[]>([]);
+  const [loadingFullContent, setLoadingFullContent] = useState(false);
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const savedViewType = localStorage.getItem('diffViewType');
@@ -155,6 +158,115 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
       return [];
     }
   }, [diff]);
+
+  // Load full file contents when in edit mode
+  useEffect(() => {
+    const loadFullFileContents = async () => {
+      if (!isAllCommitsSelected || !sessionId || files.length === 0) {
+        setFilesWithFullContent(files);
+        return;
+      }
+
+      setLoadingFullContent(true);
+      setLoadErrors({}); // Clear previous errors
+      console.log('Loading full file contents for editing...');
+
+      try {
+        const errors: Record<string, string> = {};
+        const updatedFiles = await Promise.all(
+          files.map(async (file) => {
+            // Skip binary files, deleted files, or files that already seem to have full content
+            if (file.isBinary || file.type === 'deleted' || !file.path) {
+              return file;
+            }
+
+            try {
+              // Load the full current file content
+              const result = await window.electronAPI.invoke('file:read', {
+                sessionId,
+                filePath: file.path
+              });
+
+              if (result.success && result.content !== undefined) {
+                console.log(`Loaded full content for ${file.path}: ${result.content.length} characters`);
+                
+                // For added files, oldValue should remain empty
+                if (file.type === 'added') {
+                  return {
+                    ...file,
+                    newValue: result.content,
+                    originalDiffNewValue: file.newValue
+                  };
+                }
+                
+                // For modified files, get the file content at the base revision for comparison
+                // When all commits are selected, compare against the main branch
+                // Otherwise, compare against HEAD
+                const baseRevision = isAllCommitsSelected ? mainBranch : 'HEAD';
+                
+                try {
+                  const headResult = await window.electronAPI.invoke('file:readAtRevision', {
+                    sessionId,
+                    filePath: file.path,
+                    revision: baseRevision
+                  });
+                  
+                  if (headResult.success && headResult.content !== undefined) {
+                    console.log(`Loaded ${baseRevision} content for ${file.path}: ${headResult.content.length} characters`);
+                    return {
+                      ...file,
+                      oldValue: headResult.content,  // File content at base revision
+                      newValue: result.content,       // Current working directory content
+                      originalDiffNewValue: file.newValue,
+                      originalDiffOldValue: file.oldValue
+                    };
+                  } else {
+                    // File might not exist in the base revision (e.g., new file)
+                    console.warn(`Failed to load ${baseRevision} content for ${file.path}, file may not exist in ${baseRevision}`);
+                    return {
+                      ...file,
+                      oldValue: '',  // File doesn't exist in base revision
+                      newValue: result.content,       // Current working directory content
+                      originalDiffNewValue: file.newValue,
+                      originalDiffOldValue: file.oldValue
+                    };
+                  }
+                } catch (headError) {
+                  console.error(`Error loading ${baseRevision} content for ${file.path}:`, headError);
+                  // File likely doesn't exist in base revision
+                  return {
+                    ...file,
+                    oldValue: '',  // File doesn't exist in base revision
+                    newValue: result.content,       // Current working directory content
+                    originalDiffNewValue: file.newValue,
+                    originalDiffOldValue: file.oldValue
+                  };
+                }
+              } else {
+                console.warn(`Failed to load full content for ${file.path}:`, result.error);
+                errors[file.path] = result.error || 'Failed to load file content';
+                return file;
+              }
+            } catch (error) {
+              console.error(`Error loading file ${file.path}:`, error);
+              errors[file.path] = error instanceof Error ? error.message : 'Failed to load file content';
+              return file;
+            }
+          })
+        );
+
+        setFilesWithFullContent(updatedFiles);
+        setLoadErrors(errors);
+      } catch (error) {
+        console.error('Error loading full file contents:', error);
+        setFilesWithFullContent(files);
+      } finally {
+        setLoadingFullContent(false);
+      }
+    };
+
+    loadFullFileContents();
+  }, [files, isAllCommitsSelected, sessionId, mainBranch]);
 
   useEffect(() => {
     if (files.length > 0 && files.length <= 3) {
@@ -189,6 +301,18 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
   }
 
   const isDarkMode = document.documentElement.classList.contains('dark');
+  
+  // Show loading state while fetching full content
+  if (loadingFullContent && isAllCommitsSelected) {
+    return (
+      <div className={`flex items-center justify-center p-8 ${className}`}>
+        <div className="text-gray-600 dark:text-gray-400">Loading file contents for editing...</div>
+      </div>
+    );
+  }
+
+  // Use files with full content when available
+  const filesToRender = filesWithFullContent.length > 0 ? filesWithFullContent : files;
 
   return (
     <div className={`diff-viewer ${className}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -196,7 +320,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
         <div className="flex justify-between items-center px-4 py-2 flex-shrink-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              {files.length} {files.length === 1 ? 'file' : 'files'} changed
+              {filesToRender.length} {filesToRender.length === 1 ? 'file' : 'files'} changed
             </span>
           </div>
 
@@ -229,7 +353,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
         
         {/* File List */}
         <div className="flex-1 overflow-auto">
-          {files.map((file, index) => {
+          {filesToRender.map((file, index) => {
             // Skip files with invalid paths
             if (!file.path) {
               console.error('File with undefined path found:', file);
@@ -284,6 +408,22 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                 {/* Diff content */}
                 {isExpanded && (
                   <div className="border-t border-gray-200 dark:border-gray-700" style={{ height: '600px' }}>
+                    {loadErrors[file.path] && isAllCommitsSelected ? (
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-700">
+                        <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="font-medium">Failed to load full file content</span>
+                        </div>
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          {loadErrors[file.path]}
+                        </p>
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                          ⚠️ Auto-save is disabled for this file to prevent data loss. Only the diff is shown below.
+                        </p>
+                      </div>
+                    ) : null}
                     <MonacoDiffViewer
                       key={`${file.path}-${file.type}`}
                       file={file}
@@ -291,7 +431,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                       isDarkMode={isDarkMode}
                       viewType={viewType}
                       onSave={() => handleFileSave(file.path)}
-                      isReadOnly={!isAllCommitsSelected}
+                      isReadOnly={!isAllCommitsSelected || !!loadErrors[file.path]}
                     />
                   </div>
                 )}

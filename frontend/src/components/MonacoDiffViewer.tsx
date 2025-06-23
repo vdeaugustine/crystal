@@ -33,6 +33,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const isProgrammaticUpdateRef = useRef<boolean>(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [canMountEditor, setCanMountEditor] = useState(false);
+  const [isFullContentLoaded, setIsFullContentLoaded] = useState(false);
 
   // Delay mounting editor to ensure stability
   useEffect(() => {
@@ -49,6 +50,14 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       // Don't reset canMountEditor on cleanup to avoid race conditions
     };
   }, [file.path]); // Removed isReadOnly - we'll handle it dynamically
+
+  // Track when full content is loaded
+  useEffect(() => {
+    // Check if we have full content by looking for the originalDiffNewValue marker
+    const hasFullContent = 'originalDiffNewValue' in file && file.originalDiffNewValue !== undefined && file.newValue !== file.originalDiffNewValue;
+    setIsFullContentLoaded(hasFullContent);
+    console.log('Full content loaded status:', hasFullContent, 'for file:', file.path);
+  }, [file]);
 
   // Get file extension for language detection
   const getLanguage = (filePath: string): string => {
@@ -97,7 +106,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   };
 
   const performSave = useCallback(async (content: string) => {
-    console.log('Saving file:', { file, sessionId, path: file.path });
+    console.log('Saving file:', { file, sessionId, path: file.path, isFullContentLoaded });
 
     if (!file.path) {
       setSaveError('File path is missing');
@@ -106,13 +115,68 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       return;
     }
 
+    // If we expect full content but don't have it yet, prevent save
+    if (!isReadOnly && 'originalDiffNewValue' in file && !isFullContentLoaded) {
+      setSaveError('Cannot save: Waiting for full file content to load. Please try again.');
+      setSaveStatus('error');
+      console.error('Prevented saving before full content is loaded');
+      return;
+    }
+
+    // Safety check: if we have originalDiffNewValue, it means we tried to load full content
+    // but might have failed. Check if the content we're about to save looks like just a diff hunk
+    if ('originalDiffNewValue' in file && file.originalDiffNewValue !== undefined) {
+      // If newValue is different from originalDiffNewValue, we successfully loaded full content
+      const hasFullContent = file.newValue !== file.originalDiffNewValue;
+      
+      if (!hasFullContent) {
+        // We're still using the diff hunk content, not the full file
+        // This is dangerous - we should not save partial content
+        setSaveError('Cannot save: Only partial file content is loaded. Please refresh the diff view.');
+        setSaveStatus('error');
+        console.error('Prevented saving partial content. Current content matches original diff hunk, not full file.');
+        return;
+      }
+    }
+
+    // Additional safety check: Look for diff markers that indicate partial content
+    const diffMarkers = ['@@', '+++', '---', 'diff --git'];
+    const contentLines = content.split('\n');
+    const firstFewLines = contentLines.slice(0, 5).join('\n');
+    
+    // Check if content looks like a diff rather than actual file content
+    if (diffMarkers.some(marker => firstFewLines.includes(marker))) {
+      setSaveError('Cannot save: Content appears to be a diff, not the full file. Please refresh the diff view.');
+      setSaveStatus('error');
+      console.error('Prevented saving diff content as file content. Content starts with:', firstFewLines);
+      return;
+    }
+
+    // Additional check: If file is supposed to be non-empty but content is suspiciously short
+    if (file.type === 'modified' && content.length < 50 && file.oldValue && file.oldValue.length > content.length * 2) {
+      setSaveError('Cannot save: Content appears incomplete. Please refresh the diff view.');
+      setSaveStatus('error');
+      console.error('Prevented saving potentially incomplete content. New length:', content.length, 'Old length:', file.oldValue?.length);
+      return;
+    }
+
     setSaveStatus('saving');
     setSaveError(null);
 
+    // Final safety check: ensure we're saving to the correct file
+    const currentFilePath = file.path;
+    
     try {
+      console.log('Invoking file:write with:', {
+        sessionId,
+        filePath: currentFilePath,
+        contentLength: content.length,
+        contentPreview: content.substring(0, 100)
+      });
+      
       const result = await window.electronAPI.invoke('file:write', {
         sessionId,
-        filePath: file.path,
+        filePath: currentFilePath,
         content
       });
 
@@ -138,7 +202,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       setSaveError('Failed to save file');
       setSaveStatus('error');
     }
-  }, [sessionId, file, onSave]);
+  }, [sessionId, file, onSave, isReadOnly, isFullContentLoaded]);
 
   // Create debounced save function
   const debouncedSave = useMemo(
@@ -180,8 +244,13 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
           if (newContent !== file.newValue) {
             setSaveStatus('pending');
             setSaveError(null);
-            // Trigger debounced save
-            debouncedSave(newContent);
+            // Only trigger auto-save if we have full content loaded (or if it's not expected)
+            if (isFullContentLoaded || !('originalDiffNewValue' in file)) {
+              // Trigger debounced save
+              debouncedSave(newContent);
+            } else {
+              console.log('Auto-save skipped: waiting for full content to load');
+            }
           }
         } catch (error) {
           console.debug('Error in content change handler:', error);
@@ -224,7 +293,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
         setTimeout(() => setCanMountEditor(true), 100);
       }, 100);
     }
-  }, [isReadOnly, debouncedSave, performSave, file.newValue]);
+  }, [isReadOnly, debouncedSave, performSave, file.newValue, isFullContentLoaded]);
 
   // Refresh content when file changes
   useEffect(() => {
@@ -279,6 +348,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   // Cleanup on unmount or when key props change
   useEffect(() => {
     return () => {
+      console.log('MonacoDiffViewer cleanup triggered for file:', file.path);
       // Cancel any pending saves
       debouncedSave.cancel?.();
       
