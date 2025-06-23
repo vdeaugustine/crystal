@@ -269,7 +269,8 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
   }, [files, isAllCommitsSelected, sessionId, mainBranch]);
 
   useEffect(() => {
-    if (files.length > 0 && files.length <= 3) {
+    // Expand all files by default
+    if (files.length > 0) {
       setExpandedFiles(new Set(files.map((f, i) => `${f.path}-${i}`)));
     }
   }, [files]);
