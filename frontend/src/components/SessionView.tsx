@@ -132,7 +132,6 @@ export const SessionView = memo(() => {
           </div>
           <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'} overflow-hidden`}>
             <CombinedDiffView 
-              key={activeSession.id}
               sessionId={activeSession.id} 
               selectedExecutions={emptySelectedExecutions} 
               isGitOperationRunning={hook.isMerging}

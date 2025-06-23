@@ -42,10 +42,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 
   // Load executions for the session
   useEffect(() => {
-    // Only load if visible
-    if (!isVisible) {
-      return;
-    }
+    // Load executions immediately when component mounts or sessionId changes
+    // This ensures data is ready when user navigates to the diff view
     
     // Add a small delay to debounce rapid updates
     const timeoutId = setTimeout(() => {
@@ -91,10 +89,10 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       };
 
       loadExecutions();
-    }, 500); // 500ms debounce
+    }, 100); // Reduced to 100ms for more responsive loading
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, initialSelected, isMainRepo, isVisible]);
+  }, [sessionId, initialSelected, isMainRepo]);
 
   // Load combined diff when selection changes
   useEffect(() => {
@@ -171,7 +169,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       };
 
       loadCombinedDiff();
-    }, 300); // 300ms debounce for diff loading
+    }, 100); // Reduced to 100ms for more responsive loading
 
     return () => clearTimeout(timeoutId);
   }, [selectedExecutions, sessionId, executions.length, isMainRepo, isVisible]);
@@ -459,6 +457,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     prevProps.sessionId === nextProps.sessionId &&
     prevProps.isGitOperationRunning === nextProps.isGitOperationRunning &&
     prevProps.isMainRepo === nextProps.isMainRepo &&
+    prevProps.isVisible === nextProps.isVisible &&
     // Deep comparison of selectedExecutions array
     prevProps.selectedExecutions.length === nextProps.selectedExecutions.length &&
     prevProps.selectedExecutions.every((val, idx) => val === nextProps.selectedExecutions[idx])
