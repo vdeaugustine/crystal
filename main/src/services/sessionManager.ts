@@ -297,11 +297,10 @@ export class SessionManager extends EventEmitter {
     };
     this.emit('session-output', outputToEmit);
     
-    // If this was the first output, emit a special event
-    if (isFirstOutput) {
-      console.log(`[SessionManager] First output detected for session ${id}, emitting output-available event`);
-      this.emit('session-output-available', { sessionId: id });
-    }
+    // Emit output-available event to notify frontend that new output is available
+    // This is used to trigger output panel refresh when new content is added (e.g., after git operations)
+    console.log(`[SessionManager] Output added for session ${id}, emitting output-available event`);
+    this.emit('session-output-available', { sessionId: id });
     
     // Check if this is the initial system message with Claude's session ID
     if (output.type === 'json' && output.data.type === 'system' && output.data.subtype === 'init' && output.data.session_id) {
