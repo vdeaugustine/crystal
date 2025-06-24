@@ -33,7 +33,7 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
   ];
 
   return (
-    <div className="flex flex-col gap-2 relative z-50 mt-6">
+    <div className="flex flex-col gap-2 relative z-10 mt-6">
       <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden flex-shrink-0">
         {tabs.map(({ mode, label, count, activity, status }) => (
           <button
