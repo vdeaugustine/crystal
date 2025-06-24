@@ -314,6 +314,17 @@ export const useSessionView = (
     // Force reset any stuck loading state when switching sessions
     forceResetLoadingState();
     
+    // Reset view mode to output when switching sessions
+    setViewMode('output');
+    
+    // Reset unread activity indicators
+    setUnreadActivity({
+      output: false,
+      messages: false,
+      changes: false,
+      terminal: false,
+    });
+    
     // Clear terminal immediately when session changes
     if (terminalInstance.current) {
       console.log(`[useSessionView] Clearing terminal for session switch`);
