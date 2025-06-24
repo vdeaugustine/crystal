@@ -1,6 +1,12 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.16] - 2025-06-24
+
+### Fixed
+- Resolved diff viewer scrollbar issues by simplifying CSS overflow handling
+- Updated @anthropic-ai/claude-code package to version 1.0.33 to address security vulnerability
+
 ## [0.1.5] - 2025-06-19
 
 ### Added
