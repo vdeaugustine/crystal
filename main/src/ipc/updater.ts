@@ -1,6 +1,8 @@
 import { IpcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import type { AppServices } from './types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export function registerUpdaterHandlers(ipcMain: IpcMain, { app, versionChecker }: AppServices): void {
   // Version checking handlers
@@ -16,11 +18,28 @@ export function registerUpdaterHandlers(ipcMain: IpcMain, { app, versionChecker 
 
   ipcMain.handle('version:get-info', () => {
     try {
+      let buildDate: string | undefined;
+      
+      // Try to read build info if in packaged app
+      if (app.isPackaged) {
+        try {
+          const buildInfoPath = path.join(process.resourcesPath, 'app', 'main', 'dist', 'buildInfo.json');
+          if (fs.existsSync(buildInfoPath)) {
+            const buildInfo = JSON.parse(fs.readFileSync(buildInfoPath, 'utf8'));
+            buildDate = buildInfo.buildDate;
+          }
+        } catch (err) {
+          console.log('Could not read build info:', err);
+        }
+      }
+
       return {
         success: true,
         data: {
           current: app.getVersion(),
-          name: app.getName()
+          name: app.getName(),
+          workingDirectory: process.cwd(),
+          buildDate
         }
       };
     } catch (error) {

@@ -9,6 +9,8 @@ interface VersionInfo {
   releaseUrl?: string;
   releaseNotes?: string;
   publishedAt?: string;
+  workingDirectory?: string;
+  buildDate?: string;
 }
 
 interface AboutDialogProps {
@@ -21,11 +23,16 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [isPackaged, setIsPackaged] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
       // Get current version info immediately
       loadCurrentVersion();
+      // Check if app is packaged
+      window.electronAPI.isPackaged().then((packaged) => {
+        setIsPackaged(packaged);
+      });
     }
   }, [isOpen]);
 
@@ -36,7 +43,9 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
         setVersionInfo({
           current: result.data.current,
           latest: result.data.current,
-          hasUpdate: false
+          hasUpdate: false,
+          workingDirectory: result.data.workingDirectory,
+          buildDate: result.data.buildDate
         });
       }
     } catch (error) {
@@ -141,6 +150,28 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
                 {versionInfo?.current || 'Loading...'}
               </span>
             </div>
+
+            {versionInfo?.workingDirectory && !isPackaged && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Working Directory
+                </span>
+                <span className="text-sm text-gray-900 dark:text-white font-mono truncate max-w-[200px]" title={versionInfo.workingDirectory}>
+                  {versionInfo.workingDirectory.split('/').pop() || versionInfo.workingDirectory}
+                </span>
+              </div>
+            )}
+
+            {versionInfo?.buildDate && isPackaged && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Build Date
+                </span>
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {formatDate(versionInfo.buildDate)}
+                </span>
+              </div>
+            )}
 
             {versionInfo?.hasUpdate && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
