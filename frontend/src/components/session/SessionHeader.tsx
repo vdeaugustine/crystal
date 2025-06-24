@@ -30,6 +30,7 @@ interface SessionHeaderProps {
     messages: boolean;
     changes: boolean;
     terminal: boolean;
+    editor: boolean;
   };
   setUnreadActivity: (activity: any) => void;
 }

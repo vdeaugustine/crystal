@@ -20,6 +20,19 @@ interface FilePathRequest {
   filePath: string;
 }
 
+interface FileListRequest {
+  sessionId: string;
+  path?: string;
+}
+
+interface FileItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size?: number;
+  modified?: Date;
+}
+
 export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): void {
   const { sessionManager, databaseService } = services;
 
@@ -384,6 +397,76 @@ EOF
       }
     } catch (error) {
       console.error('Error reading file at revision:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
+
+  // List files and directories in a session's worktree
+  ipcMain.handle('file:list', async (_, request: FileListRequest) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${request.sessionId}`);
+      }
+
+      // Use the provided path or default to root
+      const relativePath = request.path || '';
+      
+      // Ensure the path is relative and safe
+      if (relativePath) {
+        const normalizedPath = path.normalize(relativePath);
+        if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+          throw new Error('Invalid path');
+        }
+      }
+
+      const targetPath = relativePath ? path.join(session.worktreePath, relativePath) : session.worktreePath;
+      
+      // Read directory contents
+      const entries = await fs.readdir(targetPath, { withFileTypes: true });
+      
+      // Process each entry
+      const files: FileItem[] = await Promise.all(
+        entries
+          .filter(entry => !entry.name.startsWith('.git')) // Exclude .git directory
+          .map(async (entry) => {
+            const fullPath = path.join(targetPath, entry.name);
+            const relativePath = path.relative(session.worktreePath, fullPath);
+            
+            try {
+              const stats = await fs.stat(fullPath);
+              return {
+                name: entry.name,
+                path: relativePath,
+                isDirectory: entry.isDirectory(),
+                size: entry.isFile() ? stats.size : undefined,
+                modified: stats.mtime
+              };
+            } catch (error) {
+              // Handle broken symlinks or inaccessible files
+              return {
+                name: entry.name,
+                path: relativePath,
+                isDirectory: entry.isDirectory()
+              };
+            }
+          })
+      );
+
+      // Sort: directories first, then alphabetically
+      files.sort((a, b) => {
+        if (a.isDirectory === b.isDirectory) {
+          return a.name.localeCompare(b.name);
+        }
+        return a.isDirectory ? -1 : 1;
+      });
+
+      return { success: true, files };
+    } catch (error) {
+      console.error('Error listing files:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

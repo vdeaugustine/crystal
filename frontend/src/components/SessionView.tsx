@@ -13,6 +13,7 @@ import { GitErrorDialog } from './session/GitErrorDialog';
 import { CommitMessageDialog } from './session/CommitMessageDialog';
 import { PromptNavigation } from './PromptNavigation';
 import { isDocumentVisible } from '../utils/performanceUtils';
+import { FileEditor } from './FileEditor';
 
 export const SessionView = memo(() => {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
@@ -141,6 +142,9 @@ export const SessionView = memo(() => {
           </div>
           <div className={`h-full ${hook.viewMode === 'terminal' ? 'block' : 'hidden'} bg-gray-50 dark:bg-black`}>
             <div ref={scriptTerminalRef} className="h-full" />
+          </div>
+          <div className={`h-full ${hook.viewMode === 'editor' ? 'block' : 'hidden'}`}>
+            <FileEditor sessionId={activeSession.id} />
           </div>
         </div>
         {hook.viewMode === 'output' && (
