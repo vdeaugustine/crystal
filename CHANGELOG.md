@@ -1,7 +1,7 @@
 
 All notable changes to Crystal will be documented in this file.
 
-## [0.1.16] - 2025-06-24
+## [0.1.6] - 2025-06-24
 
 ### Fixed
 - Resolved diff viewer scrollbar issues by simplifying CSS overflow handling
