@@ -192,7 +192,31 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
 
   ipcMain.handle('projects:delete', async (_event, projectId: string) => {
     try {
-      const success = databaseService.deleteProject(parseInt(projectId));
+      const projectIdNum = parseInt(projectId);
+      
+      // Get all sessions for this project to check for running scripts
+      const projectSessions = databaseService.getAllSessions(projectIdNum);
+      
+      // Check if any session from this project has a running script
+      const currentRunningSessionId = sessionManager.getCurrentRunningSessionId();
+      if (currentRunningSessionId) {
+        const runningSession = projectSessions.find(s => s.id === currentRunningSessionId);
+        if (runningSession) {
+          console.log(`[Main] Stopping running script for session ${currentRunningSessionId} before deleting project`);
+          sessionManager.stopRunningScript();
+        }
+      }
+      
+      // Close all terminal sessions for this project
+      for (const session of projectSessions) {
+        if (sessionManager.hasTerminalSession(session.id)) {
+          console.log(`[Main] Closing terminal session ${session.id} before deleting project`);
+          sessionManager.closeTerminalSession(session.id);
+        }
+      }
+      
+      // Now safe to delete the project
+      const success = databaseService.deleteProject(projectIdNum);
       return { success: true, data: success };
     } catch (error) {
       console.error('Failed to delete project:', error);

@@ -882,6 +882,10 @@ export class SessionManager extends EventEmitter {
     this.terminalSessionManager.closeTerminalSession(sessionId);
   }
 
+  hasTerminalSession(sessionId: string): boolean {
+    return this.terminalSessionManager.hasSession(sessionId);
+  }
+
   resizeTerminal(sessionId: string, cols: number, rows: number): void {
     this.terminalSessionManager.resizeTerminal(sessionId, cols, rows);
   }
