@@ -16,6 +16,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 }) => {
   const [executions, setExecutions] = useState<ExecutionDiff[]>([]);
   const [selectedExecutions, setSelectedExecutions] = useState<number[]>(initialSelected);
+  const [lastSessionId, setLastSessionId] = useState<string>(sessionId);
   const [combinedDiff, setCombinedDiff] = useState<GitDiffResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,17 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     
     loadGitCommands();
   }, [sessionId]);
+
+  // Reset selection when session changes
+  useEffect(() => {
+    if (sessionId !== lastSessionId) {
+      setSelectedExecutions([]);
+      setLastSessionId(sessionId);
+      setModifiedFiles(new Set());
+      setCombinedDiff(null);
+      setExecutions([]);
+    }
+  }, [sessionId, lastSessionId]);
 
   // Load executions for the session
   useEffect(() => {
@@ -66,8 +78,8 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           const data = response.data;
           setExecutions(data);
           
-          // If no initial selection, select all executions by default
-          if (initialSelected.length === 0 && data.length > 0) {
+          // If no initial selection and session just changed, select all executions by default
+          if (selectedExecutions.length === 0 && data.length > 0) {
             // Select all commits (excluding uncommitted changes if present)
             const allCommitIds = data
               .filter((exec: ExecutionDiff) => exec.id !== 0)
