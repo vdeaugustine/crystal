@@ -73,6 +73,16 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
     }
   });
 
+  ipcMain.handle('sessions:pre-create-terminal', async (_event, sessionId: string) => {
+    try {
+      await sessionManager.preCreateTerminalSession(sessionId);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to pre-create terminal session:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to pre-create terminal session' };
+    }
+  });
+
   ipcMain.handle('sessions:resize-terminal', async (_event, sessionId: string, cols: number, rows: number) => {
     try {
       sessionManager.resizeTerminal(sessionId, cols, rows);

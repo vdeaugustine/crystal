@@ -563,6 +563,16 @@ export const useSessionView = (
             });
           }
         });
+        
+        // Send an initial empty input to ensure the PTY connection is established
+        // and any buffered output is sent to the terminal
+        if (activeSession) {
+          setTimeout(() => {
+            API.sessions.sendTerminalInput(activeSession.id, '').catch(error => {
+              console.error('Failed to send initial terminal input:', error);
+            });
+          }, 100);
+        }
     }
   }, [theme, activeSession]);
 
@@ -597,11 +607,48 @@ export const useSessionView = (
       }
     }
   }, [viewMode, terminalRef, initTerminal, activeSession, loadOutputContent]);  
+  // Pre-initialize script terminal when session becomes active
+  useEffect(() => {
+    if (activeSession && scriptTerminalRef.current && !scriptTerminalInstance.current) {
+      console.log('[Terminal] Pre-initializing script terminal for session', activeSession.id);
+      initTerminal(scriptTerminalRef, scriptTerminalInstance, scriptFitAddon, true);
+      
+      // Also pre-create the backend PTY session
+      API.sessions.preCreateTerminal(activeSession.id).then(response => {
+        if (response.success) {
+          console.log('[Terminal] Backend PTY pre-created for session', activeSession.id);
+        }
+      }).catch(error => {
+        console.error('[Terminal] Failed to pre-create backend PTY:', error);
+      });
+    }
+  }, [activeSession?.id, scriptTerminalRef, initTerminal]);
+
   useEffect(() => {
     if (viewMode === 'terminal') {
       initTerminal(scriptTerminalRef, scriptTerminalInstance, scriptFitAddon, true);
+      
+      // After initializing the terminal, immediately write any existing output
+      if (activeSession) {
+        // Use setTimeout to ensure terminal is fully initialized
+        setTimeout(() => {
+          const currentScriptOutput = useSessionStore.getState().scriptOutput[activeSession.id] || [];
+          if (scriptTerminalInstance.current && currentScriptOutput.length > 0 && lastProcessedScriptOutputLength.current === 0) {
+            const existingOutput = currentScriptOutput.join('');
+            console.log('[Terminal] Writing existing output to newly initialized terminal', existingOutput.length, 'chars');
+            scriptTerminalInstance.current.write(existingOutput);
+            lastProcessedScriptOutputLength.current = existingOutput.length;
+          }
+          
+          // Always send an empty input to trigger the PTY to show prompt
+          console.log('[Terminal] Sending empty input to trigger PTY prompt');
+          API.sessions.sendTerminalInput(activeSession.id, '').catch(error => {
+            console.error('Failed to send terminal trigger input:', error);
+          });
+        }, 100);
+      }
     }
-  }, [viewMode, scriptTerminalRef, initTerminal]);
+  }, [viewMode, scriptTerminalRef, initTerminal, activeSession]);
   
 
 

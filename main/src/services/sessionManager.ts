@@ -886,4 +886,24 @@ export class SessionManager extends EventEmitter {
   resizeTerminal(sessionId: string, cols: number, rows: number): void {
     this.terminalSessionManager.resizeTerminal(sessionId, cols, rows);
   }
+
+  async preCreateTerminalSession(sessionId: string): Promise<void> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const worktreePath = session.worktreePath;
+
+    try {
+      // Create terminal session if it doesn't exist
+      if (!this.terminalSessionManager.hasSession(sessionId)) {
+        console.log(`[SessionManager] Pre-creating terminal session for ${sessionId}`);
+        await this.terminalSessionManager.createTerminalSession(sessionId, worktreePath);
+      }
+    } catch (error) {
+      console.error(`[SessionManager] Failed to pre-create terminal session: ${error}`);
+      // Don't throw - this is a best-effort optimization
+    }
+  }
 }

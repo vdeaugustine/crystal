@@ -57,6 +57,12 @@ export class TerminalSessionManager extends EventEmitter {
       console.log(`Terminal session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
       this.terminalSessions.delete(sessionId);
     });
+
+    // Send a newline to trigger the shell prompt to appear
+    // This ensures the terminal shows output immediately when opened
+    setTimeout(() => {
+      ptyProcess.write('\r');
+    }, 50);
   }
 
   sendCommand(sessionId: string, command: string): void {

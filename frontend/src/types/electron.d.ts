@@ -59,6 +59,7 @@ interface ElectronAPI {
     stopScript: () => Promise<IPCResponse>;
     runTerminalCommand: (sessionId: string, command: string) => Promise<IPCResponse>;
     sendTerminalInput: (sessionId: string, data: string) => Promise<IPCResponse>;
+    preCreateTerminal: (sessionId: string) => Promise<IPCResponse>;
     resizeTerminal: (sessionId: string, cols: number, rows: number) => Promise<IPCResponse>;
     
     // Prompt operations

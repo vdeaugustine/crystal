@@ -135,6 +135,11 @@ export class API {
       return window.electronAPI.sessions.sendTerminalInput(sessionId, data);
     },
 
+    async preCreateTerminal(sessionId: string) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.sessions.preCreateTerminal(sessionId);
+    },
+
     async resizeTerminal(sessionId: string, cols: number, rows: number) {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.sessions.resizeTerminal(sessionId, cols, rows);
