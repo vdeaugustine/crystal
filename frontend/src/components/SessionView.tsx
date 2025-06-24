@@ -151,21 +151,23 @@ export const SessionView = memo(() => {
         )}
       </div>
       
-      <SessionInputWithImages
-        activeSession={activeSession}
-        viewMode={hook.viewMode}
-        input={hook.input}
-        setInput={hook.setInput}
-        textareaRef={hook.textareaRef}
-        handleTerminalCommand={hook.handleTerminalCommand}
-        handleSendInput={hook.handleSendInput}
-        handleContinueConversation={hook.handleContinueConversation}
-        isStravuConnected={hook.isStravuConnected}
-        setShowStravuSearch={hook.setShowStravuSearch}
-        ultrathink={hook.ultrathink}
-        setUltrathink={hook.setUltrathink}
-        handleToggleAutoCommit={hook.handleToggleAutoCommit}
-      />
+      {hook.viewMode !== 'terminal' && (
+        <SessionInputWithImages
+          activeSession={activeSession}
+          viewMode={hook.viewMode}
+          input={hook.input}
+          setInput={hook.setInput}
+          textareaRef={hook.textareaRef}
+          handleTerminalCommand={hook.handleTerminalCommand}
+          handleSendInput={hook.handleSendInput}
+          handleContinueConversation={hook.handleContinueConversation}
+          isStravuConnected={hook.isStravuConnected}
+          setShowStravuSearch={hook.setShowStravuSearch}
+          ultrathink={hook.ultrathink}
+          setUltrathink={hook.setUltrathink}
+          handleToggleAutoCommit={hook.handleToggleAutoCommit}
+        />
+      )}
 
       <CommitMessageDialog
         isOpen={hook.showCommitMessageDialog}

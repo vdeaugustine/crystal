@@ -347,7 +347,6 @@ export const useSessionView = (
     
     if (scriptTerminalInstance.current) {
       scriptTerminalInstance.current.reset();
-      scriptTerminalInstance.current.writeln('Terminal ready for script execution...\r\n');
     }
     
     // Reset output tracking
@@ -550,9 +549,20 @@ export const useSessionView = (
     console.log(`[initTerminal] Terminal initialized successfully`);
 
     if (isScript) {
-        term.writeln('Terminal ready for script execution...\r\n');
+        // Clear any existing content
+        term.clear();
+        
+        // Add keyboard handling for direct terminal input - pass everything through
+        term.onData((data) => {
+          // Pass all input directly to the PTY without buffering
+          if (activeSession) {
+            API.sessions.sendTerminalInput(activeSession.id, data).catch(error => {
+              console.error('Failed to send terminal input:', error);
+            });
+          }
+        });
     }
-  }, [theme]);
+  }, [theme, activeSession]);
 
   useEffect(() => {
     console.log(`[useSessionView] Terminal initialization effect - viewMode: ${viewMode}, terminalRef.current: ${!!terminalRef.current}`);
@@ -615,7 +625,6 @@ export const useSessionView = (
   useEffect(() => {
     if (!scriptTerminalInstance.current || !activeSession) return;
     scriptTerminalInstance.current.reset();
-    scriptTerminalInstance.current.writeln('Terminal ready for script execution...\r\n');
     lastProcessedScriptOutputLength.current = 0;
   }, [activeSessionId]);
 
@@ -705,7 +714,6 @@ export const useSessionView = (
     const fullScriptOutput = scriptOutput.join('');
     if (fullScriptOutput.length < lastProcessedScriptOutputLength.current || fullScriptOutput.length === 0) {
       scriptTerminalInstance.current.reset();
-      scriptTerminalInstance.current.writeln('Terminal ready for script execution...\r\n');
       lastProcessedScriptOutputLength.current = 0;
     }
     if (fullScriptOutput.length > lastProcessedScriptOutputLength.current) {

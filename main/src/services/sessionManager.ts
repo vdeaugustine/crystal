@@ -855,6 +855,30 @@ export class SessionManager extends EventEmitter {
     }
   }
 
+  async sendTerminalInput(sessionId: string, data: string): Promise<void> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const worktreePath = session.worktreePath;
+
+    try {
+      // Create terminal session if it doesn't exist
+      if (!this.terminalSessionManager.hasSession(sessionId)) {
+        await this.terminalSessionManager.createTerminalSession(sessionId, worktreePath);
+        // Give the terminal a moment to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Send the raw input to the persistent terminal session
+      this.terminalSessionManager.sendInput(sessionId, data);
+    } catch (error) {
+      this.addScriptOutput(sessionId, `\nError: ${error}\n`, 'stderr');
+      throw error;
+    }
+  }
+
   closeTerminalSession(sessionId: string): void {
     this.terminalSessionManager.closeTerminalSession(sessionId);
   }

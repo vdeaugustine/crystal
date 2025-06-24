@@ -24,14 +24,19 @@ export class TerminalSessionManager extends EventEmitter {
     const shellPath = isLinux ? (process.env.PATH || '') : getShellPath();
     const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
     
-    // Create a new PTY instance
+    // Create a new PTY instance with proper terminal settings
     const ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-color',
+      name: 'xterm-256color',  // Better terminal emulation
       cwd: worktreePath,
+      cols: 80,
+      rows: 24,
       env: {
         ...process.env,
         PATH: shellPath,
         WORKTREE_PATH: worktreePath,
+        TERM: 'xterm-256color',  // Ensure TERM is set for color support
+        COLORTERM: 'truecolor',  // Enable 24-bit color
+        LANG: process.env.LANG || 'en_US.UTF-8',  // Set locale for proper character handling
       },
     });
 
@@ -62,6 +67,16 @@ export class TerminalSessionManager extends EventEmitter {
 
     // Send the command to the PTY
     session.pty.write(command + '\r');
+  }
+
+  sendInput(sessionId: string, data: string): void {
+    const session = this.terminalSessions.get(sessionId);
+    if (!session) {
+      throw new Error('Terminal session not found');
+    }
+
+    // Send raw input directly to the PTY without modification
+    session.pty.write(data);
   }
 
   resizeTerminal(sessionId: string, cols: number, rows: number): void {

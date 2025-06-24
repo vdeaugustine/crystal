@@ -63,6 +63,16 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
     }
   });
 
+  ipcMain.handle('sessions:send-terminal-input', async (_event, sessionId: string, data: string) => {
+    try {
+      await sessionManager.sendTerminalInput(sessionId, data);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to send terminal input:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to send terminal input' };
+    }
+  });
+
   ipcMain.handle('sessions:resize-terminal', async (_event, sessionId: string, cols: number, rows: number) => {
     try {
       sessionManager.resizeTerminal(sessionId, cols, rows);
