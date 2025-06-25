@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import Editor from '@monaco-editor/react';
 import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X } from 'lucide-react';
 import { MonacoErrorBoundary } from './MonacoErrorBoundary';
@@ -29,7 +30,9 @@ function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, selectedP
   const isExpanded = expandedDirs.has(file.path);
   const isSelected = selectedPath === file.path;
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (file.isDirectory) {
       onToggleDir(file.path);
     } else {
@@ -70,13 +73,14 @@ function FileTreeNode({ file, level, onFileClick, onRefresh, onDelete, selectedP
   };
 
   return (
-    <div>
+    <div onClick={(e) => e.stopPropagation()}>
       <div
         className={`flex items-center px-2 py-1 hover:bg-gray-700 cursor-pointer group ${
           isSelected ? 'bg-blue-600' : ''
         }`}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onClick={handleClick}
+        onDoubleClick={(e) => e.preventDefault()}
       >
         {file.isDirectory ? (
           <>
@@ -132,6 +136,7 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
   const [showNewItemDialog, setShowNewItemDialog] = useState<'file' | 'folder' | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
+  const pendingToggleRef = useRef<string | null>(null);
 
   const loadFiles = useCallback(async (path: string = '') => {
     setLoading(true);
@@ -159,18 +164,39 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
   }, [loadFiles]);
 
   const toggleDir = useCallback((path: string) => {
-    setExpandedDirs(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-        if (!files.has(path)) {
-          loadFiles(path);
+    // Prevent double-toggles from React StrictMode
+    if (pendingToggleRef.current === path) {
+      console.log('Ignoring duplicate toggle for:', path);
+      return;
+    }
+    
+    pendingToggleRef.current = path;
+    
+    // Use flushSync to ensure state updates are applied immediately
+    flushSync(() => {
+      setExpandedDirs(prev => {
+        const next = new Set(prev);
+        if (next.has(path)) {
+          next.delete(path);
+          console.log('Collapsed:', path);
+        } else {
+          next.add(path);
+          console.log('Expanded:', path);
+          // Load files immediately if needed
+          if (!files.has(path)) {
+            loadFiles(path);
+          }
         }
-      }
-      return next;
+        return next;
+      });
     });
+    
+    // Clear the pending toggle after a short delay
+    setTimeout(() => {
+      if (pendingToggleRef.current === path) {
+        pendingToggleRef.current = null;
+      }
+    }, 50);
   }, [files, loadFiles]);
 
   const handleDelete = useCallback(async (file: FileItem) => {
@@ -282,7 +308,9 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
             searchQuery={searchQuery}
           />
           {file.isDirectory && expandedDirs.has(file.path) && (
-            <div>{renderTree(file.path, level + 1)}</div>
+            <div onClick={(e) => e.stopPropagation()} style={{ minHeight: '1px' }}>
+              {renderTree(file.path, level + 1)}
+            </div>
           )}
         </React.Fragment>
       ));
@@ -302,10 +330,8 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
         });
       });
       setExpandedDirs(allDirs);
-    } else {
-      // Collapse to default state when search is cleared
-      setExpandedDirs(new Set(['']));
     }
+    // Note: We don't collapse when search is cleared to preserve user's expanded state
   }, [searchQuery, files]);
 
   // Focus search input when shown
@@ -451,7 +477,7 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
           {error}
         </div>
       )}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" onClick={(e) => e.stopPropagation()}>
         {renderTree('')}
       </div>
     </div>
