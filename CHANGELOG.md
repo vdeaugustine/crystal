@@ -1,6 +1,18 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.8] - 2025-06-25
+
+### Added
+- Ability to delete session folders for better session management
+- Support for Intel Macs (x64 architecture)
+- Linux AppImage build support in release process
+
+### Fixed
+- Git commit messages now truncate long prompts to prevent excessive commit message lengths
+- Claude executable path override now properly uses the actual shell environment
+- Various cleanup and stability improvements
+
 ## [0.1.7] - 2025-06-25
 
 ### Added
