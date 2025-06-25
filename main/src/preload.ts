@@ -109,6 +109,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listBranches: (projectId: string): Promise<IPCResponse> => ipcRenderer.invoke('projects:list-branches', projectId),
   },
 
+  // Folders
+  folders: {
+    getByProject: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('folders:get-by-project', projectId),
+    create: (name: string, projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('folders:create', name, projectId),
+    update: (folderId: string, updates: { name?: string; display_order?: number }): Promise<IPCResponse> => ipcRenderer.invoke('folders:update', folderId, updates),
+    delete: (folderId: string): Promise<IPCResponse> => ipcRenderer.invoke('folders:delete', folderId),
+    reorder: (projectId: number, folderIds: string[]): Promise<IPCResponse> => ipcRenderer.invoke('folders:reorder', projectId, folderIds),
+    moveSession: (sessionId: string, folderId: string | null): Promise<IPCResponse> => ipcRenderer.invoke('folders:move-session', sessionId, folderId),
+  },
+
   // Configuration
   config: {
     get: (): Promise<IPCResponse> => ipcRenderer.invoke('config:get'),
@@ -171,6 +181,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('session:output-available', (_event, info) => callback(info));
       return () => ipcRenderer.removeAllListeners('session:output-available');
     },
+    
+    // Folder events
+    onFolderCreated: (callback: (folder: any) => void) => {
+      ipcRenderer.on('folder:created', (_event, folder) => callback(folder));
+      return () => ipcRenderer.removeAllListeners('folder:created');
+    },
+    onFolderUpdated: (callback: (folder: any) => void) => {
+      ipcRenderer.on('folder:updated', (_event, folder) => callback(folder));
+      return () => ipcRenderer.removeAllListeners('folder:updated');
+    },
+    onFolderDeleted: (callback: (folderId: string) => void) => {
+      ipcRenderer.on('folder:deleted', (_event, folderId) => callback(folderId));
+      return () => ipcRenderer.removeAllListeners('folder:deleted');
+    },
+    
     onScriptOutput: (callback: (output: any) => void) => {
       ipcRenderer.on('script:output', (_event, output) => callback(output));
       return () => ipcRenderer.removeAllListeners('script:output');
@@ -218,6 +243,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('updater:error', (_event, error) => callback(error));
       return () => ipcRenderer.removeAllListeners('updater:error');
     },
+  },
+
+  // Debug utilities
+  debug: {
+    getTableStructure: (tableName: 'folders' | 'sessions'): Promise<IPCResponse> => ipcRenderer.invoke('debug:get-table-structure', tableName),
   },
 });
 

@@ -100,6 +100,7 @@ export class SessionManager extends EventEmitter {
       runStartedAt: dbSession.run_started_at,
       isMainRepo: dbSession.is_main_repo,
       projectId: dbSession.project_id, // Add the missing projectId field
+      folderId: dbSession.folder_id,
       isFavorite: dbSession.is_favorite,
       autoCommit: dbSession.auto_commit
     };
@@ -151,11 +152,11 @@ export class SessionManager extends EventEmitter {
     return dbSession ? this.convertDbSessionToSession(dbSession) : undefined;
   }
 
-  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean, autoCommit?: boolean): Session {
-    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode, projectId, isMainRepo, autoCommit);
+  createSession(name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean, autoCommit?: boolean, folderId?: string): Session {
+    return this.createSessionWithId(randomUUID(), name, worktreePath, prompt, worktreeName, permissionMode, projectId, isMainRepo, autoCommit, folderId);
   }
 
-  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean, autoCommit?: boolean): Session {
+  createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean, autoCommit?: boolean, folderId?: string): Session {
     console.log(`[SessionManager] Creating session with ID ${id}: ${name}`);
     
     let targetProject;
@@ -182,6 +183,7 @@ export class SessionManager extends EventEmitter {
       worktree_name: worktreeName,
       worktree_path: worktreePath,
       project_id: targetProject.id,
+      folder_id: folderId,
       permission_mode: permissionMode,
       is_main_repo: isMainRepo,
       auto_commit: autoCommit

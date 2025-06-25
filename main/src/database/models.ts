@@ -23,6 +23,15 @@ export interface ProjectRunCommand {
   created_at: string;
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  project_id: number;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Session {
   id: string;
   name: string;
@@ -38,6 +47,7 @@ export interface Session {
   archived?: boolean;
   last_viewed_at?: string;
   project_id?: number;
+  folder_id?: string;
   claude_session_id?: string;
   permission_mode?: 'approve' | 'ignore';
   run_started_at?: string;
@@ -70,6 +80,7 @@ export interface CreateSessionData {
   worktree_name: string;
   worktree_path: string;
   project_id: number;
+  folder_id?: string;
   permission_mode?: 'approve' | 'ignore';
   is_main_repo?: boolean;
   display_order?: number;
@@ -82,6 +93,7 @@ export interface UpdateSessionData {
   last_output?: string;
   exit_code?: number;
   pid?: number;
+  folder_id?: string | null;
   claude_session_id?: string;
   run_started_at?: string;
   is_favorite?: boolean;

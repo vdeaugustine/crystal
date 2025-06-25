@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { readFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import type { Project, ProjectRunCommand, Session, SessionOutput, CreateSessionData, UpdateSessionData, ConversationMessage, PromptMarker, ExecutionDiff, CreateExecutionDiffData } from './models';
+import type { Project, ProjectRunCommand, Folder, Session, SessionOutput, CreateSessionData, UpdateSessionData, ConversationMessage, PromptMarker, ExecutionDiff, CreateExecutionDiffData } from './models';
 
 export class DatabaseService {
   private db: Database.Database;
@@ -404,6 +404,39 @@ export class DatabaseService {
       this.db.prepare("ALTER TABLE sessions ADD COLUMN auto_commit BOOLEAN DEFAULT 1").run();
       console.log('[Database] Added auto_commit column to sessions table');
     }
+
+    // Create folders table
+    this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        project_id INTEGER NOT NULL,
+        display_order INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      )
+    `).run();
+
+    // Create index on folders project_id
+    this.db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_folders_project_id 
+      ON folders(project_id)
+    `).run();
+
+    // Add folder_id column to sessions table if it doesn't exist
+    const hasFolderIdColumn = sessionTableInfoFavorite.some((col: any) => col.name === 'folder_id');
+    
+    if (!hasFolderIdColumn) {
+      this.db.prepare('ALTER TABLE sessions ADD COLUMN folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL').run();
+      console.log('[Database] Added folder_id column to sessions table');
+      
+      // Create index on sessions folder_id
+      this.db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_sessions_folder_id 
+        ON sessions(folder_id)
+      `).run();
+    }
   }
 
   // Project operations
@@ -525,6 +558,123 @@ export class DatabaseService {
     return result.changes > 0;
   }
 
+  // Folder operations
+  createFolder(name: string, projectId: number): Folder {
+    // Validate inputs
+    if (!name || typeof name !== 'string') {
+      throw new Error('Folder name must be a non-empty string');
+    }
+    if (!projectId || typeof projectId !== 'number' || projectId <= 0) {
+      throw new Error('Project ID must be a positive number');
+    }
+    
+    const id = `folder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log('[Database] Creating folder:', { id, name, projectId });
+    
+    // Get the max display_order for folders in this project
+    const maxOrder = this.db.prepare(`
+      SELECT MAX(display_order) as max_order 
+      FROM folders 
+      WHERE project_id = ?
+    `).get(projectId) as { max_order: number | null };
+    
+    const displayOrder = (maxOrder?.max_order ?? -1) + 1;
+    
+    const stmt = this.db.prepare(`
+      INSERT INTO folders (id, name, project_id, display_order)
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    stmt.run(id, name, projectId, displayOrder);
+    
+    const folder = this.getFolder(id);
+    console.log('[Database] Created folder:', folder);
+    
+    return folder!;
+  }
+
+  getFolder(id: string): Folder | undefined {
+    const stmt = this.db.prepare(`
+      SELECT * FROM folders WHERE id = ?
+    `);
+    
+    const folder = stmt.get(id) as Folder | undefined;
+    console.log(`[Database] Getting folder by id ${id}:`, folder);
+    return folder;
+  }
+
+  getFoldersForProject(projectId: number): Folder[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM folders 
+      WHERE project_id = ? 
+      ORDER BY display_order ASC, name ASC
+    `);
+    
+    const folders = stmt.all(projectId) as Folder[];
+    console.log(`[Database] Getting folders for project ${projectId}:`, folders);
+    return folders;
+  }
+
+  updateFolder(id: string, updates: { name?: string; display_order?: number }): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+    
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    
+    if (updates.display_order !== undefined) {
+      fields.push('display_order = ?');
+      values.push(updates.display_order);
+    }
+    
+    if (fields.length === 0) return;
+    
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+    
+    const stmt = this.db.prepare(`
+      UPDATE folders 
+      SET ${fields.join(', ')} 
+      WHERE id = ?
+    `);
+    
+    stmt.run(...values);
+  }
+
+  deleteFolder(id: string): void {
+    // Sessions will have their folder_id set to NULL due to ON DELETE SET NULL
+    const stmt = this.db.prepare('DELETE FROM folders WHERE id = ?');
+    stmt.run(id);
+  }
+
+  updateFolderDisplayOrder(folderId: string, newOrder: number): void {
+    const stmt = this.db.prepare(`
+      UPDATE folders 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `);
+    stmt.run(newOrder, folderId);
+  }
+
+  reorderFolders(projectId: number, folderIds: string[]): void {
+    const stmt = this.db.prepare(`
+      UPDATE folders 
+      SET display_order = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ? AND project_id = ?
+    `);
+    
+    const transaction = this.db.transaction(() => {
+      folderIds.forEach((id, index) => {
+        stmt.run(index, id, projectId);
+      });
+    });
+    
+    transaction();
+  }
+
   // Project run commands operations
   createRunCommand(projectId: number, command: string, displayName?: string, orderIndex?: number): ProjectRunCommand {
     const result = this.db.prepare(`
@@ -601,9 +751,9 @@ export class DatabaseService {
     const displayOrder = (maxOrderResult?.max_order ?? -1) + 1;
     
     this.db.prepare(`
-      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, permission_mode, is_main_repo, display_order, auto_commit)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
-    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0, displayOrder, data.auto_commit !== undefined ? (data.auto_commit ? 1 : 0) : 1);
+      INSERT INTO sessions (id, name, initial_prompt, worktree_name, worktree_path, status, project_id, folder_id, permission_mode, is_main_repo, display_order, auto_commit)
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
+    `).run(data.id, data.name, data.initial_prompt, data.worktree_name, data.worktree_path, data.project_id, data.folder_id || null, data.permission_mode || 'ignore', data.is_main_repo ? 1 : 0, displayOrder, data.auto_commit !== undefined ? (data.auto_commit ? 1 : 0) : 1);
     
     const session = this.getSession(data.id);
     if (!session) {
@@ -632,6 +782,8 @@ export class DatabaseService {
   }
 
   updateSession(id: string, data: UpdateSessionData): Session | undefined {
+    console.log(`[Database] Updating session ${id} with data:`, data);
+    
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -642,6 +794,11 @@ export class DatabaseService {
     if (data.status !== undefined) {
       updates.push('status = ?');
       values.push(data.status);
+    }
+    if (data.folder_id !== undefined) {
+      console.log(`[Database] Setting folder_id to: ${data.folder_id}`);
+      updates.push('folder_id = ?');
+      values.push(data.folder_id);
     }
     if (data.last_output !== undefined) {
       updates.push('last_output = ?');
@@ -688,11 +845,17 @@ export class DatabaseService {
     }
     values.push(id);
 
-    this.db.prepare(`
-      UPDATE sessions 
-      SET ${updates.join(', ')} 
-      WHERE id = ?
-    `).run(...values);
+    const sql = `UPDATE sessions SET ${updates.join(', ')} WHERE id = ?`;
+    console.log('[Database] Executing SQL:', sql);
+    console.log('[Database] With values:', values);
+    
+    try {
+      this.db.prepare(sql).run(...values);
+      console.log('[Database] Update successful');
+    } catch (error) {
+      console.error('[Database] Update failed:', error);
+      throw error;
+    }
     
     return this.getSession(id);
   }
@@ -978,6 +1141,74 @@ export class DatabaseService {
     });
     
     updateMany(sessionOrders);
+  }
+
+  // Debug method to check table structure
+  getTableStructure(tableName: 'folders' | 'sessions'): { 
+    columns: Array<{ 
+      cid: number; 
+      name: string; 
+      type: string; 
+      notnull: number; 
+      dflt_value: any; 
+      pk: number 
+    }>;
+    foreignKeys: Array<{
+      id: number;
+      seq: number;
+      table: string;
+      from: string;
+      to: string;
+      on_update: string;
+      on_delete: string;
+      match: string;
+    }>;
+    indexes: Array<{
+      name: string;
+      tbl_name: string;
+      sql: string;
+    }>;
+  } {
+    console.log(`[Database] Getting structure for table: ${tableName}`);
+    
+    // Get column information
+    const columns = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+      cid: number;
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: any;
+      pk: number;
+    }>;
+    
+    // Get foreign key information
+    const foreignKeys = this.db.prepare(`PRAGMA foreign_key_list(${tableName})`).all() as Array<{
+      id: number;
+      seq: number;
+      table: string;
+      from: string;
+      to: string;
+      on_update: string;
+      on_delete: string;
+      match: string;
+    }>;
+    
+    // Get indexes
+    const indexes = this.db.prepare(`
+      SELECT name, tbl_name, sql 
+      FROM sqlite_master 
+      WHERE type = 'index' AND tbl_name = ?
+    `).all(tableName) as Array<{
+      name: string;
+      tbl_name: string;
+      sql: string;
+    }>;
+    
+    const structure = { columns, foreignKeys, indexes };
+    
+    console.log(`[Database] Table structure for ${tableName}:`, JSON.stringify(structure, null, 2));
+    
+    return structure;
   }
 
   close(): void {

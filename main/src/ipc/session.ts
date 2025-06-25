@@ -48,9 +48,11 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       const allProjects = databaseService.getAllProjects();
       const projectsWithSessions = allProjects.map(project => {
         const sessions = sessionManager.getSessionsForProject(project.id);
+        const folders = databaseService.getFoldersForProject(project.id);
         return {
           ...project,
-          sessions
+          sessions,
+          folders
         };
       });
       return { success: true, data: projectsWithSessions };
@@ -579,6 +581,17 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
     } catch (error) {
       console.error('Failed to save images:', error);
       throw error;
+    }
+  });
+
+  // Debug handler to check table structure
+  ipcMain.handle('debug:get-table-structure', async (_event, tableName: 'folders' | 'sessions') => {
+    try {
+      const structure = databaseService.getTableStructure(tableName);
+      return { success: true, data: structure };
+    } catch (error) {
+      console.error('Failed to get table structure:', error);
+      return { success: false, error: 'Failed to get table structure' };
     }
   });
 } 

@@ -325,7 +325,8 @@ async function initializeServices() {
     claudeCodeManager,
     gitDiffManager,
     executionTracker,
-    worktreeNameGenerator
+    worktreeNameGenerator,
+    getMainWindow: () => mainWindow
   });
 
   const services: AppServices = {

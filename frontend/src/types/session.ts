@@ -13,6 +13,7 @@ export interface Session {
   isRunning?: boolean;
   lastViewedAt?: string;
   projectId?: number;
+  folderId?: string;
   permissionMode?: 'approve' | 'ignore';
   runStartedAt?: string;
   isMainRepo?: boolean;

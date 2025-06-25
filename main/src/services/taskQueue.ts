@@ -16,6 +16,7 @@ interface TaskQueueOptions {
   gitDiffManager: GitDiffManager;
   executionTracker: ExecutionTracker;
   worktreeNameGenerator: WorktreeNameGenerator;
+  getMainWindow: () => Electron.BrowserWindow | null;
 }
 
 interface CreateSessionJob {
@@ -24,6 +25,7 @@ interface CreateSessionJob {
   index?: number;
   permissionMode?: 'approve' | 'ignore';
   projectId?: number;
+  folderId?: string;
   baseBranch?: string;
   autoCommit?: boolean;
 }
@@ -145,12 +147,18 @@ export class TaskQueue {
 
         let worktreeName = worktreeTemplate;
         
-        // Generate a name if template is empty
+        // Generate a name if template is empty - but skip if we're in multi-session creation with index
         if (!worktreeName || worktreeName.trim() === '') {
-          console.log(`[TaskQueue] No worktree template provided, generating name from prompt...`);
-          // Use the AI-powered name generator or smart fallback
-          worktreeName = await this.options.worktreeNameGenerator.generateWorktreeName(prompt);
-          console.log(`[TaskQueue] Generated base name: ${worktreeName}`);
+          // If this is part of a multi-session creation (has index), the base name should have been generated already
+          if (index !== undefined && index >= 0) {
+            console.log(`[TaskQueue] Multi-session creation detected (index ${index}), using fallback name`);
+            worktreeName = 'session';
+          } else {
+            console.log(`[TaskQueue] No worktree template provided, generating name from prompt...`);
+            // Use the AI-powered name generator or smart fallback
+            worktreeName = await this.options.worktreeNameGenerator.generateWorktreeName(prompt);
+            console.log(`[TaskQueue] Generated base name: ${worktreeName}`);
+          }
         }
         
         // Ensure uniqueness among all sessions (including archived)
@@ -178,7 +186,8 @@ export class TaskQueue {
           permissionMode,
           targetProject.id,
           false, // isMainRepo = false for regular sessions
-          autoCommit
+          autoCommit,
+          job.data.folderId
         );
         console.log(`[TaskQueue] Session created with ID: ${session.id}`);
 
@@ -262,9 +271,56 @@ export class TaskQueue {
   }
 
   async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string, autoCommit?: boolean): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
+    let folderId: string | undefined;
+    let generatedBaseName: string | undefined;
+    
+    // Generate a name if no template provided
+    if (!worktreeTemplate || worktreeTemplate.trim() === '') {
+      try {
+        generatedBaseName = await this.options.worktreeNameGenerator.generateWorktreeName(prompt);
+        console.log(`[TaskQueue] Generated base name for multi-session: ${generatedBaseName}`);
+      } catch (error) {
+        console.error('[TaskQueue] Failed to generate worktree name:', error);
+        generatedBaseName = 'multi-session';
+      }
+    }
+    
+    // Create a folder for multi-session prompts
+    if (count > 1 && projectId) {
+      try {
+        const { sessionManager } = this.options;
+        const db = (sessionManager as any).db;
+        const folderName = worktreeTemplate || generatedBaseName || 'Multi-session prompt';
+        
+        console.log(`[TaskQueue] Creating folder for multi-session prompt. ProjectId: ${projectId}, type: ${typeof projectId}`);
+        
+        // Ensure projectId is a number
+        const numericProjectId = typeof projectId === 'string' ? parseInt(projectId, 10) : projectId;
+        if (isNaN(numericProjectId)) {
+          throw new Error(`Invalid project ID: ${projectId}`);
+        }
+        
+        const folder = db.createFolder(folderName, numericProjectId);
+        folderId = folder.id;
+        console.log(`[TaskQueue] Created folder "${folderName}" with ID ${folderId} for ${count} sessions`);
+        
+        // Emit folder created event
+        const getMainWindow = this.options.getMainWindow;
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send('folder:created', folder);
+        }
+      } catch (error) {
+        console.error('[TaskQueue] Failed to create folder for multi-session prompt:', error);
+        // Continue without folder - sessions will be created at project level
+      }
+    }
+    
     const jobs = [];
     for (let i = 0; i < count; i++) {
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate, index: i, permissionMode, projectId, baseBranch, autoCommit }));
+      // Use the generated base name if no template was provided
+      const templateToUse = worktreeTemplate || generatedBaseName || '';
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit }));
     }
     return Promise.all(jobs);
   }

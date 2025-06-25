@@ -11,6 +11,7 @@ import { registerScriptHandlers } from './script';
 import { registerPromptHandlers } from './prompt';
 import { registerStravuHandlers } from './stravu';
 import { registerFileHandlers } from './file';
+import { registerFolderHandlers } from './folders';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -25,4 +26,5 @@ export function registerIpcHandlers(services: AppServices): void {
   registerPromptHandlers(ipcMain, services);
   registerStravuHandlers(ipcMain, services);
   registerFileHandlers(ipcMain, services);
+  registerFolderHandlers(ipcMain, services);
 } 

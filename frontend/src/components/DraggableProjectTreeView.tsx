@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Plus, Settings, GripVertical } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder as FolderIcon, FolderOpen, Plus, Settings, GripVertical } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useErrorStore } from '../stores/errorStore';
 import { SessionListItem } from './SessionListItem';
@@ -11,24 +11,32 @@ import { LoadingSpinner } from './LoadingSpinner';
 import { API } from '../utils/api';
 import type { Session } from '../types/session';
 import type { Project } from '../types/project';
+import type { Folder } from '../types/folder';
 
 interface ProjectWithSessions extends Project {
   sessions: Session[];
+  folders: Folder[];
 }
 
 interface DragState {
-  type: 'project' | 'session' | null;
+  type: 'project' | 'session' | 'folder' | null;
   projectId: number | null;
   sessionId: string | null;
-  overType: 'project' | 'session' | null;
+  folderId: string | null;
+  overType: 'project' | 'session' | 'folder' | null;
   overProjectId: number | null;
   overSessionId: string | null;
+  overFolderId: string | null;
 }
 
 export function DraggableProjectTreeView() {
   const [projectsWithSessions, setProjectsWithSessions] = useState<ProjectWithSessions[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Log initial state
+  console.log('[DraggableProjectTreeView] Component initialized');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedProjectForCreate, setSelectedProjectForCreate] = useState<Project | null>(null);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
@@ -38,6 +46,9 @@ export function DraggableProjectTreeView() {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
   const [pendingMainBranchProject, setPendingMainBranchProject] = useState<Project | null>(null);
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+  const [selectedProjectForFolder, setSelectedProjectForFolder] = useState<Project | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
   const { showError } = useErrorStore();
   
   // Drag state
@@ -45,11 +56,30 @@ export function DraggableProjectTreeView() {
     type: null,
     projectId: null,
     sessionId: null,
+    folderId: null,
     overType: null,
     overProjectId: null,
-    overSessionId: null
+    overSessionId: null,
+    overFolderId: null
   });
   const dragCounter = useRef(0);
+
+  const handleFolderCreated = (folder: Folder) => {
+    console.log('[DraggableProjectTreeView] Folder created:', folder);
+    // Add the folder to the appropriate project
+    setProjectsWithSessions(prevProjects => 
+      prevProjects.map(project => {
+        if (project.id === folder.projectId) {
+          console.log('[DraggableProjectTreeView] Adding folder to project:', project.name);
+          return {
+            ...project,
+            folders: [...(project.folders || []), folder]
+          };
+        }
+        return project;
+      })
+    );
+  };
 
   useEffect(() => {
     loadProjectsWithSessions();
@@ -69,10 +99,13 @@ export function DraggableProjectTreeView() {
         const updatedProjects = prevProjects.map(project => {
           if (project.id === newSession.projectId) {
             // Add the new session to this project
-            return {
+            const updatedProject = {
               ...project,
               sessions: [...project.sessions, newSession]
             };
+            console.log('[DraggableProjectTreeView] Updated project after session creation:', updatedProject);
+            console.log('[DraggableProjectTreeView] Project folders:', updatedProject.folders);
+            return updatedProject;
           }
           return project;
         });
@@ -142,11 +175,13 @@ export function DraggableProjectTreeView() {
       const unsubscribeCreated = window.electronAPI.events.onSessionCreated(handleSessionCreated);
       const unsubscribeUpdated = window.electronAPI.events.onSessionUpdated(handleSessionUpdated);
       const unsubscribeDeleted = window.electronAPI.events.onSessionDeleted(handleSessionDeleted);
+      const unsubscribeFolderCreated = window.electronAPI.events.onFolderCreated(handleFolderCreated);
       
       return () => {
         unsubscribeCreated();
         unsubscribeUpdated();
         unsubscribeDeleted();
+        unsubscribeFolderCreated();
       };
     }
   }, []);
@@ -156,6 +191,14 @@ export function DraggableProjectTreeView() {
       setIsLoading(true);
       const response = await API.sessions.getAllWithProjects();
       if (response.success && response.data) {
+        console.log('[DraggableProjectTreeView] Loaded projects with sessions:', response.data);
+        // Log folder data specifically
+        response.data.forEach((project: ProjectWithSessions) => {
+          if (project.folders && project.folders.length > 0) {
+            console.log(`[DraggableProjectTreeView] Project "${project.name}" folders:`, project.folders);
+          }
+        });
+        
         setProjectsWithSessions(response.data);
         
         // Auto-expand projects that have sessions
@@ -190,6 +233,18 @@ export function DraggableProjectTreeView() {
         newSet.delete(projectId);
       } else {
         newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
       }
       return newSet;
     });
@@ -275,7 +330,7 @@ export function DraggableProjectTreeView() {
       setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
       
       // Add the new project to the list without reloading everything
-      const newProjectWithSessions = { ...response.data, sessions: [] };
+      const newProjectWithSessions = { ...response.data, sessions: [], folders: [] };
       setProjectsWithSessions(prev => [...prev, newProjectWithSessions]);
     } catch (error: any) {
       console.error('Failed to create project:', error);
@@ -287,6 +342,48 @@ export function DraggableProjectTreeView() {
     }
   };
 
+  const handleCreateFolder = async () => {
+    if (!newFolderName || !selectedProjectForFolder) return;
+
+    try {
+      console.log('[DraggableProjectTreeView] Creating folder:', newFolderName, 'in project:', selectedProjectForFolder.id);
+      const response = await API.folders.create(newFolderName, selectedProjectForFolder.id);
+
+      if (response.success && response.data) {
+        console.log('[DraggableProjectTreeView] Folder created successfully:', response.data);
+        
+        // Update the project with the new folder
+        setProjectsWithSessions(prev => prev.map(project => {
+          if (project.id === selectedProjectForFolder.id) {
+            const updatedProject = {
+              ...project,
+              folders: [...(project.folders || []), response.data]
+            };
+            console.log('[DraggableProjectTreeView] Updated project with new folder:', updatedProject);
+            return updatedProject;
+          }
+          return project;
+        }));
+
+        // Close dialog and reset
+        setShowCreateFolderDialog(false);
+        setNewFolderName('');
+        setSelectedProjectForFolder(null);
+      } else {
+        showError({
+          title: 'Failed to Create Folder',
+          error: response.error || 'Unknown error occurred'
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to create folder:', error);
+      showError({
+        title: 'Failed to Create Folder',
+        error: error.message || 'Unknown error occurred'
+      });
+    }
+  };
+
   // Drag and drop handlers
   const handleProjectDragStart = (e: React.DragEvent, project: Project) => {
     e.stopPropagation();
@@ -294,9 +391,11 @@ export function DraggableProjectTreeView() {
       type: 'project',
       projectId: project.id,
       sessionId: null,
+      folderId: null,
       overType: null,
       overProjectId: null,
-      overSessionId: null
+      overSessionId: null,
+      overFolderId: null
     });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'project', id: project.id }));
@@ -308,12 +407,30 @@ export function DraggableProjectTreeView() {
       type: 'session',
       projectId: projectId,
       sessionId: session.id,
+      folderId: null,
       overType: null,
       overProjectId: null,
-      overSessionId: null
+      overSessionId: null,
+      overFolderId: null
     });
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'session', id: session.id, projectId }));
+  };
+
+  const handleFolderDragStart = (e: React.DragEvent, folder: Folder, projectId: number) => {
+    e.stopPropagation();
+    setDragState({
+      type: 'folder',
+      projectId: projectId,
+      sessionId: null,
+      folderId: folder.id,
+      overType: null,
+      overProjectId: null,
+      overSessionId: null,
+      overFolderId: null
+    });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'folder', id: folder.id, projectId }));
   };
 
   const handleDragEnd = () => {
@@ -321,9 +438,11 @@ export function DraggableProjectTreeView() {
       type: null,
       projectId: null,
       sessionId: null,
+      folderId: null,
       overType: null,
       overProjectId: null,
-      overSessionId: null
+      overSessionId: null,
+      overFolderId: null
     });
     dragCounter.current = 0;
   };
@@ -337,7 +456,26 @@ export function DraggableProjectTreeView() {
         ...prev,
         overType: 'project',
         overProjectId: project.id,
-        overSessionId: null
+        overSessionId: null,
+        overFolderId: null
+      }));
+    } else if (dragState.type === 'session') {
+      // Allow sessions to be dropped on projects (to move out of folders)
+      setDragState(prev => ({
+        ...prev,
+        overType: 'project',
+        overProjectId: project.id,
+        overSessionId: null,
+        overFolderId: null
+      }));
+    } else if (dragState.type === 'folder' && dragState.projectId === project.id) {
+      // Allow folders to be reordered within the same project
+      setDragState(prev => ({
+        ...prev,
+        overType: 'project',
+        overProjectId: project.id,
+        overSessionId: null,
+        overFolderId: null
       }));
     }
   };
@@ -397,6 +535,10 @@ export function DraggableProjectTreeView() {
           });
         }
       }
+    } else if (dragState.type === 'session' && dragState.sessionId) {
+      // Handle session drop on project (move out of folder)
+      await handleProjectDropForSession(e, targetProject);
+      return;
     }
     
     handleDragEnd();
@@ -455,6 +597,166 @@ export function DraggableProjectTreeView() {
     handleDragEnd();
   };
 
+  const handleFolderDragOver = (e: React.DragEvent, folder: Folder, projectId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('[DraggableProjectTreeView] Folder drag over:', { folder, projectId, dragState });
+    
+    // Allow sessions to be dropped into folders
+    if (dragState.type === 'session') {
+      setDragState(prev => ({
+        ...prev,
+        overType: 'folder',
+        overProjectId: projectId,
+        overFolderId: folder.id,
+        overSessionId: null
+      }));
+    } else if (dragState.type === 'folder' && dragState.folderId !== folder.id) {
+      // Allow folders to be reordered (but not nested)
+      setDragState(prev => ({
+        ...prev,
+        overType: 'folder',
+        overProjectId: projectId,
+        overFolderId: folder.id,
+        overSessionId: null
+      }));
+    }
+  };
+
+  const handleFolderDrop = async (e: React.DragEvent, folder: Folder, projectId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('[DraggableProjectTreeView] Folder drop:', { folder, projectId, dragState });
+    
+    if (dragState.type === 'session' && dragState.sessionId) {
+      // Move session into folder
+      try {
+        console.log('[DraggableProjectTreeView] Moving session', dragState.sessionId, 'to folder', folder.id);
+        const response = await API.folders.moveSession(dragState.sessionId, folder.id);
+        if (response.success) {
+          console.log('[DraggableProjectTreeView] Session moved successfully');
+          // Update local state
+          setProjectsWithSessions(prev => prev.map(project => {
+            if (project.id === projectId) {
+              const updatedSessions = project.sessions.map(session => 
+                session.id === dragState.sessionId 
+                  ? { ...session, folderId: folder.id }
+                  : session
+              );
+              console.log('[DraggableProjectTreeView] Updated sessions after move:', updatedSessions);
+              return { ...project, sessions: updatedSessions };
+            }
+            return project;
+          }));
+          
+          // Auto-expand the folder to show the moved session
+          setExpandedFolders(prev => new Set([...prev, folder.id]));
+        } else {
+          showError({
+            title: 'Failed to move session',
+            error: response.error || 'Unknown error occurred'
+          });
+        }
+      } catch (error: any) {
+        console.error('Failed to move session:', error);
+        showError({
+          title: 'Failed to move session',
+          error: error.message || 'Unknown error occurred'
+        });
+      }
+    } else if (dragState.type === 'folder' && dragState.folderId && dragState.folderId !== folder.id) {
+      // Reorder folders
+      try {
+        const project = projectsWithSessions.find(p => p.id === projectId);
+        if (project && project.folders) {
+          const draggedFolder = project.folders.find(f => f.id === dragState.folderId);
+          if (draggedFolder) {
+            // Calculate new order
+            const folders = [...project.folders].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+            const dragIndex = folders.findIndex(f => f.id === dragState.folderId);
+            const dropIndex = folders.findIndex(f => f.id === folder.id);
+            
+            if (dragIndex !== -1 && dropIndex !== -1) {
+              // Remove dragged folder and insert at new position
+              const [removed] = folders.splice(dragIndex, 1);
+              folders.splice(dropIndex, 0, removed);
+              
+              // Update display orders
+              const folderIds = folders.map(f => f.id);
+              const response = await API.folders.reorder(projectId, folderIds);
+              
+              if (response.success) {
+                // Update local state
+                setProjectsWithSessions(prev => prev.map(p => {
+                  if (p.id === projectId) {
+                    const updatedFolders = folders.map((f, index) => ({
+                      ...f,
+                      displayOrder: index
+                    }));
+                    return { ...p, folders: updatedFolders };
+                  }
+                  return p;
+                }));
+              } else {
+                showError({
+                  title: 'Failed to reorder folders',
+                  error: response.error || 'Unknown error occurred'
+                });
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error('Failed to reorder folders:', error);
+        showError({
+          title: 'Failed to reorder folders',
+          error: error.message || 'Unknown error occurred'
+        });
+      }
+    }
+    
+    handleDragEnd();
+  };
+
+  const handleProjectDropForSession = async (e: React.DragEvent, _targetProject: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (dragState.type === 'session' && dragState.sessionId) {
+      // Move session out of folder (set folderId to null)
+      try {
+        const response = await API.folders.moveSession(dragState.sessionId, null);
+        if (response.success) {
+          // Update local state
+          setProjectsWithSessions(prev => prev.map(project => {
+            const sessionIndex = project.sessions.findIndex(s => s.id === dragState.sessionId);
+            if (sessionIndex !== -1) {
+              const updatedSessions = [...project.sessions];
+              updatedSessions[sessionIndex] = { ...updatedSessions[sessionIndex], folderId: undefined };
+              return { ...project, sessions: updatedSessions };
+            }
+            return project;
+          }));
+        } else {
+          showError({
+            title: 'Failed to move session',
+            error: response.error || 'Unknown error occurred'
+          });
+        }
+      } catch (error: any) {
+        console.error('Failed to move session:', error);
+        showError({
+          title: 'Failed to move session',
+          error: error.message || 'Unknown error occurred'
+        });
+      }
+    }
+    
+    handleDragEnd();
+  };
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     dragCounter.current--;
@@ -463,7 +765,8 @@ export function DraggableProjectTreeView() {
         ...prev,
         overType: null,
         overProjectId: null,
-        overSessionId: null
+        overSessionId: null,
+        overFolderId: null
       }));
     }
   };
@@ -486,7 +789,7 @@ export function DraggableProjectTreeView() {
       <div className="space-y-1 px-2 pb-2">
         {projectsWithSessions.length === 0 ? (
           <EmptyState
-            icon={Folder}
+            icon={FolderIcon}
             title="No Projects Yet"
             description="Add your first project to start managing Claude Code sessions."
             action={{
@@ -546,7 +849,7 @@ export function DraggableProjectTreeView() {
                   {isExpanded ? (
                     <FolderOpen className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                   ) : (
-                    <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                    <FolderIcon className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                   )}
                   <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate text-left">
                     {project.name}
@@ -577,43 +880,163 @@ export function DraggableProjectTreeView() {
                 </button>
               </div>
               
-              {isExpanded && sessionCount > 0 && (
+              {isExpanded && (sessionCount > 0 || (project.folders && project.folders.length > 0)) && (
                 <div className="ml-4 mt-1 space-y-1">
-                  {project.sessions
-                    .sort((a, b) => {
-                      // Sort by display order only
-                      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
-                    })
-                    .map((session) => {
-                    const isDraggingOverSession = dragState.overType === 'session' && 
-                                                 dragState.overSessionId === session.id &&
-                                                 dragState.overProjectId === project.id;
-                    
-                    return (
-                      <div
-                        key={session.id}
-                        className={`group flex items-center ${
-                          isDraggingOverSession ? 'bg-blue-100 dark:bg-blue-900 rounded' : ''
-                        }`}
-                        draggable
-                        onDragStart={(e) => handleSessionDragStart(e, session, project.id)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={(e) => handleSessionDragOver(e, session, project.id)}
-                        onDrop={(e) => handleSessionDrop(e, session, project.id)}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                      >
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move pl-1">
-                          <GripVertical className="w-3 h-3 text-gray-400" />
+                  {/* Render folders */}
+                  {project.folders && project.folders
+                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                    .map((folder) => {
+                      const isExpanded = expandedFolders.has(folder.id);
+                      const folderSessions = project.sessions.filter(s => s.folderId === folder.id);
+                      const isDraggingOverFolder = dragState.overType === 'folder' && 
+                                                   dragState.overFolderId === folder.id;
+                      
+                      console.log('[DraggableProjectTreeView] Rendering folder:', {
+                        folder,
+                        isExpanded,
+                        folderSessionCount: folderSessions.length,
+                        isDraggingOverFolder
+                      });
+                      
+                      return (
+                        <div key={folder.id} className="ml-2">
+                          <div 
+                            className={`group flex items-center space-x-1 px-2 py-1 rounded cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                              isDraggingOverFolder ? 'bg-blue-100 dark:bg-blue-900' : ''
+                            }`}
+                            draggable
+                            onDragStart={(e) => handleFolderDragStart(e, folder, project.id)}
+                            onDragOver={(e) => handleFolderDragOver(e, folder, project.id)}
+                            onDrop={(e) => handleFolderDrop(e, folder, project.id)}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                          >
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move">
+                              <GripVertical className="w-3 h-3 text-gray-400" />
+                            </div>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFolder(folder.id);
+                              }}
+                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                              disabled={folderSessions.length === 0}
+                            >
+                              {folderSessions.length > 0 ? (
+                                isExpanded ? (
+                                  <ChevronDown className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                                )
+                              ) : (
+                                <div className="w-3 h-3" />
+                              )}
+                            </button>
+                            
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              {isExpanded ? (
+                                <FolderOpen className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                              ) : (
+                                <FolderIcon className="w-4 h-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                              )}
+                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                                {folder.name}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-500">
+                                ({folderSessions.length})
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {isExpanded && folderSessions.length > 0 && (
+                            <div className="ml-8 mt-1 space-y-1">
+                              {folderSessions
+                                .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                                .map((session) => {
+                                  const isDraggingOverSession = dragState.overType === 'session' && 
+                                                               dragState.overSessionId === session.id &&
+                                                               dragState.overProjectId === project.id;
+                                  
+                                  return (
+                                    <div
+                                      key={session.id}
+                                      className={`group flex items-center ${
+                                        isDraggingOverSession ? 'bg-blue-100 dark:bg-blue-900 rounded' : ''
+                                      }`}
+                                      draggable
+                                      onDragStart={(e) => handleSessionDragStart(e, session, project.id)}
+                                      onDragEnd={handleDragEnd}
+                                      onDragOver={(e) => handleSessionDragOver(e, session, project.id)}
+                                      onDrop={(e) => handleSessionDrop(e, session, project.id)}
+                                      onDragEnter={handleDragEnter}
+                                      onDragLeave={handleDragLeave}
+                                    >
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move pl-1">
+                                        <GripVertical className="w-3 h-3 text-gray-400" />
+                                      </div>
+                                      <SessionListItem 
+                                        key={session.id} 
+                                        session={session}
+                                        isNested
+                                      />
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
                         </div>
-                        <SessionListItem 
-                          key={session.id} 
-                          session={session}
-                          isNested
-                        />
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  
+                  {/* Render sessions without folders */}
+                  {project.sessions
+                    .filter(s => !s.folderId)
+                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                    .map((session) => {
+                      const isDraggingOverSession = dragState.overType === 'session' && 
+                                                   dragState.overSessionId === session.id &&
+                                                   dragState.overProjectId === project.id;
+                      
+                      return (
+                        <div
+                          key={session.id}
+                          className={`group flex items-center ${
+                            isDraggingOverSession ? 'bg-blue-100 dark:bg-blue-900 rounded' : ''
+                          }`}
+                          draggable
+                          onDragStart={(e) => handleSessionDragStart(e, session, project.id)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => handleSessionDragOver(e, session, project.id)}
+                          onDrop={(e) => handleSessionDrop(e, session, project.id)}
+                          onDragEnter={handleDragEnter}
+                          onDragLeave={handleDragLeave}
+                        >
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move pl-1">
+                            <GripVertical className="w-3 h-3 text-gray-400" />
+                          </div>
+                          <SessionListItem 
+                            key={session.id} 
+                            session={session}
+                            isNested
+                          />
+                        </div>
+                      );
+                    })}
+                  
+                  {/* Add folder button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedProjectForFolder(project);
+                      setShowCreateFolderDialog(true);
+                      setNewFolderName('');
+                    }}
+                    className="w-full px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Folder</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -806,6 +1229,58 @@ export function DraggableProjectTreeView() {
           projectId={pendingMainBranchProject.id}
           mainBranch={pendingMainBranchProject.main_branch || 'main'}
         />
+      )}
+      
+      {/* Create Folder Dialog */}
+      {showCreateFolderDialog && selectedProjectForFolder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 shadow-xl border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-200 mb-4">
+              Create Folder in {selectedProjectForFolder.name}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="My Folder"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newFolderName.trim()) {
+                      handleCreateFolder();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowCreateFolderDialog(false);
+                  setNewFolderName('');
+                  setSelectedProjectForFolder(null);
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Create Folder
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

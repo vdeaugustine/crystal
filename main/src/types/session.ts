@@ -17,6 +17,7 @@ export interface Session {
   isMainRepo?: boolean;
   displayOrder?: number;
   projectId?: number;
+  folderId?: string;
   isFavorite?: boolean;
   autoCommit?: boolean;
 }

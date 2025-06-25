@@ -112,6 +112,16 @@ interface ElectronAPI {
     listBranches: (projectId: string) => Promise<IPCResponse>;
   };
 
+  // Folders
+  folders: {
+    getByProject: (projectId: number) => Promise<IPCResponse>;
+    create: (name: string, projectId: number) => Promise<IPCResponse>;
+    update: (folderId: string, updates: { name?: string; display_order?: number }) => Promise<IPCResponse>;
+    delete: (folderId: string) => Promise<IPCResponse>;
+    reorder: (projectId: number, folderIds: string[]) => Promise<IPCResponse>;
+    moveSession: (sessionId: string, folderId: string | null) => Promise<IPCResponse>;
+  };
+
   // Configuration
   config: {
     get: () => Promise<IPCResponse>;
@@ -155,6 +165,12 @@ interface ElectronAPI {
     onSessionsLoaded: (callback: (sessions: any[]) => void) => () => void;
     onSessionOutput: (callback: (output: any) => void) => () => void;
     onSessionOutputAvailable: (callback: (info: any) => void) => () => void;
+    
+    // Folder events
+    onFolderCreated: (callback: (folder: any) => void) => () => void;
+    onFolderUpdated: (callback: (folder: any) => void) => () => void;
+    onFolderDeleted: (callback: (folderId: string) => void) => () => void;
+    
     onScriptOutput: (callback: (output: any) => void) => () => void;
     onMainLog: (callback: (level: string, message: string) => void) => () => void;
     onVersionUpdateAvailable: (callback: (versionInfo: any) => void) => () => void;
@@ -168,6 +184,35 @@ interface ElectronAPI {
     onUpdaterError: (callback: (error: any) => void) => () => void;
     
     removeAllListeners: (channel: string) => void;
+  };
+
+  // Debug utilities
+  debug: {
+    getTableStructure: (tableName: 'folders' | 'sessions') => Promise<IPCResponse<{
+      columns: Array<{
+        cid: number;
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: any;
+        pk: number;
+      }>;
+      foreignKeys: Array<{
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+        on_update: string;
+        on_delete: string;
+        match: string;
+      }>;
+      indexes: Array<{
+        name: string;
+        tbl_name: string;
+        sql: string;
+      }>;
+    }>>;
   };
 }
 
