@@ -5,7 +5,7 @@ import { CommitDialog } from './CommitDialog';
 import { API } from '../utils/api';
 import type { CombinedDiffViewProps } from '../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../types/diff';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 
 const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({ 
   sessionId, 
@@ -25,6 +25,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [lastVisibleState, setLastVisibleState] = useState<boolean>(isVisible);
+  const [forceRefresh, setForceRefresh] = useState<number>(0);
 
   // Load git commands to get main branch
   useEffect(() => {
@@ -57,9 +58,10 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   useEffect(() => {
     if (isVisible && !lastVisibleState) {
       // Tab just became visible - force refresh to get latest git state
-      console.log('View Diff tab became visible, refreshing git data...');
-      setExecutions([]); // Clear existing data to force reload
+      console.log('View Diff tab became visible, forcing refresh of git data...');
+      setForceRefresh(prev => prev + 1); // Increment to trigger reload
       setCombinedDiff(null); // Clear diff data
+      setSelectedExecutions([]); // Clear selection to force re-selection
     }
     setLastVisibleState(isVisible);
   }, [isVisible, lastVisibleState]);
@@ -121,7 +123,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }, 100); // Reduced to 100ms for more responsive loading
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, initialSelected, isMainRepo, isVisible]); // Added isVisible to dependencies
+  }, [sessionId, initialSelected, isMainRepo, isVisible, forceRefresh]); // Added isVisible and forceRefresh to dependencies
 
   // Load combined diff when selection changes
   useEffect(() => {
@@ -209,6 +211,13 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
+  };
+
+  const handleManualRefresh = () => {
+    console.log('Manual refresh triggered');
+    setForceRefresh(prev => prev + 1);
+    setCombinedDiff(null);
+    setSelectedExecutions([]);
   };
 
   const handleFileSave = useCallback((filePath: string) => {
@@ -375,6 +384,14 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
               <span className="text-gray-400">{combinedDiff.stats.filesChanged} {combinedDiff.stats.filesChanged === 1 ? 'file' : 'files'}</span>
             </div>
           )}
+          <button
+            onClick={handleManualRefresh}
+            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            title="Refresh git data"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          </button>
           <button
             onClick={toggleFullscreen}
             className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
