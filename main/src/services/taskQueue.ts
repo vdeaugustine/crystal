@@ -304,11 +304,18 @@ export class TaskQueue {
         folderId = folder.id;
         console.log(`[TaskQueue] Created folder "${folderName}" with ID ${folderId} for ${count} sessions`);
         
-        // Emit folder created event
+        // Emit folder created event immediately and wait for it to be processed
         const getMainWindow = this.options.getMainWindow;
         const mainWindow = getMainWindow();
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log(`[TaskQueue] Emitting folder:created event for folder ${folder.id}`);
           mainWindow.webContents.send('folder:created', folder);
+          console.log(`[TaskQueue] folder:created event emitted successfully`);
+          
+          // Wait a bit to ensure the frontend has processed the folder event
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } else {
+          console.warn(`[TaskQueue] Could not emit folder:created event - main window not available`);
         }
       } catch (error) {
         console.error('[TaskQueue] Failed to create folder for multi-session prompt:', error);

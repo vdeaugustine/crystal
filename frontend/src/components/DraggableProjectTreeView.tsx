@@ -65,20 +65,49 @@ export function DraggableProjectTreeView() {
   const dragCounter = useRef(0);
 
   const handleFolderCreated = (folder: Folder) => {
-    console.log('[DraggableProjectTreeView] Folder created:', folder);
+    console.log('[DraggableProjectTreeView] Folder created event received:', {
+      id: folder.id,
+      name: folder.name,
+      projectId: folder.projectId,
+      displayOrder: folder.displayOrder
+    });
+    
     // Add the folder to the appropriate project
-    setProjectsWithSessions(prevProjects => 
-      prevProjects.map(project => {
+    setProjectsWithSessions(prevProjects => {
+      console.log('[DraggableProjectTreeView] Current projects before folder add:', prevProjects.map(p => ({ id: p.id, name: p.name, folderCount: p.folders?.length || 0 })));
+      
+      const updatedProjects = prevProjects.map(project => {
         if (project.id === folder.projectId) {
-          console.log('[DraggableProjectTreeView] Adding folder to project:', project.name);
-          return {
+          console.log('[DraggableProjectTreeView] Found matching project, adding folder to:', project.name);
+          const updatedProject = {
             ...project,
             folders: [...(project.folders || []), folder]
           };
+          console.log('[DraggableProjectTreeView] Updated project folders:', updatedProject.folders);
+          return updatedProject;
         }
         return project;
-      })
-    );
+      });
+      
+      console.log('[DraggableProjectTreeView] Projects after folder add:', updatedProjects.map(p => ({ id: p.id, name: p.name, folderCount: p.folders?.length || 0 })));
+      return updatedProjects;
+    });
+    
+    // Auto-expand the folder when it's created
+    setExpandedFolders(prev => {
+      const newSet = new Set([...prev, folder.id]);
+      console.log('[DraggableProjectTreeView] Expanded folders after add:', Array.from(newSet));
+      return newSet;
+    });
+    
+    // Also auto-expand the project that contains the new folder
+    if (folder.projectId) {
+      setExpandedProjects(prev => {
+        const newSet = new Set([...prev, folder.projectId]);
+        console.log('[DraggableProjectTreeView] Expanded projects after add:', Array.from(newSet));
+        return newSet;
+      });
+    }
   };
 
   useEffect(() => {
@@ -86,12 +115,32 @@ export function DraggableProjectTreeView() {
     
     // Set up event listeners for session updates with targeted updates
     const handleSessionCreated = (newSession: Session) => {
-      console.log('[DraggableProjectTreeView] Session created:', newSession.id, 'for project:', newSession.projectId);
+      console.log('[DraggableProjectTreeView] Session created:', {
+        id: newSession.id, 
+        projectId: newSession.projectId,
+        folderId: newSession.folderId,
+        name: newSession.name
+      });
       
       if (!newSession.projectId) {
         console.warn('[DraggableProjectTreeView] Session created without projectId, reloading all');
         loadProjectsWithSessions();
         return;
+      }
+      
+      // Check if this session belongs to a folder that might not exist yet
+      if (newSession.folderId) {
+        const project = projectsWithSessions.find(p => p.id === newSession.projectId);
+        const folderExists = project?.folders?.some(f => f.id === newSession.folderId);
+        
+        if (!folderExists) {
+          console.log('[DraggableProjectTreeView] Session has folderId but folder not found in state, reloading projects');
+          console.log('[DraggableProjectTreeView] Looking for folder:', newSession.folderId);
+          console.log('[DraggableProjectTreeView] Current folders in project:', project?.folders?.map(f => f.id));
+          // Reload to get the folder that might have been created
+          loadProjectsWithSessions();
+          return;
+        }
       }
       
       // Add the new session to the appropriate project without reloading everything
@@ -121,6 +170,12 @@ export function DraggableProjectTreeView() {
       // Auto-expand the project that contains the new session
       if (newSession.projectId) {
         setExpandedProjects(prev => new Set([...prev, newSession.projectId!]));
+      }
+      
+      // If the session has a folderId, auto-expand that folder too
+      if (newSession.folderId) {
+        setExpandedFolders(prev => new Set([...prev, newSession.folderId!]));
+        console.log('[DraggableProjectTreeView] Auto-expanding folder:', newSession.folderId);
       }
     };
     
@@ -203,12 +258,26 @@ export function DraggableProjectTreeView() {
         
         // Auto-expand projects that have sessions
         const projectsToExpand = new Set<number>();
+        const foldersToExpand = new Set<string>();
+        
         response.data.forEach((project: ProjectWithSessions) => {
           if (project.sessions.length > 0) {
             projectsToExpand.add(project.id);
           }
+          
+          // Auto-expand folders that contain sessions
+          if (project.folders && project.folders.length > 0) {
+            project.folders.forEach(folder => {
+              const folderHasSessions = project.sessions.some(s => s.folderId === folder.id);
+              if (folderHasSessions) {
+                foldersToExpand.add(folder.id);
+              }
+            });
+          }
         });
+        
         setExpandedProjects(projectsToExpand);
+        setExpandedFolders(foldersToExpand);
         
         // Also expand the project containing the active session
         if (activeSessionId) {
