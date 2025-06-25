@@ -12,7 +12,7 @@ jobs:
         os: [macos-latest, ubuntu-latest]
         include:
           - os: macos-latest
-            release_cmd: release:mac:universal
+            release_cmd: release:mac
             artifact_name: crystal-macos
             artifact_path: |
               dist-electron/*.dmg

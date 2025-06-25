@@ -110,10 +110,10 @@
       "target": [
         {
           "target": "default",
-          "arch": ["x64", "arm64"]
+          "arch": "universal"
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-macOS-universal.${ext}"
     },
     "linux": {
       "target": [
@@ -136,10 +136,11 @@
       }
     },
     "deb": {
-      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1"]
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1"],
+      "artifactName": "${productName}-${version}-linux-${arch}.deb"
     },
     "appImage": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "publish": {
       "provider": "github",
