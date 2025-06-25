@@ -124,10 +124,6 @@
         {
           "target": "AppImage",
           "arch": ["x64"]
-        },
-        {
-          "target": "snap",
-          "arch": ["x64"]
         }
       ],
       "category": "Development",
@@ -144,10 +140,6 @@
     },
     "appImage": {
       "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "snap": {
-      "grade": "stable",
-      "confinement": "classic"
     },
     "publish": {
       "provider": "github",

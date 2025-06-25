@@ -24,7 +24,6 @@ jobs:
             artifact_path: |
               dist-electron/*.deb
               dist-electron/*.AppImage
-              dist-electron/*.snap
               dist-electron/latest-linux.yml
     
     runs-on: ${{ matrix.os }}
