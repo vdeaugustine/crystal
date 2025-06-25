@@ -9,7 +9,7 @@ jobs:
   release:
     strategy:
       matrix:
-        os: [macos-latest]  # ubuntu-latest commented out
+        os: [macos-latest, ubuntu-latest]
         include:
           - os: macos-latest
             release_cmd: release:mac
@@ -18,15 +18,14 @@ jobs:
               dist-electron/*.dmg
               dist-electron/*.zip
               dist-electron/latest-mac.yml
-          # - os: ubuntu-latest
-          #   release_cmd: release:linux
-          #   artifact_name: crystal-linux
-          #   artifact_path: |
-          #     dist-electron/*.deb
-          #     dist-electron/*.AppImage
-          #     dist-electron/*.snap
-          #     dist-electron/*.flatpak
-          #     dist-electron/latest-linux.yml
+          - os: ubuntu-latest
+            release_cmd: release:linux
+            artifact_name: crystal-linux
+            artifact_path: |
+              dist-electron/*.deb
+              dist-electron/*.AppImage
+              dist-electron/*.snap
+              dist-electron/latest-linux.yml
     
     runs-on: ${{ matrix.os }}
     
