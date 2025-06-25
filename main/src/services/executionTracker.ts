@@ -93,7 +93,14 @@ export class ExecutionTracker extends EventEmitter {
             execSync('git add -A', { cwd: context.worktreePath });
             
             // Create commit message from prompt or use default
-            const commitMessage = context.prompt || `Claude Code execution ${context.executionSequence}`;
+            let commitMessage = context.prompt || `Claude Code execution ${context.executionSequence}`;
+            
+            // Truncate long prompts for commit messages
+            const MAX_COMMIT_MESSAGE_LENGTH = 50; // Limit to 50 characters as requested
+            if (commitMessage.length > MAX_COMMIT_MESSAGE_LENGTH) {
+              // Truncate to fit within the limit, leaving room for ellipsis
+              commitMessage = commitMessage.substring(0, MAX_COMMIT_MESSAGE_LENGTH - 3) + '...';
+            }
             
             // Commit with the prompt as the message
             execSync(`git commit -m ${JSON.stringify(commitMessage)}`, { cwd: context.worktreePath });
@@ -107,10 +114,17 @@ export class ExecutionTracker extends EventEmitter {
         const errorDetails = commitError.stderr || commitError.stdout || commitError.message || 'Unknown error';
         const timestamp = formatForDisplay(new Date());
         
+        // Use the same truncation logic for the error message display
+        let displayMessage = context.prompt || `Claude Code execution ${context.executionSequence}`;
+        const MAX_COMMIT_MESSAGE_LENGTH = 50;
+        if (displayMessage.length > MAX_COMMIT_MESSAGE_LENGTH) {
+          displayMessage = displayMessage.substring(0, MAX_COMMIT_MESSAGE_LENGTH - 3) + '...';
+        }
+        
         const errorMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[41m\x1b[37m ❌ GIT COMMIT FAILED \x1b[0m\r\n` +
                            `\x1b[91mFailed to auto-commit changes during Claude Code execution.\x1b[0m\r\n` +
                            `\x1b[91mThis usually means a pre-commit hook failed.\x1b[0m\r\n\r\n` +
-                           `\x1b[90mCommand: git commit -m "${context.prompt || `Claude Code execution ${context.executionSequence}`}"\x1b[0m\r\n\r\n` +
+                           `\x1b[90mCommand: git commit -m "${displayMessage}"\x1b[0m\r\n\r\n` +
                            `\x1b[91mError output:\x1b[0m\r\n${errorDetails}\r\n\r\n` +
                            `\x1b[93m⚠️  Changes remain uncommitted. You may need to fix the issues and commit manually.\x1b[0m\r\n\r\n`;
         
