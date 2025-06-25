@@ -78,4 +78,23 @@ release/
 *.sqlite3
 *.db-journal
 
+# Database files
+main/crystal.db
+main/*.db
+
+# Test results and reports
+test-results/
+playwright-report/
+test-report/
+
+# Temporary test files
+test-file.txt
+*.test.tmp
+
+# Crystal user data directory (if accidentally placed in repo)
+.crystal/
+
+# Generated TypeScript files
+frontend/vite.config.d.ts
+
 # Generated files
