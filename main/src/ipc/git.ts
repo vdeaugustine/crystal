@@ -1,6 +1,6 @@
 import { IpcMain } from 'electron';
 import type { AppServices } from './types';
-import { execSync } from 'child_process';
+import { execSync } from '../utils/commandExecutor';
 
 export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): void {
   const { sessionManager, gitDiffManager, worktreeManager, claudeCodeManager } = services;

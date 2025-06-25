@@ -105,7 +105,7 @@ export async function findClaudeExecutable(): Promise<string | null> {
   return null;
 }
 
-export async function testClaudeCodeAvailability(): Promise<{ available: boolean; error?: string; version?: string; path?: string }> {
+export async function testClaudeCodeAvailability(customClaudePath?: string): Promise<{ available: boolean; error?: string; version?: string; path?: string }> {
   console.log('[ClaudeTest] Testing Claude Code availability...');
   console.log(`[ClaudeTest] Platform: ${os.platform()}`);
   
@@ -114,8 +114,25 @@ export async function testClaudeCodeAvailability(): Promise<{ available: boolean
     const shellPath = getShellPath();
     console.log(`[ClaudeTest] Using shell PATH with ${shellPath.split(os.platform() === 'win32' ? ';' : ':').length} entries`);
     
-    // Try to find claude in the shell PATH
-    const claudePath = findExecutableInPath('claude');
+    // Use custom path if provided, otherwise try to find claude in the shell PATH
+    let claudePath: string | null = null;
+    
+    if (customClaudePath) {
+      console.log(`[ClaudeTest] Using custom Claude path: ${customClaudePath}`);
+      // Verify the custom path exists and is executable
+      try {
+        await fs.promises.access(customClaudePath, fs.constants.X_OK);
+        claudePath = customClaudePath;
+      } catch (error) {
+        console.error(`[ClaudeTest] Custom Claude path is not accessible or not executable: ${customClaudePath}`);
+        return { 
+          available: false, 
+          error: `Custom Claude path is not valid or not executable: ${customClaudePath}` 
+        };
+      }
+    } else {
+      claudePath = findExecutableInPath('claude');
+    }
     
     if (!claudePath) {
       console.error('[ClaudeTest] Claude executable not found in PATH');
@@ -162,7 +179,7 @@ export async function testClaudeCodeAvailability(): Promise<{ available: boolean
   }
 }
 
-export async function testClaudeCodeInDirectory(directory: string): Promise<{ success: boolean; error?: string; output?: string }> {
+export async function testClaudeCodeInDirectory(directory: string, customClaudePath?: string): Promise<{ success: boolean; error?: string; output?: string }> {
   console.log(`[ClaudeTest] Testing Claude in directory: ${directory}`);
   
   try {
@@ -171,8 +188,11 @@ export async function testClaudeCodeInDirectory(directory: string): Promise<{ su
     const env = { ...process.env, PATH: shellPath };
     const timeout = os.platform() === 'linux' ? 3000 : 10000;  // Shorter timeout for Linux
     
-    console.log(`[ClaudeTest] Running 'claude --help' in ${directory} with timeout ${timeout}ms...`);
-    const { stdout, stderr } = await execAsync('claude --help', { 
+    // Use custom path if provided, otherwise use 'claude' which will be found in PATH
+    const claudeCommand = customClaudePath || 'claude';
+    
+    console.log(`[ClaudeTest] Running '${claudeCommand} --help' in ${directory} with timeout ${timeout}ms...`);
+    const { stdout, stderr } = await execAsync(`"${claudeCommand}" --help`, { 
       cwd: directory,
       timeout,
       env

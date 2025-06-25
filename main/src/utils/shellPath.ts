@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ShellDetector } from './shellDetector';
 
 // Try to import app from electron (might not be available in all contexts)
 let app: any;
@@ -73,9 +74,12 @@ export function getShellPath(): string {
         // PowerShell might not be available, continue with cmd.exe result
       }
     } else {
-      // Unix/macOS logic
-      const shell = process.env.SHELL || '/bin/bash';
+      // Unix/macOS logic - use ShellDetector to get the actual shell
+      const shellInfo = ShellDetector.getDefaultShell();
+      const shell = shellInfo.path;
       const isLinux = process.platform === 'linux';
+      
+      console.log(`[ShellPath] Detected shell: ${shell} (${shellInfo.name})`);
       
       // For Linux, avoid slow interactive shell startup
       // Use non-interactive mode for better performance

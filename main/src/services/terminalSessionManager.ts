@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 import { getShellPath } from '../utils/shellPath';
+import { ShellDetector } from '../utils/shellDetector';
 
 interface TerminalSession {
   pty: pty.IPty;
@@ -22,10 +23,13 @@ export class TerminalSessionManager extends EventEmitter {
     // For Linux, use the current PATH to avoid slow shell detection
     const isLinux = process.platform === 'linux';
     const shellPath = isLinux ? (process.env.PATH || '') : getShellPath();
-    const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+    
+    // Get the user's default shell
+    const shellInfo = ShellDetector.getDefaultShell();
+    console.log(`Using shell: ${shellInfo.path} (${shellInfo.name})`);
     
     // Create a new PTY instance with proper terminal settings
-    const ptyProcess = pty.spawn(shell, [], {
+    const ptyProcess = pty.spawn(shellInfo.path, shellInfo.args || [], {
       name: 'xterm-256color',  // Better terminal emulation
       cwd: worktreePath,
       cols: 80,

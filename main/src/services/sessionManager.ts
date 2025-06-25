@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess, exec } from 'child_process';
+import { ShellDetector } from '../utils/shellDetector';
 import type { Session, SessionUpdate, SessionOutput } from '../types/session';
 import type { DatabaseService } from '../database/database';
 import type { Session as DbSession, CreateSessionData, UpdateSessionData, ConversationMessage, PromptMarker, ExecutionDiff, CreateExecutionDiffData, Project } from '../database/models';
@@ -599,8 +600,11 @@ export class SessionManager extends EventEmitter {
     // Get enhanced shell PATH
     const shellPath = getShellPath();
     
+    // Get the user's default shell and command arguments
+    const { shell, args } = ShellDetector.getShellCommandArgs(command);
+    
     // Spawn the process with its own process group for easier termination
-    this.runningScriptProcess = spawn('sh', ['-c', command], {
+    this.runningScriptProcess = spawn(shell, args, {
       cwd: workingDirectory,
       stdio: 'pipe',
       detached: true, // Create a new process group

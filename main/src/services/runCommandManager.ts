@@ -4,6 +4,7 @@ import type { Logger } from '../utils/logger';
 import type { DatabaseService } from '../database/database';
 import type { ProjectRunCommand } from '../database/models';
 import { getShellPath } from '../utils/shellPath';
+import { ShellDetector } from '../utils/shellDetector';
 
 interface RunProcess {
   process: pty.IPty;
@@ -69,27 +70,26 @@ export class RunCommandManager extends EventEmitter {
               this.logger?.verbose(`Env WORKTREE_PATH check: ${env.WORKTREE_PATH}`);
             }
             
-            // Determine shell and command format based on platform
+            // Get the user's default shell
+            const shellInfo = ShellDetector.getDefaultShell();
+            this.logger?.verbose(`Using shell: ${shellInfo.path} (${shellInfo.name})`);
+            
+            // Prepare command with environment variable
             const isWindows = process.platform === 'win32';
-            let shell: string;
-            let shellArgs: string[];
             let commandWithEnv: string;
             
             if (isWindows) {
-              // Use cmd.exe on Windows
-              shell = process.env.COMSPEC || 'cmd.exe';
               // Windows command format: set VAR=value && command
               const escapedWorktreePath = worktreePath.replace(/"/g, '""');
               commandWithEnv = `set WORKTREE_PATH="${escapedWorktreePath}" && ${commandLine}`;
-              shellArgs = ['/c', commandWithEnv];
             } else {
               // Unix/macOS
               const escapedWorktreePath = worktreePath.replace(/'/g, "'\"'\"'");
-              const userShell = process.env.SHELL || '/bin/bash';
-              shell = userShell;
               commandWithEnv = `export WORKTREE_PATH='${escapedWorktreePath}' && ${commandLine}`;
-              shellArgs = ['-c', commandWithEnv];
             }
+            
+            // Get shell command arguments
+            const { shell, args: shellArgs } = ShellDetector.getShellCommandArgs(commandWithEnv);
             
             this.logger?.verbose(`Using shell: ${shell}`);
             this.logger?.verbose(`Full command: ${commandWithEnv}`);

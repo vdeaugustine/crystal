@@ -68,14 +68,17 @@ export class ClaudeCodeManager extends EventEmitter {
       // Test if claude-code command exists and works (with caching)
       let availability;
       
+      // Get custom claude path if configured
+      const customClaudePath = this.configManager?.getConfig()?.claudeExecutablePath;
+      
       // Check cache first
       if (this.availabilityCache && 
           (Date.now() - this.availabilityCache.timestamp) < this.CACHE_TTL) {
         availability = this.availabilityCache.result;
         this.logger?.verbose(`Using cached Claude availability check`);
       } else {
-        // Perform fresh check
-        availability = await testClaudeCodeAvailability();
+        // Perform fresh check, passing custom path if available
+        availability = await testClaudeCodeAvailability(customClaudePath);
         
         // Cache the result
         this.availabilityCache = {
@@ -132,8 +135,8 @@ export class ClaudeCodeManager extends EventEmitter {
       // Skip directory test on Linux for better performance
       const skipDirTest = os.platform() === 'linux';
       if (!skipDirTest) {
-        // Test claude in the target directory
-        const directoryTest = await testClaudeCodeInDirectory(worktreePath);
+        // Test claude in the target directory, using custom path if available
+        const directoryTest = await testClaudeCodeInDirectory(worktreePath, customClaudePath);
         if (!directoryTest.success) {
           this.logger?.error(`Claude test failed in directory ${worktreePath}: ${directoryTest.error}`);
           if (directoryTest.output) {
@@ -456,7 +459,10 @@ export class ClaudeCodeManager extends EventEmitter {
       
       // Use custom claude path if configured, otherwise find it in PATH
       let claudeCommand = this.configManager?.getConfig()?.claudeExecutablePath;
-      if (!claudeCommand) {
+      if (claudeCommand) {
+        this.logger?.info(`[ClaudeManager] Using custom Claude executable path: ${claudeCommand}`);
+      } else {
+        this.logger?.verbose(`[ClaudeManager] No custom Claude path configured, searching in PATH...`);
         const foundPath = findExecutableInPath('claude');
         if (!foundPath) {
           // Emit a pseudo-message to show the error in the UI
@@ -876,5 +882,14 @@ export class ClaudeCodeManager extends EventEmitter {
 
   async stopSession(sessionId: string): Promise<void> {
     await this.killProcess(sessionId);
+  }
+
+  /**
+   * Clear the Claude availability cache
+   * This should be called when settings change (e.g., custom Claude path)
+   */
+  clearAvailabilityCache(): void {
+    this.availabilityCache = null;
+    this.logger?.verbose('[ClaudeManager] Cleared Claude availability cache');
   }
 }
