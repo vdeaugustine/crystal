@@ -319,6 +319,98 @@ export function DraggableProjectTreeView() {
     });
   };
 
+  const handleDeleteFolder = async (folder: Folder, projectId: number) => {
+    // Check if folder has sessions
+    const project = projectsWithSessions.find(p => p.id === projectId);
+    if (!project) return;
+    
+    const folderSessions = project.sessions.filter(s => s.folderId === folder.id);
+    
+    // Show confirmation dialog
+    const message = folderSessions.length > 0
+      ? `Delete folder "${folder.name}" and permanently delete ${folderSessions.length} session${folderSessions.length > 1 ? 's' : ''} inside it? This action cannot be undone.`
+      : `Delete empty folder "${folder.name}"?`;
+    
+    const confirmed = window.confirm(message);
+    
+    if (confirmed) {
+      try {
+        // First, delete all sessions in the folder
+        if (folderSessions.length > 0) {
+          console.log(`Deleting ${folderSessions.length} sessions in folder "${folder.name}"`);
+          
+          // Delete each session
+          for (const session of folderSessions) {
+            try {
+              const sessionResponse = await API.sessions.delete(session.id);
+              if (!sessionResponse.success) {
+                throw new Error(`Failed to delete session "${session.name}": ${sessionResponse.error}`);
+              }
+              console.log(`Deleted session: ${session.name}`);
+            } catch (error: any) {
+              console.error(`Error deleting session ${session.name}:`, error);
+              showError({
+                title: `Failed to delete session "${session.name}"`,
+                error: error.message || 'Unknown error occurred'
+              });
+              // Stop the entire operation if a session fails to delete
+              return;
+            }
+          }
+          
+          // Update local state to remove deleted sessions
+          setProjectsWithSessions(prev => prev.map(p => {
+            if (p.id === projectId) {
+              const updatedSessions = p.sessions.filter(s => !folderSessions.some(fs => fs.id === s.id));
+              return { ...p, sessions: updatedSessions };
+            }
+            return p;
+          }));
+          
+          // Clear active session if it was one of the deleted sessions
+          const activeSessionId = useSessionStore.getState().activeSessionId;
+          if (activeSessionId && folderSessions.some(s => s.id === activeSessionId)) {
+            useSessionStore.getState().setActiveSession(null);
+          }
+        }
+        
+        // Then delete the folder
+        console.log(`Deleting folder: ${folder.name}`);
+        const response = await API.folders.delete(folder.id);
+        if (response.success) {
+          // Update local state to remove the folder
+          setProjectsWithSessions(prev => prev.map(p => {
+            if (p.id === projectId) {
+              const updatedFolders = p.folders?.filter(f => f.id !== folder.id) || [];
+              return { ...p, folders: updatedFolders };
+            }
+            return p;
+          }));
+          
+          // Remove from expanded folders set
+          setExpandedFolders(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(folder.id);
+            return newSet;
+          });
+          
+          console.log(`Successfully deleted folder "${folder.name}" and ${folderSessions.length} sessions`);
+        } else {
+          showError({
+            title: 'Failed to delete folder',
+            error: response.error || 'Unknown error occurred'
+          });
+        }
+      } catch (error: any) {
+        console.error('Failed to delete folder:', error);
+        showError({
+          title: 'Failed to delete folder',
+          error: error.message || 'Unknown error occurred'
+        });
+      }
+    }
+  };
+
   const handleProjectClick = async (project: Project) => {
     // Check if we should show the warning
     const warningKey = `mainBranchWarning_${project.id}`;
@@ -970,7 +1062,7 @@ export function DraggableProjectTreeView() {
                       return (
                         <div key={folder.id} className="ml-2">
                           <div 
-                            className={`group flex items-center space-x-1 px-2 py-1 rounded cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                            className={`group/folder flex items-center space-x-1 px-2 py-1 rounded cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
                               isDraggingOverFolder ? 'bg-blue-100 dark:bg-blue-900' : ''
                             }`}
                             draggable
@@ -980,7 +1072,7 @@ export function DraggableProjectTreeView() {
                             onDragEnter={handleDragEnter}
                             onDragLeave={handleDragLeave}
                           >
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move">
+                            <div className="opacity-0 group-hover/folder:opacity-100 transition-opacity cursor-move">
                               <GripVertical className="w-3 h-3 text-gray-400" />
                             </div>
                             
@@ -1016,6 +1108,18 @@ export function DraggableProjectTreeView() {
                                 ({folderSessions.length})
                               </span>
                             </div>
+                            
+                            {/* Delete folder button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFolder(folder, project.id);
+                              }}
+                              className="opacity-0 group-hover/folder:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 dark:hover:bg-red-600/20"
+                              title="Delete folder"
+                            >
+                              <span className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">🗑️</span>
+                            </button>
                           </div>
                           
                           {isExpanded && folderSessions.length > 0 && (
