@@ -405,23 +405,141 @@ export class DatabaseService {
       console.log('[Database] Added auto_commit column to sessions table');
     }
 
-    // Create folders table
-    this.db.prepare(`
-      CREATE TABLE IF NOT EXISTS folders (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        project_id INTEGER NOT NULL,
-        display_order INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-      )
-    `).run();
+    // Handle folder table migration
+    // First, check if project_folders table exists (old schema)
+    const projectFoldersExists = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='project_folders'").all().length > 0;
+    const foldersExists = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='folders'").all().length > 0;
+    
+    if (projectFoldersExists) {
+      console.log('[Database] Found legacy project_folders table, migrating to new folders schema...');
+      
+      // Check if the old folders table has INTEGER id
+      if (foldersExists) {
+        const foldersInfo = this.db.prepare("PRAGMA table_info(folders)").all();
+        const idColumn = foldersInfo.find((col: any) => col.name === 'id') as any;
+        
+        if (idColumn && idColumn.type === 'INTEGER') {
+          // Old folders table with INTEGER id exists, drop it
+          console.log('[Database] Dropping old folders table with INTEGER id...');
+          this.db.prepare('DROP TABLE IF EXISTS folders').run();
+        }
+      }
+      
+      // Create new folders table with TEXT id
+      this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS folders (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          project_id INTEGER NOT NULL,
+          display_order INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+      `).run();
+      
+      // Migrate data from project_folders to folders
+      const projectFolders = this.db.prepare('SELECT * FROM project_folders').all() as any[];
+      console.log(`[Database] Migrating ${projectFolders.length} folders from project_folders to folders table...`);
+      
+      for (const folder of projectFolders) {
+        const newId = `folder-${folder.id}-${Date.now()}`;
+        this.db.prepare(`
+          INSERT INTO folders (id, name, project_id, display_order, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(newId, folder.name, folder.project_id, folder.display_order || 0, folder.created_at, folder.updated_at);
+        
+        // Update sessions that reference this folder
+        this.db.prepare(`
+          UPDATE sessions 
+          SET folder_id = ? 
+          WHERE folder_id = ?
+        `).run(newId, folder.id);
+      }
+      
+      // Drop the old project_folders table
+      this.db.prepare('DROP TABLE project_folders').run();
+      console.log('[Database] Dropped legacy project_folders table');
+      
+      // Update sessions table folder_id column type if needed
+      const sessionTableInfo = this.db.prepare("PRAGMA table_info(sessions)").all();
+      const folderIdColumn = sessionTableInfo.find((col: any) => col.name === 'folder_id') as any;
+      
+      if (folderIdColumn && folderIdColumn.type === 'INTEGER') {
+        console.log('[Database] Converting sessions.folder_id from INTEGER to TEXT...');
+        
+        // Create new sessions table with correct schema
+        this.db.prepare(`
+          CREATE TABLE sessions_folders_migration (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            initial_prompt TEXT NOT NULL,
+            worktree_name TEXT NOT NULL,
+            worktree_path TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_output TEXT,
+            exit_code INTEGER,
+            pid INTEGER,
+            claude_session_id TEXT,
+            archived BOOLEAN DEFAULT 0,
+            last_viewed_at DATETIME,
+            project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+            permission_mode TEXT DEFAULT 'ignore' CHECK(permission_mode IN ('approve', 'ignore')),
+            run_started_at DATETIME,
+            is_main_repo BOOLEAN DEFAULT 0,
+            display_order INTEGER,
+            is_favorite BOOLEAN DEFAULT 0,
+            folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
+            auto_commit BOOLEAN DEFAULT 1
+          )
+        `).run();
+        
+        // Copy data, folder_id has already been converted to TEXT values above
+        this.db.prepare(`
+          INSERT INTO sessions_folders_migration 
+          SELECT * FROM sessions
+        `).run();
+        
+        // Drop old table and rename new one
+        this.db.prepare('DROP TABLE sessions').run();
+        this.db.prepare('ALTER TABLE sessions_folders_migration RENAME TO sessions').run();
+        
+        // Recreate indexes
+        this.db.prepare("CREATE INDEX idx_sessions_archived ON sessions(archived)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_project_id ON sessions(project_id)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_is_main_repo ON sessions(is_main_repo, project_id)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_display_order ON sessions(project_id, display_order)").run();
+        this.db.prepare("CREATE INDEX idx_sessions_folder_id ON sessions(folder_id)").run();
+        
+        console.log('[Database] Successfully converted sessions.folder_id to TEXT type');
+      }
+    } else {
+      // No project_folders table, create folders table normally
+      this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS folders (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          project_id INTEGER NOT NULL,
+          display_order INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+      `).run();
+    }
 
     // Create index on folders project_id
     this.db.prepare(`
       CREATE INDEX IF NOT EXISTS idx_folders_project_id 
       ON folders(project_id)
+    `).run();
+    
+    // Create additional index for display order
+    this.db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_folders_display_order 
+      ON folders(project_id, display_order)
     `).run();
 
     // Add folder_id column to sessions table if it doesn't exist
