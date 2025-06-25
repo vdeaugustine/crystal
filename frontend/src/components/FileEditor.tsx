@@ -200,11 +200,37 @@ function FileTree({ sessionId, onFileSelect, selectedPath }: FileTreeProps) {
   }, [files, loadFiles]);
 
   const handleDelete = useCallback(async (file: FileItem) => {
-    // TODO: Implement delete confirmation dialog
-    // For now, just log that delete was clicked
-    console.log('Delete clicked for:', file.name);
-    setError('Delete functionality not yet implemented');
-  }, []);
+    const confirmMessage = file.isDirectory 
+      ? `Are you sure you want to delete the folder "${file.name}" and all its contents?`
+      : `Are you sure you want to delete the file "${file.name}"?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.invoke('file:delete', {
+        sessionId,
+        filePath: file.path
+      });
+      
+      if (result.success) {
+        // Refresh the parent directory
+        const parentPath = file.path.split('/').slice(0, -1).join('/') || '';
+        loadFiles(parentPath);
+        
+        // If the deleted file was selected, clear the selection
+        if (selectedPath === file.path) {
+          onFileSelect(null as any);
+        }
+      } else {
+        setError(`Failed to delete ${file.isDirectory ? 'folder' : 'file'}: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete item');
+    }
+  }, [sessionId, loadFiles, selectedPath, onFileSelect]);
 
   const handleNewFile = useCallback(() => {
     setShowNewItemDialog('file');

@@ -25,6 +25,11 @@ interface FileListRequest {
   path?: string;
 }
 
+interface FileDeleteRequest {
+  sessionId: string;
+  filePath: string;
+}
+
 interface FileItem {
   name: string;
   path: string;
@@ -467,6 +472,61 @@ EOF
       return { success: true, files };
     } catch (error) {
       console.error('Error listing files:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
+
+  // Delete a file from a session's worktree
+  ipcMain.handle('file:delete', async (_, request: FileDeleteRequest) => {
+    try {
+      const session = sessionManager.getSession(request.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${request.sessionId}`);
+      }
+
+      // Ensure the file path is relative and safe
+      const normalizedPath = path.normalize(request.filePath);
+      if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+        throw new Error('Invalid file path');
+      }
+
+      const fullPath = path.join(session.worktreePath, normalizedPath);
+      
+      // Verify the file is within the worktree
+      // First resolve the worktree path to handle symlinks
+      const resolvedWorktreePath = await fs.realpath(session.worktreePath).catch(() => session.worktreePath);
+      
+      // Check if the file exists and resolve its path
+      let resolvedFilePath: string;
+      try {
+        resolvedFilePath = await fs.realpath(fullPath);
+      } catch (err) {
+        // File doesn't exist
+        throw new Error(`File not found: ${normalizedPath}`);
+      }
+      
+      // Check if the resolved path is within the worktree
+      if (!resolvedFilePath.startsWith(resolvedWorktreePath)) {
+        throw new Error('File path is outside worktree');
+      }
+
+      // Check if it's a directory or file
+      const stats = await fs.stat(resolvedFilePath);
+      
+      if (stats.isDirectory()) {
+        // For directories, use rm with recursive option
+        await fs.rm(resolvedFilePath, { recursive: true, force: true });
+      } else {
+        // For files, use unlink
+        await fs.unlink(resolvedFilePath);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting file:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
