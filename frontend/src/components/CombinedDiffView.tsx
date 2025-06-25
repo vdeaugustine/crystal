@@ -24,6 +24,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
+  const [lastVisibleState, setLastVisibleState] = useState<boolean>(isVisible);
 
   // Load git commands to get main branch
   useEffect(() => {
@@ -52,10 +53,26 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }
   }, [sessionId, lastSessionId]);
 
+  // Detect when tab becomes visible and force refresh
+  useEffect(() => {
+    if (isVisible && !lastVisibleState) {
+      // Tab just became visible - force refresh to get latest git state
+      console.log('View Diff tab became visible, refreshing git data...');
+      setExecutions([]); // Clear existing data to force reload
+      setCombinedDiff(null); // Clear diff data
+    }
+    setLastVisibleState(isVisible);
+  }, [isVisible, lastVisibleState]);
+
   // Load executions for the session
   useEffect(() => {
-    // Load executions immediately when component mounts or sessionId changes
-    // This ensures data is ready when user navigates to the diff view
+    // Load executions when component mounts, sessionId changes, or becomes visible
+    // This ensures we always have the latest git state when viewing the diff tab
+    
+    if (!isVisible) {
+      // Don't load if not visible
+      return;
+    }
     
     // Add a small delay to debounce rapid updates
     const timeoutId = setTimeout(() => {
@@ -104,7 +121,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }, 100); // Reduced to 100ms for more responsive loading
 
     return () => clearTimeout(timeoutId);
-  }, [sessionId, initialSelected, isMainRepo]);
+  }, [sessionId, initialSelected, isMainRepo, isVisible]); // Added isVisible to dependencies
 
   // Load combined diff when selection changes
   useEffect(() => {
