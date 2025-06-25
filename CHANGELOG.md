@@ -1,6 +1,23 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.7] - 2025-06-25
+
+### Added
+- Monaco-based file editor
+- Support for subfolders in session organization
+
+### Changed
+- Improved terminal experience
+- Enhanced visibility of "New Session" button for better user experience
+- Sessions now default to 'Output' tab when switching between them
+
+### Fixed
+- Fixed output panel reload issue after git rebase operations
+- Resolved diff panel unnecessary refreshes when making changes
+- Fixed tab z-index layering issues
+- Automatic process termination when removing projects to prevent orphaned processes
+
 ## [0.1.6] - 2025-06-24
 
 ### Fixed
