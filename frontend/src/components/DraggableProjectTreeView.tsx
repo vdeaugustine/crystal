@@ -1042,7 +1042,7 @@ export function DraggableProjectTreeView() {
               </div>
               
               {isExpanded && (sessionCount > 0 || (project.folders && project.folders.length > 0)) && (
-                <div className="ml-4 mt-1 space-y-1">
+                <div className="mt-1 space-y-1">
                   {/* Render folders */}
                   {project.folders && project.folders
                     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -1060,7 +1060,7 @@ export function DraggableProjectTreeView() {
                       });
                       
                       return (
-                        <div key={folder.id} className="ml-2">
+                        <div key={folder.id} className="ml-4">
                           <div 
                             className={`group/folder flex items-center space-x-1 px-2 py-1 rounded cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
                               isDraggingOverFolder ? 'bg-blue-100 dark:bg-blue-900' : ''
@@ -1123,7 +1123,7 @@ export function DraggableProjectTreeView() {
                           </div>
                           
                           {isExpanded && folderSessions.length > 0 && (
-                            <div className="ml-8 mt-1 space-y-1">
+                            <div className="ml-4 mt-1 space-y-1">
                               {folderSessions
                                 .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
                                 .map((session) => {
@@ -1163,53 +1163,57 @@ export function DraggableProjectTreeView() {
                     })}
                   
                   {/* Render sessions without folders */}
-                  {project.sessions
-                    .filter(s => !s.folderId)
-                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-                    .map((session) => {
-                      const isDraggingOverSession = dragState.overType === 'session' && 
-                                                   dragState.overSessionId === session.id &&
-                                                   dragState.overProjectId === project.id;
-                      
-                      return (
-                        <div
-                          key={session.id}
-                          className={`group flex items-center ${
-                            isDraggingOverSession ? 'bg-blue-100 dark:bg-blue-900 rounded' : ''
-                          }`}
-                          draggable
-                          onDragStart={(e) => handleSessionDragStart(e, session, project.id)}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={(e) => handleSessionDragOver(e, session, project.id)}
-                          onDrop={(e) => handleSessionDrop(e, session, project.id)}
-                          onDragEnter={handleDragEnter}
-                          onDragLeave={handleDragLeave}
-                        >
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move pl-1">
-                            <GripVertical className="w-3 h-3 text-gray-400" />
+                  <div className="ml-4">
+                    {project.sessions
+                      .filter(s => !s.folderId)
+                      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                      .map((session) => {
+                        const isDraggingOverSession = dragState.overType === 'session' && 
+                                                     dragState.overSessionId === session.id &&
+                                                     dragState.overProjectId === project.id;
+                        
+                        return (
+                          <div
+                            key={session.id}
+                            className={`group flex items-center ${
+                              isDraggingOverSession ? 'bg-blue-100 dark:bg-blue-900 rounded' : ''
+                            }`}
+                            draggable
+                            onDragStart={(e) => handleSessionDragStart(e, session, project.id)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => handleSessionDragOver(e, session, project.id)}
+                            onDrop={(e) => handleSessionDrop(e, session, project.id)}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                          >
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity cursor-move pl-1">
+                              <GripVertical className="w-3 h-3 text-gray-400" />
+                            </div>
+                            <SessionListItem 
+                              key={session.id} 
+                              session={session}
+                              isNested
+                            />
                           </div>
-                          <SessionListItem 
-                            key={session.id} 
-                            session={session}
-                            isNested
-                          />
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                  </div>
                   
                   {/* Add folder button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedProjectForFolder(project);
-                      setShowCreateFolderDialog(true);
-                      setNewFolderName('');
-                    }}
-                    className="w-full px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Folder</span>
-                  </button>
+                  <div className="ml-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedProjectForFolder(project);
+                        setShowCreateFolderDialog(true);
+                        setNewFolderName('');
+                      }}
+                      className="w-full px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center space-x-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Folder</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
