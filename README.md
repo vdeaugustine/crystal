@@ -26,6 +26,12 @@ Crystal is an Electron desktop application that lets you run, inspect, and test 
   </table>
 </div>
 
+## The Crystal Workflow
+
+1. Create sessions from prompts, each in an isolated git worktree
+2. Iterate with Claude Code inside your sessions. Each iteration will make a commit so you can always go back.
+3. Review the diff changes and make manual edits as needed
+4. Squash your commits together with a new message and rebase to your main branch.
 
 ## ✨ Key Features
 
@@ -43,6 +49,31 @@ Crystal is an Electron desktop application that lets you run, inspect, and test 
 - Claude Code installed and logged in or API key provided
 - Git installed
 - Git repository (Crystal will initialize one if needed)
+
+### 1. Create a Project
+Create a new project if you haven't already. This can be an empty folder or an existing git repository. Crystal will initialize git if needed.
+
+### 2. Create Sessions from a Prompt
+For any feature you're working on, create one or multiple new sessions:
+- Each session will be an isolated git worktree
+
+### 3. Monitor and Test Your Changes
+As sessions complete:
+- **Configure run scripts** in project settings to test your application without leaving Crystal
+- **Use the diff viewer** to review all changes and make manual edits as needed
+- **Continue conversations** with Claude Code if you need additional changes
+
+### 4. Finalize Your Changes
+When everything looks good:
+- Click **"Rebase to main"** to squash all commits with a new message and rebase them to your main branch
+- This creates a clean commit history on your main branch
+
+### Git Operations
+- **Rebase from main**: Pull latest changes from main into your worktree
+- **Squash and rebase to main**: Combine all commits and rebase onto main
+- Always preview commands with tooltips before executing
+
+
 
 ### Installation
 
@@ -88,44 +119,6 @@ This ensures:
 - Your main Crystal instance continues using `~/.crystal` 
 - Worktrees won't conflict between the two instances
 - You can safely test changes without affecting your primary Crystal setup
-
-## 📖 How to Use
-
-### 1. Create a Project
-You must create a project before you can proceed. A project should point to a git repository. If there is no repo in the folder you select one will be created.
-
-### 2. Create a Session
-Click "Create Session" and enter:
-- **Prompt**: What you want Claude to do
-- **Worktree Name**: Branch name (optional)
-- **Count**: Number of parallel sessions
-
-### 3. Manage Sessions
-- **🟢 Initializing**: Setting up git worktree
-- **🟢 Running**: Claude is working
-- **🟡 Waiting**: Needs your input
-- **⚪ Completed**: Task finished successfully
-- **🔵 New Activity**: Session has new unviewed results
-- **🔴 Error**: Something went wrong
-- Click any session to view or continue it
-
-### 4. View Your Work
-- **Output**: Formatted terminal output
-- **Changes**: Git diffs of all modifications
-- **Terminal**: Run tests or build scripts
-- **Messages**: Raw JSON for debugging
-
-### 5. Run Scripts
-Configure project-specific scripts in the project settings:
-- **Run scripts**: Execute dev servers, test watchers, or any continuous processes
-- Scripts run in the Terminal tab while Claude is working
-- Each line runs sequentially - perfect for setup commands followed by servers
-- All scripts stop automatically when the session ends
-
-### 6. Git Operations
-- **Rebase from main**: Pull latest changes
-- **Squash and rebase**: Combine commits
-- Preview commands before executing
 
 ## 🤝 Contributing
 
