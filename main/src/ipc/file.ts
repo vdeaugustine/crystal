@@ -101,7 +101,7 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
   // Write file contents to a session's worktree
   ipcMain.handle('file:write', async (_, request: FileWriteRequest) => {
     try {
-      console.log('file:write request received:', request);
+      // Removed verbose logging of file:write requests to reduce console noise during auto-save
       
       if (!request.filePath) {
         throw new Error('File path is required');
@@ -112,15 +112,12 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      console.log('Session found:', { sessionId: session.id, worktreePath: session.worktreePath });
-
       // Get project information if available
       let mainBranch = 'main'; // default
       if (session.projectId) {
         const project = databaseService.getProject(session.projectId);
         if (project && project.main_branch) {
           mainBranch = project.main_branch;
-          console.log('Using project main branch:', mainBranch);
         }
       }
 
@@ -139,13 +136,6 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
       // Verify the file is within the worktree
       const dirPath = path.dirname(fullPath);
       
-      console.log('File paths:', {
-        normalizedPath,
-        fullPath,
-        dirPath,
-        worktreePath: session.worktreePath
-      });
-      
       // Try to resolve both paths to handle symlinks properly
       let resolvedDirPath = dirPath;
       let resolvedWorktreePath = session.worktreePath;
@@ -159,7 +149,6 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
           resolvedDirPath = await fs.realpath(dirPath);
         } catch (err) {
           // Directory might not exist yet, that's OK
-          console.log('Directory does not exist yet, will be created:', dirPath);
           // Use the full path's parent that should exist
           const parentPath = path.dirname(dirPath);
           try {
@@ -170,12 +159,6 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
             resolvedDirPath = dirPath;
           }
         }
-        
-        console.log('Resolved paths:', {
-          resolvedDirPath,
-          resolvedWorktreePath,
-          startsWith: resolvedDirPath.startsWith(resolvedWorktreePath)
-        });
       } catch (err) {
         console.error('Error resolving paths:', err);
         // If we can't resolve paths, just use the original ones
