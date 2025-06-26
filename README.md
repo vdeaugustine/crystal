@@ -75,16 +75,16 @@ When everything looks good:
 
 
 
-### Installation
+## Installation
 
-#### Download Pre-built Binaries
+### Download Pre-built Binaries
 
 - **macOS**: Download `Crystal-{version}.dmg` from the [latest release](https://github.com/stravu/crystal/releases/latest)
   - Open the DMG file and drag Crystal to your Applications folder
   - On first launch, you may need to right-click and select "Open" due to macOS security settings
 
 
-### Building from Source
+## Building from Source
 
 ```bash
 # Clone the repository
@@ -98,12 +98,18 @@ pnpm run setup
 pnpm run electron-dev
 ```
 
-### Building for Production
+## Building for Production
 
 ```bash
 # Build for macOS
 pnpm build:mac
 ```
+
+
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ### Developing Crystal with Crystal
 
@@ -119,10 +125,6 @@ This ensures:
 - Your main Crystal instance continues using `~/.crystal` 
 - Worktrees won't conflict between the two instances
 - You can safely test changes without affecting your primary Crystal setup
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ## 📄 License
 
