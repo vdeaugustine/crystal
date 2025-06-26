@@ -14,7 +14,7 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const { showError } = useErrorStore();
@@ -97,7 +97,7 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
       const createdProject = response.data;
       
       setShowAddDialog(false);
-      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
       
       // Auto-open the newly created project
       if (createdProject) {
@@ -218,7 +218,7 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
             <button
               onClick={() => {
                 setShowAddDialog(false);
-                setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+                setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
               }}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors"
               title="Close"
@@ -319,13 +319,29 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
                   This script will run automatically before each Claude Code session starts.
                 </p>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Run Script <span className="text-gray-500">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newProject.runScript}
+                  onChange={(e) => setNewProject({ ...newProject, runScript: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
+                  placeholder="e.g., pnpm dev or npm start"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This script can be run manually from the Terminal view during sessions.
+                </p>
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowAddDialog(false);
-                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors"
               >

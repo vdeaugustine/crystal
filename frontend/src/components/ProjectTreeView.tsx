@@ -26,7 +26,7 @@ export function ProjectTreeView() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [selectedProjectForSettings, setSelectedProjectForSettings] = useState<Project | null>(null);
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
   const [hasPendingUpdates, setHasPendingUpdates] = useState(false);
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
@@ -281,7 +281,7 @@ export function ProjectTreeView() {
       }
 
       setShowAddProjectDialog(false);
-      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
       
       // Just reload the projects list
       loadProjectsWithSessions();
@@ -547,13 +547,29 @@ export function ProjectTreeView() {
                   This script will run automatically before each Claude Code session starts.
                 </p>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Run Script <span className="text-gray-500 dark:text-gray-500">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newProject.runScript}
+                  onChange={(e) => setNewProject({ ...newProject, runScript: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="e.g., pnpm dev or npm start"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This script can be run manually from the Terminal view during sessions.
+                </p>
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowAddProjectDialog(false);
-                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '' });
+                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
                 }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
