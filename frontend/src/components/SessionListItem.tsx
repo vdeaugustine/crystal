@@ -87,7 +87,7 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     e.stopPropagation();
     
     if (!hasRunScript) {
-      alert('No run script configured for this project. Please configure run script in Project Settings.');
+      alert('No run script configured for this project.\n\nRun scripts are the commands needed to run your application so you can easily test changes.\n\nTo configure a run script:\n1. Click the settings icon (⚙️) next to your project (only shows on hover)\n\n2. Enter your \'Build Script\' to run at worktree creation (Optional)\n\n3. Enter your run script command(s) to run your application for testing');
       return;
     }
 
@@ -311,19 +311,19 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
                   strokeWidth={session.isFavorite ? 0 : 2}
                 />
               </button>
-              {hasRunScript && (
-                <button
-                  onClick={isRunning ? handleStopScript : handleRunScript}
-                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${
-                    isRunning 
-                      ? 'hover:bg-red-100 dark:hover:bg-red-600/20 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300' 
-                      : 'hover:bg-green-100 dark:hover:bg-green-600/20 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
-                  }`}
-                  title={isRunning ? 'Stop script' : 'Run script'}
-                >
-                  {isRunning ? '⏹️' : '▶️'}
-                </button>
-              )}
+              <button
+                onClick={isRunning ? handleStopScript : handleRunScript}
+                className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${
+                  isRunning 
+                    ? 'hover:bg-red-100 dark:hover:bg-red-600/20 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300' 
+                    : hasRunScript
+                      ? 'hover:bg-green-100 dark:hover:bg-green-600/20 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-600/20 text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400'
+                }`}
+                title={isRunning ? 'Stop script' : (hasRunScript ? 'Run script' : 'No run script configured - Click to configure')}
+              >
+                {isRunning ? '⏹️' : '▶️'}
+              </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
@@ -356,21 +356,19 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
           >
             Rename
           </button>
-          {hasRunScript && (
-            <button
-              onClick={() => {
-                closeContextMenu();
-                if (isRunning) {
-                  handleStopScript({ stopPropagation: () => {} } as React.MouseEvent);
-                } else {
-                  handleRunScript({ stopPropagation: () => {} } as React.MouseEvent);
-                }
-              }}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-            >
-              {isRunning ? 'Stop Script' : 'Run Script'}
-            </button>
-          )}
+          <button
+            onClick={() => {
+              closeContextMenu();
+              if (isRunning) {
+                handleStopScript({ stopPropagation: () => {} } as React.MouseEvent);
+              } else {
+                handleRunScript({ stopPropagation: () => {} } as React.MouseEvent);
+              }
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+          >
+            {isRunning ? 'Stop Script' : 'Run Script'}
+          </button>
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           <button
             onClick={handleDeleteFromMenu}
