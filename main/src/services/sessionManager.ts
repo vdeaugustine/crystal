@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
-import { spawn, ChildProcess, exec } from 'child_process';
+import { spawn, ChildProcess, exec, execSync } from 'child_process';
 import { ShellDetector } from '../utils/shellDetector';
 import type { Session, SessionUpdate, SessionOutput } from '../types/session';
 import type { DatabaseService } from '../database/database';
@@ -8,6 +8,7 @@ import type { Session as DbSession, CreateSessionData, UpdateSessionData, Conver
 import { getShellPath } from '../utils/shellPath';
 import { TerminalSessionManager } from './terminalSessionManager';
 import { formatForDisplay } from '../utils/timestampUtils';
+import * as os from 'os';
 
 export class SessionManager extends EventEmitter {
   private activeSessions: Map<string, Session> = new Map();
@@ -763,6 +764,61 @@ export class SessionManager extends EventEmitter {
     });
   }
 
+  /**
+   * Recursively gets all descendant PIDs of a parent process.
+   * This handles deeply nested process trees where processes spawn children
+   * that spawn their own children, etc.
+   * 
+   * @param parentPid The parent process ID
+   * @returns Array of all descendant PIDs
+   */
+  private getAllDescendantPids(parentPid: number): number[] {
+    const descendants: number[] = [];
+    const platform = os.platform();
+    
+    try {
+      if (platform === 'win32') {
+        // On Windows, use wmic to get process tree
+        const output = execSync(`wmic process where (ParentProcessId=${parentPid}) get ProcessId`, { encoding: 'utf8' });
+        const lines = output.split('\n').filter(line => line.trim());
+        for (let i = 1; i < lines.length; i++) { // Skip header
+          const pid = parseInt(lines[i].trim());
+          if (!isNaN(pid)) {
+            descendants.push(pid);
+            // Recursively get children of this process
+            descendants.push(...this.getAllDescendantPids(pid));
+          }
+        }
+      } else {
+        // On Unix-like systems, use ps to get children
+        const output = execSync(`ps -o pid= --ppid ${parentPid}`, { encoding: 'utf8' });
+        const pids = output.split('\n')
+          .map(line => parseInt(line.trim()))
+          .filter(pid => !isNaN(pid));
+        
+        for (const pid of pids) {
+          descendants.push(pid);
+          // Recursively get children of this process
+          descendants.push(...this.getAllDescendantPids(pid));
+        }
+      }
+    } catch (error) {
+      // Command might fail if no children exist, which is fine
+      console.log(`No child processes found for PID ${parentPid}`);
+    }
+    
+    return descendants;
+  }
+
+  /**
+   * Stops the currently running script and ensures all child processes are terminated.
+   * This method uses multiple approaches to ensure complete cleanup:
+   * 1. Gets all descendant PIDs recursively before killing
+   * 2. Uses platform-specific commands (taskkill on Windows, kill on Unix)
+   * 3. Kills the process group (Unix) or process tree (Windows)
+   * 4. Kills individual descendant processes as a fallback
+   * 5. Uses graceful SIGTERM first, then forceful SIGKILL
+   */
   stopRunningScript(): void {
     if (this.runningScriptProcess && this.currentRunningSessionId) {
       const sessionId = this.currentRunningSessionId;
@@ -777,26 +833,80 @@ export class SessionManager extends EventEmitter {
         if (process.pid) {
           console.log(`Terminating script process ${process.pid} and its children...`);
           
-          // Since we used detached: true, we need to kill the process group
-          // Use negative PID to kill the entire process group
-          try {
-            process.kill('SIGKILL');
-            // Kill the process group using the system kill command
-            exec(`kill -9 -${process.pid}`, (error) => {
+          // First, get all descendant PIDs before we start killing
+          const descendantPids = this.getAllDescendantPids(process.pid);
+          console.log(`Found ${descendantPids.length} descendant processes: ${descendantPids.join(', ')}`);
+          
+          const platform = os.platform();
+          
+          if (platform === 'win32') {
+            // On Windows, use taskkill to terminate the process tree
+            exec(`taskkill /F /T /PID ${process.pid}`, (error) => {
               if (error) {
-                console.warn(`Error killing process group: ${error.message}`);
+                console.warn(`Error killing Windows process tree: ${error.message}`);
+                // Fallback: kill individual processes
+                try {
+                  process.kill('SIGKILL');
+                } catch (killError) {
+                  console.warn('Fallback kill failed:', killError);
+                }
+                // Kill descendants individually
+                descendantPids.forEach(pid => {
+                  exec(`taskkill /F /PID ${pid}`, () => {});
+                });
               } else {
-                console.log(`Successfully killed process group ${process.pid}`);
+                console.log(`Successfully killed Windows process tree ${process.pid}`);
               }
             });
-          } catch (error) {
-            console.warn('Process already terminated:', error);
+          } else {
+            // On Unix-like systems (macOS, Linux)
+            // First, try SIGTERM for graceful shutdown
+            try {
+              process.kill('SIGTERM');
+            } catch (error) {
+              console.warn('SIGTERM failed:', error);
+            }
+            
+            // Kill the entire process group using negative PID
+            exec(`kill -TERM -${process.pid}`, (error) => {
+              if (error) {
+                console.warn(`Error sending SIGTERM to process group: ${error.message}`);
+              }
+            });
+            
+            // Give processes a chance to clean up gracefully
+            setTimeout(() => {
+              // Now forcefully kill the main process
+              try {
+                process.kill('SIGKILL');
+              } catch (error) {
+                // Process might already be dead
+              }
+              
+              // Kill the process group with SIGKILL
+              exec(`kill -9 -${process.pid}`, (error) => {
+                if (error) {
+                  console.warn(`Error sending SIGKILL to process group: ${error.message}`);
+                }
+              });
+              
+              // Kill all known descendants individually to be sure
+              descendantPids.forEach(pid => {
+                exec(`kill -9 ${pid}`, (error) => {
+                  if (error) {
+                    console.log(`Process ${pid} already terminated`);
+                  } else {
+                    console.log(`Killed descendant process ${pid}`);
+                  }
+                });
+              });
+              
+              // Final cleanup attempt using pkill
+              exec(`pkill -9 -P ${process.pid}`, () => {
+                // Ignore errors - processes might already be dead
+              });
+            }, 200); // Short delay for SIGTERM to take effect
           }
-          
-          // Also kill any remaining child processes
-          exec(`pkill -P ${process.pid}`, () => {
-            // Ignore errors - child processes might not exist
-          });
         }
       } catch (error) {
         console.warn('Error killing script process:', error);
