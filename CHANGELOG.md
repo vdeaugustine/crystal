@@ -1,6 +1,17 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.9] - 2025-06-27
+
+### Changed
+- Improved run script visibility
+- Improved indentation in session list for better visual hierarchy
+- Updated README with improved documentation
+
+### Fixed
+- Enhanced run script process termination to properly kill all child processes
+- Reduced excessive logging when writing files for better performance
+
 ## [0.1.8] - 2025-06-25
 
 ### Added
