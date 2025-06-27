@@ -183,6 +183,11 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
+      // Emit event to notify frontend about project update
+      if (project) {
+        sessionManager.emit('project:updated', project);
+      }
+
       return { success: true, data: project };
     } catch (error) {
       console.error('Failed to update project:', error);

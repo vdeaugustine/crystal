@@ -51,14 +51,37 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
   
   useEffect(() => {
     // Check if this session's project has a run script
-    API.sessions.hasRunScript(session.id)
-      .then(response => {
-        if (response.success) {
-          setHasRunScript(response.data);
+    const checkRunScript = () => {
+      API.sessions.hasRunScript(session.id)
+        .then(response => {
+          if (response.success) {
+            setHasRunScript(response.data);
+          }
+        })
+        .catch(console.error);
+    };
+
+    checkRunScript();
+
+    // Listen for project updates
+    let unsubscribe: (() => void) | undefined;
+    
+    if (window.electronAPI?.events?.onProjectUpdated) {
+      unsubscribe = window.electronAPI.events.onProjectUpdated((project) => {
+        // Check if this session belongs to the updated project
+        if (session.projectId === project.id) {
+          // Re-check if the run script exists for this session
+          checkRunScript();
         }
-      })
-      .catch(console.error);
-  }, [session.id]);
+      });
+    }
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [session.id, session.projectId]);
 
   useEffect(() => {
     // Check if this session is currently running

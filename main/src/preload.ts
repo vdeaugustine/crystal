@@ -182,6 +182,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeAllListeners('session:output-available');
     },
     
+    // Project events
+    onProjectUpdated: (callback: (project: any) => void) => {
+      ipcRenderer.on('project:updated', (_event, project) => callback(project));
+      return () => ipcRenderer.removeAllListeners('project:updated');
+    },
+    
     // Folder events
     onFolderCreated: (callback: (folder: any) => void) => {
       ipcRenderer.on('folder:created', (_event, folder) => callback(folder));

@@ -59,6 +59,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     }
   });
 
+  // Listen for project update events from sessionManager (since it extends EventEmitter)
+  sessionManager.on('project:updated', (project: any) => {
+    console.log(`[Main] Project updated: ${project.id}`);
+    const mw = getMainWindow();
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send('project:updated', project);
+    }
+  });
+
   // Listen to claudeCodeManager events
   claudeCodeManager.on('output', async (output: any) => {
     // Save raw output to database (including JSON)

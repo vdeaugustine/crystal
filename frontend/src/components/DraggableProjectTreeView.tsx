@@ -232,11 +232,33 @@ export function DraggableProjectTreeView() {
       const unsubscribeDeleted = window.electronAPI.events.onSessionDeleted(handleSessionDeleted);
       const unsubscribeFolderCreated = window.electronAPI.events.onFolderCreated(handleFolderCreated);
       
+      // Listen for project updates
+      const unsubscribeProjectUpdated = window.electronAPI.events.onProjectUpdated((updatedProject: Project) => {
+        console.log('[DraggableProjectTreeView] Project updated event received:', updatedProject);
+        
+        // Update the project in our state
+        setProjectsWithSessions(prevProjects => 
+          prevProjects.map(project => {
+            if (project.id === updatedProject.id) {
+              // Merge the updated project data while preserving sessions and folders
+              return {
+                ...project,
+                ...updatedProject,
+                sessions: project.sessions,
+                folders: project.folders
+              };
+            }
+            return project;
+          })
+        );
+      });
+      
       return () => {
         unsubscribeCreated();
         unsubscribeUpdated();
         unsubscribeDeleted();
         unsubscribeFolderCreated();
+        unsubscribeProjectUpdated();
       };
     }
   }, []);

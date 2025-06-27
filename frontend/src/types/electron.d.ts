@@ -166,6 +166,9 @@ interface ElectronAPI {
     onSessionOutput: (callback: (output: any) => void) => () => void;
     onSessionOutputAvailable: (callback: (info: any) => void) => () => void;
     
+    // Project events
+    onProjectUpdated: (callback: (project: any) => void) => () => void;
+    
     // Folder events
     onFolderCreated: (callback: (folder: any) => void) => () => void;
     onFolderUpdated: (callback: (folder: any) => void) => () => void;
