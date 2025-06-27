@@ -302,6 +302,26 @@ export class WorktreeManager {
     }
   }
 
+  async getProjectMainBranch(projectPath: string): Promise<string> {
+    try {
+      // Get the current branch of the main project directory (not a worktree)
+      const result = await execWithShellPath(`git branch --show-current`, { cwd: projectPath });
+      const currentBranch = result.stdout.trim();
+      
+      if (currentBranch) {
+        console.log(`[WorktreeManager] Main project directory is on branch: ${currentBranch}`);
+        return currentBranch;
+      }
+      
+      // If we can't get the current branch, fall back to detectMainBranch
+      return await this.detectMainBranch(projectPath);
+    } catch (error) {
+      console.error(`[WorktreeManager] Error getting project main branch:`, error);
+      // Fall back to detectMainBranch method
+      return await this.detectMainBranch(projectPath);
+    }
+  }
+
   async hasChangesToRebase(worktreePath: string, mainBranch: string): Promise<boolean> {
     try {
       // Check if main branch has commits that the current branch doesn't have

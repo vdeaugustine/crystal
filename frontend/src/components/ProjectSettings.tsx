@@ -17,7 +17,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
   const [systemPrompt, setSystemPrompt] = useState('');
   const [runScript, setRunScript] = useState('');
   const [buildScript, setBuildScript] = useState('');
-  const [mainBranch, setMainBranch] = useState('');
+  const [currentBranch, setCurrentBranch] = useState<string | null>(null);
   const [openIdeCommand, setOpenIdeCommand] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,14 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
       setSystemPrompt(project.system_prompt || '');
       setRunScript(project.run_script || '');
       setBuildScript(project.build_script || '');
-      setMainBranch(project.main_branch || '');
+      // Fetch the current branch when dialog opens
+      if (project.path) {
+        window.electronAPI.git.detectBranch(project.path).then((result) => {
+          if (result.success && result.data) {
+            setCurrentBranch(result.data);
+          }
+        });
+      }
       setOpenIdeCommand(project.open_ide_command || '');
       setError(null);
     }
@@ -47,7 +54,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         system_prompt: systemPrompt || null,
         run_script: runScript || null,
         build_script: buildScript || null,
-        main_branch: mainBranch || null,
+        // main_branch is now automatically detected
         open_ide_command: openIdeCommand || null
       });
 
@@ -157,17 +164,13 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Main Branch
+                    Current Branch (Auto-detected)
                   </label>
-                  <input
-                    type="text"
-                    value={mainBranch}
-                    onChange={(e) => setMainBranch(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
-                    placeholder="main"
-                  />
+                  <div className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200">
+                    {currentBranch || 'Detecting...'}
+                  </div>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
-                    The main branch name for git operations (e.g., main, master, develop)
+                    The main branch is automatically detected from the project directory
                   </p>
                 </div>
               </div>

@@ -109,6 +109,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listBranches: (projectId: string): Promise<IPCResponse> => ipcRenderer.invoke('projects:list-branches', projectId),
   },
 
+  // Git operations
+  git: {
+    detectBranch: (path: string): Promise<IPCResponse<string>> => ipcRenderer.invoke('projects:detect-branch', path),
+  },
+
   // Folders
   folders: {
     getByProject: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('folders:get-by-project', projectId),

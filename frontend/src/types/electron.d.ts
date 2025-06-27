@@ -112,6 +112,11 @@ interface ElectronAPI {
     listBranches: (projectId: string) => Promise<IPCResponse>;
   };
 
+  // Git operations
+  git: {
+    detectBranch: (path: string) => Promise<IPCResponse<string>>;
+  };
+
   // Folders
   folders: {
     getByProject: (projectId: number) => Promise<IPCResponse>;
