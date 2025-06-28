@@ -191,6 +191,9 @@ interface ElectronAPI {
     onUpdaterUpdateDownloaded: (callback: (info: any) => void) => () => void;
     onUpdaterError: (callback: (error: any) => void) => () => void;
     
+    // Process management events
+    onZombieProcessesDetected: (callback: (data: { sessionId?: string | null; pids?: number[]; message: string }) => void) => () => void;
+    
     removeAllListeners: (channel: string) => void;
   };
 

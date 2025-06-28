@@ -25,6 +25,11 @@ export class SessionManager extends EventEmitter {
     this.terminalSessionManager.on('terminal-output', ({ sessionId, data, type }) => {
       this.addScriptOutput(sessionId, data, type);
     });
+    
+    // Forward zombie process detection events
+    this.terminalSessionManager.on('zombie-processes-detected', (data) => {
+      this.emit('zombie-processes-detected', data);
+    });
   }
 
   setActiveProject(project: Project): void {
@@ -417,14 +422,14 @@ export class SessionManager extends EventEmitter {
     }));
   }
 
-  archiveSession(id: string): void {
+  async archiveSession(id: string): Promise<void> {
     const success = this.db.archiveSession(id);
     if (!success) {
       throw new Error(`Session ${id} not found`);
     }
 
     // Close terminal session if it exists
-    this.terminalSessionManager.closeTerminalSession(id);
+    await this.terminalSessionManager.closeTerminalSession(id);
     
     this.activeSessions.delete(id);
     this.emit('session-deleted', { id }); // Keep the same event name for frontend compatibility
@@ -936,9 +941,9 @@ export class SessionManager extends EventEmitter {
     return this.currentRunningSessionId;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.stopRunningScript();
-    this.terminalSessionManager.cleanup();
+    await this.terminalSessionManager.cleanup();
   }
 
   async runTerminalCommand(sessionId: string, command: string): Promise<void> {
@@ -994,8 +999,8 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  closeTerminalSession(sessionId: string): void {
-    this.terminalSessionManager.closeTerminalSession(sessionId);
+  async closeTerminalSession(sessionId: string): Promise<void> {
+    await this.terminalSessionManager.closeTerminalSession(sessionId);
   }
 
   hasTerminalSession(sessionId: string): boolean {

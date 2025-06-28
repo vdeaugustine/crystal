@@ -9,7 +9,8 @@ import { testClaudeCodeAvailability, testClaudeCodeInDirectory, getAugmentedPath
 import type { ConfigManager } from './configManager';
 import { getShellPath, findExecutableInPath } from '../utils/shellPath';
 import { PermissionManager } from './permissionManager';
-import { execSync } from 'child_process';
+import { execSync, exec } from 'child_process';
+import { promisify } from 'util';
 
 interface ClaudeCodeProcess {
   process: pty.IPty;
@@ -629,6 +630,30 @@ export class ClaudeCodeManager extends EventEmitter {
       });
 
       ptyProcess.onExit(async ({ exitCode, signal }) => {
+        // Check for and kill any child processes that Claude may have started
+        const pid = ptyProcess.pid;
+        if (pid) {
+          const descendantPids = this.getAllDescendantPids(pid);
+          if (descendantPids.length > 0) {
+            // Get process info before killing
+            const killedProcesses = await this.getProcessInfo(descendantPids);
+            this.logger?.info(`[Claude] Found ${descendantPids.length} orphaned child processes after Claude exit for session ${sessionId}`);
+            
+            // Kill all child processes
+            await this.killProcessTree(pid, sessionId);
+            
+            // Report what processes were killed
+            const processReport = killedProcesses.map(p => `${p.name || 'unknown'}(${p.pid})`).join(', ');
+            const message = `\n[Process Cleanup] Terminated ${killedProcesses.length} orphaned child process${killedProcesses.length > 1 ? 'es' : ''} after Claude exit: ${processReport}\n`;
+            this.emit('output', {
+              sessionId,
+              type: 'stdout',
+              data: message,
+              timestamp: new Date()
+            });
+          }
+        }
+        
         // Process any remaining data in the buffer
         if (buffer.trim()) {
           try {
@@ -801,6 +826,19 @@ export class ClaudeCodeManager extends EventEmitter {
       return;
     }
 
+    const pid = claudeProcess.process.pid;
+    
+    // Get all child processes before killing
+    let killedProcesses: { pid: number; name?: string }[] = [];
+    if (pid) {
+      const descendantPids = this.getAllDescendantPids(pid);
+      if (descendantPids.length > 0) {
+        // Try to get process names for better reporting
+        killedProcesses = await this.getProcessInfo(descendantPids);
+        this.logger?.info(`[Claude] Found ${descendantPids.length} child processes started by Claude for session ${sessionId}`);
+      }
+    }
+
     // Clear any pending permission requests
     PermissionManager.getInstance().clearPendingRequests(sessionId);
     
@@ -837,7 +875,30 @@ export class ClaudeCodeManager extends EventEmitter {
       }, 5000); // 5 second delay
     }
 
-    claudeProcess.process.kill();
+    // Kill the process and all its children
+    if (pid) {
+      const success = await this.killProcessTree(pid, sessionId);
+      
+      // Report what processes were killed
+      if (killedProcesses.length > 0) {
+        const processReport = killedProcesses.map(p => `${p.name || 'unknown'}(${p.pid})`).join(', ');
+        const message = `\n[Process Cleanup] Terminated ${killedProcesses.length} child process${killedProcesses.length > 1 ? 'es' : ''} started by Claude: ${processReport}\n`;
+        this.emit('output', {
+          sessionId,
+          type: 'stdout',
+          data: message,
+          timestamp: new Date()
+        });
+      }
+      
+      if (!success) {
+        this.logger?.error(`Failed to cleanly terminate all child processes for Claude session ${sessionId}`);
+      }
+    } else {
+      // Fallback to simple kill if no PID
+      claudeProcess.process.kill();
+    }
+    
     this.processes.delete(sessionId);
   }
 
@@ -885,11 +946,232 @@ export class ClaudeCodeManager extends EventEmitter {
   }
 
   /**
+   * Kill all Claude processes on shutdown
+   */
+  async killAllProcesses(): Promise<void> {
+    const sessionIds = Array.from(this.processes.keys());
+    this.logger?.info(`[Claude] Killing ${sessionIds.length} Claude processes on shutdown`);
+    
+    const killPromises = sessionIds.map(sessionId => this.killProcess(sessionId));
+    await Promise.all(killPromises);
+  }
+
+  /**
    * Clear the Claude availability cache
    * This should be called when settings change (e.g., custom Claude path)
    */
   clearAvailabilityCache(): void {
     this.availabilityCache = null;
     this.logger?.verbose('[ClaudeManager] Cleared Claude availability cache');
+  }
+
+  /**
+   * Get all descendant PIDs of a parent process recursively
+   * This is critical for ensuring all child processes are killed
+   */
+  private getAllDescendantPids(parentPid: number): number[] {
+    const descendants: number[] = [];
+    const platform = os.platform();
+    
+    try {
+      if (platform === 'win32') {
+        // Windows: Use WMIC to get child processes
+        const result = execSync(
+          `wmic process where (ParentProcessId=${parentPid}) get ProcessId`,
+          { encoding: 'utf8' }
+        );
+        
+        const lines = result.split('\n').filter((line: string) => line.trim());
+        for (let i = 1; i < lines.length; i++) { // Skip header
+          const pid = parseInt(lines[i].trim());
+          if (!isNaN(pid) && pid !== parentPid) {
+            descendants.push(pid);
+            // Recursively get children of this process
+            descendants.push(...this.getAllDescendantPids(pid));
+          }
+        }
+      } else {
+        // Unix/Linux/macOS: Use ps command
+        const result = execSync(
+          `ps -o pid= --ppid ${parentPid} 2>/dev/null || true`,
+          { encoding: 'utf8' }
+        );
+        
+        const pids = result.split('\n')
+          .map((line: string) => parseInt(line.trim()))
+          .filter((pid: number) => !isNaN(pid) && pid !== parentPid);
+        
+        for (const pid of pids) {
+          descendants.push(pid);
+          // Recursively get children of this process
+          descendants.push(...this.getAllDescendantPids(pid));
+        }
+      }
+    } catch (error) {
+      this.logger?.warn(`Error getting descendant PIDs for ${parentPid}:`, error as Error);
+    }
+    
+    // Remove duplicates
+    return [...new Set(descendants)];
+  }
+
+  /**
+   * Get process information for a list of PIDs
+   */
+  private async getProcessInfo(pids: number[]): Promise<{ pid: number; name?: string }[]> {
+    const processInfo: { pid: number; name?: string }[] = [];
+    const platform = os.platform();
+    
+    for (const pid of pids) {
+      try {
+        let name: string | undefined;
+        
+        if (platform === 'win32') {
+          // Windows: Use wmic to get process name
+          const result = execSync(
+            `wmic process where ProcessId=${pid} get Name`,
+            { encoding: 'utf8' }
+          );
+          const lines = result.split('\n').filter((line: string) => line.trim());
+          if (lines.length > 1) {
+            name = lines[1].trim();
+          }
+        } else {
+          // Unix/Linux/macOS: Use ps to get process name
+          const result = execSync(
+            `ps -p ${pid} -o comm= 2>/dev/null || true`,
+            { encoding: 'utf8' }
+          );
+          name = result.trim();
+        }
+        
+        processInfo.push({ pid, name: name || 'unknown' });
+      } catch (error) {
+        // Process might have already exited
+        processInfo.push({ pid, name: 'unknown' });
+      }
+    }
+    
+    return processInfo;
+  }
+
+  /**
+   * Kill a process and all its descendants
+   * Returns true if successful, false if zombie processes remain
+   */
+  private async killProcessTree(pid: number, sessionId: string): Promise<boolean> {
+    const platform = os.platform();
+    const execAsync = promisify(exec);
+    
+    // First, get all descendant PIDs before we start killing
+    const descendantPids = this.getAllDescendantPids(pid);
+    this.logger?.info(`[Claude] Found ${descendantPids.length} descendant processes for PID ${pid} in session ${sessionId}`);
+    
+    let success = true;
+    
+    try {
+      if (platform === 'win32') {
+        // On Windows, use taskkill to terminate the process tree
+        try {
+          await execAsync(`taskkill /F /T /PID ${pid}`);
+          this.logger?.verbose(`[Claude] Successfully killed Windows process tree ${pid}`);
+        } catch (error) {
+          this.logger?.warn(`[Claude] Error killing Windows process tree: ${error as Error}`);
+          // Fallback: kill descendants individually
+          for (const childPid of descendantPids) {
+            try {
+              await execAsync(`taskkill /F /PID ${childPid}`);
+            } catch (e) {
+              // Process might already be dead
+            }
+          }
+        }
+      } else {
+        // On Unix-like systems (macOS, Linux)
+        // First, try SIGTERM for graceful shutdown
+        try {
+          process.kill(pid, 'SIGTERM');
+        } catch (error) {
+          this.logger?.warn('[Claude] SIGTERM failed:', error as Error);
+        }
+        
+        // Kill the entire process group using negative PID
+        try {
+          await execAsync(`kill -TERM -${pid}`);
+        } catch (error) {
+          this.logger?.warn(`[Claude] Error sending SIGTERM to process group: ${error}`);
+        }
+        
+        // Give processes a chance to clean up gracefully
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Now forcefully kill the main process
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch (error) {
+          // Process might already be dead
+        }
+        
+        // Kill the process group with SIGKILL
+        try {
+          await execAsync(`kill -9 -${pid}`);
+        } catch (error) {
+          this.logger?.warn(`[Claude] Error sending SIGKILL to process group: ${error}`);
+        }
+        
+        // Kill all known descendants individually to be sure
+        for (const childPid of descendantPids) {
+          try {
+            await execAsync(`kill -9 ${childPid}`);
+            this.logger?.verbose(`[Claude] Killed descendant process ${childPid}`);
+          } catch (error) {
+            this.logger?.verbose(`[Claude] Process ${childPid} already terminated`);
+          }
+        }
+        
+        // Final cleanup attempt using pkill
+        try {
+          await execAsync(`pkill -9 -P ${pid}`);
+        } catch (error) {
+          // Ignore errors - processes might already be dead
+        }
+      }
+      
+      // Verify all processes are actually dead
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const remainingPids = this.getAllDescendantPids(pid);
+      
+      if (remainingPids.length > 0) {
+        this.logger?.error(`[Claude] WARNING: ${remainingPids.length} zombie processes remain: ${remainingPids.join(', ')}`);
+        success = false;
+        
+        // Get process info for remaining processes
+        const remainingProcesses = await this.getProcessInfo(remainingPids);
+        const processReport = remainingProcesses.map(p => `${p.name || 'unknown'}(${p.pid})`).join(', ');
+        
+        // Emit error event so UI can show warning
+        this.emit('output', {
+          sessionId,
+          type: 'stderr',
+          data: `\n[WARNING] Failed to terminate ${remainingPids.length} child process${remainingPids.length > 1 ? 'es' : ''}: ${processReport}\nPlease manually kill these processes.\n`,
+          timestamp: new Date()
+        });
+      }
+    } catch (error) {
+      this.logger?.error('[Claude] Error in killProcessTree:', error as Error);
+      success = false;
+    }
+    
+    // Always try to kill via pty interface as final fallback
+    try {
+      const claudeProcess = this.processes.get(sessionId);
+      if (claudeProcess) {
+        claudeProcess.process.kill();
+      }
+    } catch (error) {
+      // Process might already be dead
+    }
+    
+    return success;
   }
 }

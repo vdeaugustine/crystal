@@ -45,6 +45,14 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     }
   });
 
+  sessionManager.on('zombie-processes-detected', (data) => {
+    console.error('[Main] Zombie processes detected:', data);
+    const mw = getMainWindow();
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send('zombie-processes-detected', data);
+    }
+  });
+
   sessionManager.on('session-output', (output) => {
     const mw = getMainWindow();
     if (mw) {
@@ -173,7 +181,7 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
 
     // Stop run commands
     try {
-      runCommandManager.stopRunCommands(sessionId);
+      await runCommandManager.stopRunCommands(sessionId);
     } catch (error) {
       console.error(`Failed to stop run commands for session ${sessionId}:`, error);
     }
@@ -259,7 +267,7 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
 
     // Stop run commands on error
     try {
-      runCommandManager.stopRunCommands(sessionId);
+      await runCommandManager.stopRunCommands(sessionId);
     } catch (stopError) {
       console.error(`Failed to stop run commands for session ${sessionId}:`, stopError);
     }
@@ -369,6 +377,14 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     // Add exit info to script output
     if (info.sessionId && info.exitCode !== 0) {
       sessionManager.addScriptOutput(info.sessionId, `\n[Exit] ${info.displayName} exited with code ${info.exitCode}\n`);
+    }
+  });
+
+  runCommandManager.on('zombie-processes-detected', (data) => {
+    console.error('[Main] Zombie processes detected from run command:', data);
+    const mw = getMainWindow();
+    if (mw && !mw.isDestroyed()) {
+      mw.webContents.send('zombie-processes-detected', data);
     }
   });
 

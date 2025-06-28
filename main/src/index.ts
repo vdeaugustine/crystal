@@ -386,6 +386,27 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
+  // Cleanup all sessions and terminate child processes
+  if (sessionManager) {
+    console.log('[Main] Cleaning up sessions and terminating child processes...');
+    await sessionManager.cleanup();
+    console.log('[Main] Session cleanup complete');
+  }
+
+  // Stop all run commands
+  if (runCommandManager) {
+    console.log('[Main] Stopping all run commands...');
+    await runCommandManager.stopAllRunCommands();
+    console.log('[Main] Run commands stopped');
+  }
+
+  // Kill all Claude processes
+  if (claudeCodeManager) {
+    console.log('[Main] Killing all Claude processes...');
+    await claudeCodeManager.killAllProcesses();
+    console.log('[Main] Claude processes killed');
+  }
+
   // Close task queue
   if (taskQueue) {
     await taskQueue.close();

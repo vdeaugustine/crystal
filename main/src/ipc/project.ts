@@ -216,7 +216,7 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       for (const session of projectSessions) {
         if (sessionManager.hasTerminalSession(session.id)) {
           console.log(`[Main] Closing terminal session ${session.id} before deleting project`);
-          sessionManager.closeTerminalSession(session.id);
+          await sessionManager.closeTerminalSession(session.id);
         }
       }
       

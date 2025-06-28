@@ -60,6 +60,7 @@ The following packages are licensed under the MIT license:
   - @jridgewell/trace-mapping (0.3.25) - Justin Ridgewell <justin@ridgewell.name>
   - @malept/flatpak-bundler (0.4.0) - Matt Watson <mattdangerw@gmail.com>
   - @modelcontextprotocol/sdk (1.12.1) - Anthropic, PBC (https://anthropic.com)
+  - @monaco-editor/loader (1.5.0) - Suren Atoyan <contact@surenatoyan.com>
   - @msgpackr-extract/msgpackr-extract-darwin-arm64 (3.0.3) - Kris Zyp
   - @nodelib/fs.scandir (2.1.5)
   - @nodelib/fs.stat (2.0.5)
@@ -369,6 +370,7 @@ The following packages are licensed under the MIT license:
   - minimist (1.2.8) - James Halliday
   - minipass-fetch (2.1.2) - GitHub Inc.
   - minizlib (2.1.2) - Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)
+  - monaco-editor (0.52.2) - Microsoft Corporation
   - ms (2.0.0)
   - ms (2.1.3)
   - msgpackr (1.11.4) - Kris Zyp
@@ -491,6 +493,7 @@ The following packages are licensed under the MIT license:
   - source-map-support (0.5.21)
   - standard-as-callback (2.1.0) - luin <i@zihua.li>
   - stat-mode (1.0.0) - Nathan Rajlich <nathan@tootallnate.net> (http://n8.io/)
+  - state-local (1.0.7) - Suren Atoyan <contact@surenatoyan.com>
   - statuses (2.0.1)
   - statuses (2.0.2)
   - string_decoder (1.1.1)
@@ -2552,7 +2555,7 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ================================================================================
 
 Package: @anthropic-ai/claude-code
-Version: 1.0.17
+Version: 1.0.33
 Author: Boris Cherny <boris@anthropic.com>
 Homepage: https://github.com/anthropics/claude-code
 
@@ -2565,8 +2568,8 @@ Homepage: https://github.com/anthropics/claude-code
 ================================================================================
 
 Package: Crystal
-Version: 0.1.2
-Author: Crystal Team
+Version: 0.1.9
+Author: [object Object]
 License: MIT
 
 MIT License

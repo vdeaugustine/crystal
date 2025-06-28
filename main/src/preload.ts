@@ -254,6 +254,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('updater:error', (_event, error) => callback(error));
       return () => ipcRenderer.removeAllListeners('updater:error');
     },
+    
+    // Process management events
+    onZombieProcessesDetected: (callback: (data: any) => void) => {
+      ipcRenderer.on('zombie-processes-detected', (_event, data) => callback(data));
+      return () => ipcRenderer.removeAllListeners('zombie-processes-detected');
+    },
   },
 
   // Debug utilities
