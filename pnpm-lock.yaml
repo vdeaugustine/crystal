@@ -233,6 +233,9 @@ importers:
       '@types/bull':
         specifier: ^4.10.0
         version: 4.10.4
+      '@types/electron-store':
+        specifier: ^3.2.2
+        version: 3.2.2
       '@types/node':
         specifier: ^22.10.2
         version: 22.15.30
@@ -1336,6 +1339,10 @@ packages:
 
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+
+  '@types/electron-store@3.2.2':
+    resolution: {integrity: sha512-N3X45mnsfnwmeZoXSZmeE7/Tne8kdbIKO1vQdbbEV04TzrMbWIeDVJJjnX2n5GH9O61zI612tet4s2jCZ55DXw==}
+    deprecated: This is a stub types definition. electron-store provides its own type definitions, so you do not need this installed.
 
   '@types/estree@1.0.7':
     resolution: {integrity: sha512-w28IoSUCJpidD/TGviZwwMJckNESJZXFu7NBZ5YJ4mEUnNraUn9Pm8HSZm/jDF1pDWYKspWE7oVphigUPRakIQ==}
@@ -5103,6 +5110,10 @@ snapshots:
   '@types/debug@4.1.12':
     dependencies:
       '@types/ms': 2.1.0
+
+  '@types/electron-store@3.2.2':
+    dependencies:
+      electron-store: 10.0.1
 
   '@types/estree@1.0.7': {}
 

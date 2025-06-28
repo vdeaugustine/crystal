@@ -162,6 +162,14 @@ interface ElectronAPI {
     searchNotebooks: (query: string, limit?: number) => Promise<IPCResponse>;
   };
 
+  // UI State management
+  uiState: {
+    getExpanded: () => Promise<IPCResponse<{ expandedProjects: number[]; expandedFolders: string[] }>>;
+    saveExpanded: (projectIds: number[], folderIds: string[]) => Promise<IPCResponse>;
+    saveExpandedProjects: (projectIds: number[]) => Promise<IPCResponse>;
+    saveExpandedFolders: (folderIds: string[]) => Promise<IPCResponse>;
+  };
+
   // Event listeners for real-time updates
   events: {
     onSessionCreated: (callback: (session: any) => void) => () => void;
