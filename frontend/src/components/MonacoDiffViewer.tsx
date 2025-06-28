@@ -34,6 +34,8 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [canMountEditor, setCanMountEditor] = useState(false);
   const [isFullContentLoaded, setIsFullContentLoaded] = useState(false);
+  const [editorHeight, setEditorHeight] = useState<number>(400); // Default height
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Delay mounting editor to ensure stability
   useEffect(() => {
@@ -210,6 +212,34 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     [performSave]
   );
 
+  // Calculate height based on content
+  const calculateEditorHeight = useCallback(() => {
+    if (!editorRef.current) return;
+    
+    try {
+      const originalEditor = editorRef.current.getOriginalEditor();
+      const modifiedEditor = editorRef.current.getModifiedEditor();
+      
+      const originalModel = originalEditor.getModel();
+      const modifiedModel = modifiedEditor.getModel();
+      
+      const lineHeight = originalEditor.getOption(monaco.editor.EditorOption.lineHeight);
+      const originalLines = originalModel ? originalModel.getLineCount() : 0;
+      const modifiedLines = modifiedModel ? modifiedModel.getLineCount() : 0;
+      
+      // Use the maximum line count between original and modified
+      const maxLines = Math.max(originalLines, modifiedLines);
+      
+      // Calculate height with padding for diff headers and UI elements
+      // Line height + padding for headers (approx 3 lines worth)
+      const calculatedHeight = Math.max(400, (maxLines * lineHeight) + (lineHeight * 3));
+      
+      setEditorHeight(calculatedHeight);
+    } catch (error) {
+      console.debug('Error calculating editor height:', error);
+    }
+  }, []);
+
   const handleEditorDidMount: DiffEditorProps['onMount'] = useCallback((editor: MonacoDiffEditor) => {
     try {
       editorRef.current = editor;
@@ -222,6 +252,11 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       
       // Mark editor as ready
       setIsEditorReady(true);
+      
+      // Calculate initial height
+      setTimeout(() => {
+        calculateEditorHeight();
+      }, 100);
     
     // Track changes and auto-save (only if not read-only)
     if (!isReadOnly) {
@@ -234,6 +269,11 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
         try {
           const newContent = modifiedEditor.getValue();
           setCurrentContent(newContent);
+          
+          // Recalculate height when content changes
+          setTimeout(() => {
+            calculateEditorHeight();
+          }, 50);
           
           // Skip auto-save if this is a programmatic update (e.g., switching commits)
           if (isProgrammaticUpdateRef.current) {
@@ -293,7 +333,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
         setTimeout(() => setCanMountEditor(true), 100);
       }, 100);
     }
-  }, [isReadOnly, debouncedSave, performSave, file.newValue, isFullContentLoaded]);
+  }, [isReadOnly, debouncedSave, performSave, file.newValue, isFullContentLoaded, calculateEditorHeight]);
 
   // Refresh content when file changes
   useEffect(() => {
@@ -325,11 +365,13 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     // Reset flag after a small delay to ensure the change event has fired
     const timeoutId = setTimeout(() => {
       isProgrammaticUpdateRef.current = false;
+      // Recalculate height after content update
+      calculateEditorHeight();
     }, 100);
     
     // Cleanup timeout on effect cleanup
     return () => clearTimeout(timeoutId);
-  }, [file.path, file.newValue, isEditorReady]);
+  }, [file.path, file.newValue, isEditorReady, calculateEditorHeight]);
 
   // Handle readOnly prop changes dynamically
   useEffect(() => {
@@ -405,11 +447,10 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     renderWhitespace: 'selection',
     automaticLayout: true,
     scrollbar: {
-      vertical: 'visible',
-      horizontal: 'visible',
-      useShadows: false,
-      verticalScrollbarSize: 10,
-      horizontalScrollbarSize: 10,
+      vertical: 'hidden',
+      horizontal: 'hidden',
+      handleMouseWheel: false,
+      alwaysConsumeMouseWheel: false,
     },
   };
 
@@ -456,7 +497,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
@@ -481,7 +522,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="relative" ref={containerRef} style={{ height: `${editorHeight}px`, overflow: 'hidden' }}>
         {(!isEditorReady || !canMountEditor) && (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -493,7 +534,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
         {file.path && canMountEditor && (
           <MonacoErrorBoundary onReset={() => setIsEditorReady(false)}>
             <DiffEditor
-              height="100%"
+              height={editorHeight}
               language={getLanguage(file.path)}
               original={file.oldValue || ''}
               modified={currentContent}

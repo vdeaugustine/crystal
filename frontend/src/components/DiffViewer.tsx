@@ -408,7 +408,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
 
                 {/* Diff content */}
                 {isExpanded && (
-                  <div className="border-t border-gray-200 dark:border-gray-700" style={{ height: '600px' }}>
+                  <div className="border-t border-gray-200 dark:border-gray-700">
                     {loadErrors[file.path] && isAllCommitsSelected ? (
                       <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-700">
                         <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
