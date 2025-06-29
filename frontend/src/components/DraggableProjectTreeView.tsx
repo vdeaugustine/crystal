@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Folder as FolderIcon, FolderOpen, Plus, Settings, GripVertical } from 'lucide-react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useErrorStore } from '../stores/errorStore';
@@ -9,6 +9,7 @@ import ProjectSettings from './ProjectSettings';
 import { EmptyState } from './EmptyState';
 import { LoadingSpinner } from './LoadingSpinner';
 import { API } from '../utils/api';
+import { debounce } from '../utils/debounce';
 import type { Session } from '../types/session';
 import type { Project } from '../types/project';
 import type { Folder } from '../types/folder';
@@ -63,6 +64,26 @@ export function DraggableProjectTreeView() {
     overFolderId: null
   });
   const dragCounter = useRef(0);
+
+  // Create debounced save function
+  const saveUIState = useCallback(
+    debounce(async (projectIds: number[], folderIds: string[]) => {
+      try {
+        await window.electronAPI?.uiState?.saveExpanded(projectIds, folderIds);
+        console.log('[DraggableProjectTreeView] Saved UI state:', { projectIds, folderIds });
+      } catch (error) {
+        console.error('[DraggableProjectTreeView] Failed to save UI state:', error);
+      }
+    }, 500),
+    []
+  );
+
+  // Save UI state whenever expanded state changes
+  useEffect(() => {
+    const projectIds = Array.from(expandedProjects);
+    const folderIds = Array.from(expandedFolders);
+    saveUIState(projectIds, folderIds);
+  }, [expandedProjects, expandedFolders, saveUIState]);
 
   const handleFolderCreated = (folder: Folder) => {
     console.log('[DraggableProjectTreeView] Folder created event received:', {
@@ -278,36 +299,54 @@ export function DraggableProjectTreeView() {
         
         setProjectsWithSessions(response.data);
         
-        // Auto-expand projects that have sessions
-        const projectsToExpand = new Set<number>();
-        const foldersToExpand = new Set<string>();
-        
-        response.data.forEach((project: ProjectWithSessions) => {
-          if (project.sessions.length > 0) {
-            projectsToExpand.add(project.id);
+        // Try to load saved UI state
+        let savedState = null;
+        try {
+          const stateResponse = await window.electronAPI?.uiState?.getExpanded();
+          if (stateResponse?.success && stateResponse.data) {
+            savedState = stateResponse.data;
+            console.log('[DraggableProjectTreeView] Loaded saved UI state:', savedState);
           }
+        } catch (error) {
+          console.error('[DraggableProjectTreeView] Failed to load saved UI state:', error);
+        }
+        
+        if (savedState && savedState.expandedProjects && savedState.expandedFolders) {
+          // Use saved state
+          setExpandedProjects(new Set(savedState.expandedProjects));
+          setExpandedFolders(new Set(savedState.expandedFolders));
+        } else {
+          // Fall back to auto-expand logic
+          const projectsToExpand = new Set<number>();
+          const foldersToExpand = new Set<string>();
           
-          // Auto-expand folders that contain sessions
-          if (project.folders && project.folders.length > 0) {
-            project.folders.forEach(folder => {
-              const folderHasSessions = project.sessions.some(s => s.folderId === folder.id);
-              if (folderHasSessions) {
-                foldersToExpand.add(folder.id);
+          response.data.forEach((project: ProjectWithSessions) => {
+            if (project.sessions.length > 0) {
+              projectsToExpand.add(project.id);
+            }
+            
+            // Auto-expand folders that contain sessions
+            if (project.folders && project.folders.length > 0) {
+              project.folders.forEach(folder => {
+                const folderHasSessions = project.sessions.some(s => s.folderId === folder.id);
+                if (folderHasSessions) {
+                  foldersToExpand.add(folder.id);
+                }
+              });
+            }
+          });
+          
+          // Also expand the project containing the active session
+          if (activeSessionId) {
+            response.data.forEach((project: ProjectWithSessions) => {
+              if (project.sessions.some(s => s.id === activeSessionId)) {
+                projectsToExpand.add(project.id);
               }
             });
           }
-        });
-        
-        setExpandedProjects(projectsToExpand);
-        setExpandedFolders(foldersToExpand);
-        
-        // Also expand the project containing the active session
-        if (activeSessionId) {
-          response.data.forEach((project: ProjectWithSessions) => {
-            if (project.sessions.some(s => s.id === activeSessionId)) {
-              projectsToExpand.add(project.id);
-            }
-          });
+          
+          setExpandedProjects(projectsToExpand);
+          setExpandedFolders(foldersToExpand);
         }
       }
     } catch (error) {

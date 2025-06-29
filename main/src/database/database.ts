@@ -555,6 +555,21 @@ export class DatabaseService {
         ON sessions(folder_id)
       `).run();
     }
+
+    // Add UI state table if it doesn't exist
+    const uiStateTable = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ui_state'").all();
+    if (uiStateTable.length === 0) {
+      this.db.prepare(`
+        CREATE TABLE ui_state (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          key TEXT NOT NULL UNIQUE,
+          value TEXT NOT NULL,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+      this.db.prepare("CREATE INDEX idx_ui_state_key ON ui_state(key)").run();
+      console.log('[Database] Created ui_state table');
+    }
   }
 
   // Project operations
@@ -1324,6 +1339,26 @@ export class DatabaseService {
     console.log(`[Database] Table structure for ${tableName}:`, JSON.stringify(structure, null, 2));
     
     return structure;
+  }
+
+  // UI State operations
+  getUIState(key: string): string | undefined {
+    const result = this.db.prepare('SELECT value FROM ui_state WHERE key = ?').get(key) as { value: string } | undefined;
+    return result?.value;
+  }
+
+  setUIState(key: string, value: string): void {
+    this.db.prepare(`
+      INSERT INTO ui_state (key, value, updated_at) 
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET 
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(key, value);
+  }
+
+  deleteUIState(key: string): void {
+    this.db.prepare('DELETE FROM ui_state WHERE key = ?').run(key);
   }
 
   close(): void {
