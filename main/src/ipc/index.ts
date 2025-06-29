@@ -12,7 +12,6 @@ import { registerPromptHandlers } from './prompt';
 import { registerStravuHandlers } from './stravu';
 import { registerFileHandlers } from './file';
 import { registerFolderHandlers } from './folders';
-import { registerUIStateHandlers } from './uiState';
 
 
 export function registerIpcHandlers(services: AppServices): void {
@@ -28,5 +27,4 @@ export function registerIpcHandlers(services: AppServices): void {
   registerStravuHandlers(ipcMain, services);
   registerFileHandlers(ipcMain, services);
   registerFolderHandlers(ipcMain, services);
-  registerUIStateHandlers();
 } 
