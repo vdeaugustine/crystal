@@ -11,9 +11,9 @@ interface SessionListItemProps {
 }
 
 export function SessionListItem({ session, isNested = false }: SessionListItemProps) {
-  const { activeSessionId, setActiveSession } = useSessionStore();
+  const { activeSessionId, setActiveSession, deletingSessionIds, addDeletingSessionId, removeDeletingSessionId } = useSessionStore();
   const isActive = activeSessionId === session.id;
-  const [isDeleting, setIsDeleting] = useState(false);
+  const isDeleting = deletingSessionIds.has(session.id);
   const [hasRunScript, setHasRunScript] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -159,13 +159,16 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selecting the session
     
+    // Prevent deletion if already being deleted
+    if (isDeleting) return;
+    
     const confirmMessage = session.isMainRepo 
       ? `Archive main repository session "${session.name}"? This will keep the session history but close the active connection.`
       : `Delete session "${session.name}" and its worktree? This action cannot be undone.`;
     const confirmed = window.confirm(confirmMessage);
     if (!confirmed) return;
     
-    setIsDeleting(true);
+    addDeletingSessionId(session.id);
     try {
       const response = await API.sessions.delete(session.id);
       
@@ -181,7 +184,7 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
       console.error('Error deleting session:', error);
       alert('Failed to delete session');
     } finally {
-      setIsDeleting(false);
+      removeDeletingSessionId(session.id);
     }
   };
 

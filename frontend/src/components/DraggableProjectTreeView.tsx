@@ -361,6 +361,10 @@ export function DraggableProjectTreeView() {
         if (folderSessions.length > 0) {
           console.log(`Deleting ${folderSessions.length} sessions in folder "${folder.name}"`);
           
+          // Mark all sessions as deleting to prevent individual delete operations
+          const sessionIds = folderSessions.map(s => s.id);
+          useSessionStore.getState().setDeletingSessionIds(sessionIds);
+          
           // Delete each session
           for (const session of folderSessions) {
             try {
@@ -375,7 +379,8 @@ export function DraggableProjectTreeView() {
                 title: `Failed to delete session "${session.name}"`,
                 error: error.message || 'Unknown error occurred'
               });
-              // Stop the entire operation if a session fails to delete
+              // Clear deleting state and stop the operation if a session fails to delete
+              useSessionStore.getState().clearDeletingSessionIds();
               return;
             }
           }
@@ -417,6 +422,9 @@ export function DraggableProjectTreeView() {
           });
           
           console.log(`Successfully deleted folder "${folder.name}" and ${folderSessions.length} sessions`);
+          
+          // Clear deleting state after successful deletion
+          useSessionStore.getState().clearDeletingSessionIds();
         } else {
           showError({
             title: 'Failed to delete folder',
@@ -429,6 +437,8 @@ export function DraggableProjectTreeView() {
           title: 'Failed to delete folder',
           error: error.message || 'Unknown error occurred'
         });
+        // Clear deleting state in case of error
+        useSessionStore.getState().clearDeletingSessionIds();
       }
     }
   };

@@ -14,6 +14,7 @@ interface SessionStore {
   activeMainRepoSession: Session | null; // Special storage for main repo session
   isLoaded: boolean;
   scriptOutput: Record<string, string[]>; // sessionId -> script output lines
+  deletingSessionIds: Set<string>; // Track sessions currently being deleted
   
   setSessions: (sessions: Session[]) => void;
   loadSessions: (sessions: Session[]) => void;
@@ -31,6 +32,11 @@ interface SessionStore {
   createSession: (request: CreateSessionRequest) => Promise<void>;
   markSessionAsViewed: (sessionId: string) => Promise<void>;
   
+  setDeletingSessionIds: (ids: string[]) => void;
+  addDeletingSessionId: (id: string) => void;
+  removeDeletingSessionId: (id: string) => void;
+  clearDeletingSessionIds: () => void;
+  
   getActiveSession: () => Session | undefined;
 }
 
@@ -40,6 +46,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   activeMainRepoSession: null,
   isLoaded: false,
   scriptOutput: {},
+  deletingSessionIds: new Set(),
   
   setSessions: (sessions) => set({ sessions }),
   
@@ -386,6 +393,22 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     console.log('[SessionStore] Found session in sessions array:', found?.id, found?.name);
     return found;
   },
+
+  setDeletingSessionIds: (ids) => set({ deletingSessionIds: new Set(ids) }),
+  
+  addDeletingSessionId: (id) => set((state) => {
+    const newSet = new Set(state.deletingSessionIds);
+    newSet.add(id);
+    return { deletingSessionIds: newSet };
+  }),
+  
+  removeDeletingSessionId: (id) => set((state) => {
+    const newSet = new Set(state.deletingSessionIds);
+    newSet.delete(id);
+    return { deletingSessionIds: newSet };
+  }),
+  
+  clearDeletingSessionIds: () => set({ deletingSessionIds: new Set() }),
 
   markSessionAsViewed: async (sessionId) => {
     try {
