@@ -842,30 +842,81 @@ export class SessionManager extends EventEmitter {
           const descendantPids = this.getAllDescendantPids(process.pid);
           console.log(`Found ${descendantPids.length} descendant processes: ${descendantPids.join(', ')}`);
           
+          // Emit detailed termination info to terminal
+          this.emit('script-output', { 
+            sessionId, 
+            type: 'stdout', 
+            data: `\n[Terminating process ${process.pid}]\n` 
+          });
+          
+          if (descendantPids.length > 0) {
+            this.emit('script-output', { 
+              sessionId, 
+              type: 'stdout', 
+              data: `[Found ${descendantPids.length} child process${descendantPids.length > 1 ? 'es' : ''}: ${descendantPids.join(', ')}]\n` 
+            });
+          }
+          
           const platform = os.platform();
           
           if (platform === 'win32') {
             // On Windows, use taskkill to terminate the process tree
+            this.emit('script-output', { 
+              sessionId, 
+              type: 'stdout', 
+              data: `[Using taskkill to terminate process tree ${process.pid}]\n` 
+            });
+            
             exec(`taskkill /F /T /PID ${process.pid}`, (error) => {
               if (error) {
                 console.warn(`Error killing Windows process tree: ${error.message}`);
+                this.emit('script-output', { 
+                  sessionId, 
+                  type: 'stderr', 
+                  data: `[Error terminating process tree: ${error.message}]\n` 
+                });
+                
                 // Fallback: kill individual processes
                 try {
                   process.kill('SIGKILL');
                 } catch (killError) {
                   console.warn('Fallback kill failed:', killError);
                 }
+                
                 // Kill descendants individually
+                let killedCount = 0;
                 descendantPids.forEach(pid => {
-                  exec(`taskkill /F /PID ${pid}`, () => {});
+                  exec(`taskkill /F /PID ${pid}`, (err) => {
+                    if (!err) killedCount++;
+                    
+                    // Report after all attempts
+                    if (killedCount === descendantPids.length) {
+                      this.emit('script-output', { 
+                        sessionId, 
+                        type: 'stdout', 
+                        data: `[Terminated ${killedCount} processes using fallback method]\n` 
+                      });
+                    }
+                  });
                 });
               } else {
                 console.log(`Successfully killed Windows process tree ${process.pid}`);
+                this.emit('script-output', { 
+                  sessionId, 
+                  type: 'stdout', 
+                  data: `[Successfully terminated process tree]\n` 
+                });
               }
             });
           } else {
             // On Unix-like systems (macOS, Linux)
             // First, try SIGTERM for graceful shutdown
+            this.emit('script-output', { 
+              sessionId, 
+              type: 'stdout', 
+              data: `[Sending SIGTERM to process ${process.pid} and its group]\n` 
+            });
+            
             try {
               process.kill('SIGTERM');
             } catch (error) {
@@ -880,28 +931,84 @@ export class SessionManager extends EventEmitter {
             });
             
             // Give processes a chance to clean up gracefully
+            this.emit('script-output', { 
+              sessionId, 
+              type: 'stdout', 
+              data: '[Waiting 10 seconds for graceful shutdown...]\n' 
+            });
+            
             setTimeout(() => {
+              this.emit('script-output', { 
+                sessionId, 
+                type: 'stdout', 
+                data: '\n[Grace period expired, using forceful termination]\n' 
+              });
+              
               // Now forcefully kill the main process
               try {
                 process.kill('SIGKILL');
+                this.emit('script-output', { 
+                  sessionId, 
+                  type: 'stdout', 
+                  data: `[Sent SIGKILL to process ${process.pid}]\n` 
+                });
               } catch (error) {
                 // Process might already be dead
+                this.emit('script-output', { 
+                  sessionId, 
+                  type: 'stdout', 
+                  data: `[Process ${process.pid} already terminated]\n` 
+                });
               }
               
               // Kill the process group with SIGKILL
               exec(`kill -9 -${process.pid}`, (error) => {
                 if (error) {
                   console.warn(`Error sending SIGKILL to process group: ${error.message}`);
+                  this.emit('script-output', { 
+                    sessionId, 
+                    type: 'stderr', 
+                    data: `[Warning: Could not kill process group: ${error.message}]\n` 
+                  });
+                } else {
+                  this.emit('script-output', { 
+                    sessionId, 
+                    type: 'stdout', 
+                    data: `[Sent SIGKILL to process group ${process.pid}]\n` 
+                  });
                 }
               });
               
               // Kill all known descendants individually to be sure
+              let killedCount = 0;
+              let alreadyDeadCount = 0;
+              
               descendantPids.forEach(pid => {
                 exec(`kill -9 ${pid}`, (error) => {
                   if (error) {
                     console.log(`Process ${pid} already terminated`);
+                    alreadyDeadCount++;
                   } else {
                     console.log(`Killed descendant process ${pid}`);
+                    killedCount++;
+                  }
+                  
+                  // Report results after processing all descendants
+                  if (killedCount + alreadyDeadCount === descendantPids.length) {
+                    if (killedCount > 0) {
+                      this.emit('script-output', { 
+                        sessionId, 
+                        type: 'stdout', 
+                        data: `[Forcefully terminated ${killedCount} child process${killedCount > 1 ? 'es' : ''}]\n` 
+                      });
+                    }
+                    if (alreadyDeadCount > 0) {
+                      this.emit('script-output', { 
+                        sessionId, 
+                        type: 'stdout', 
+                        data: `[${alreadyDeadCount} process${alreadyDeadCount > 1 ? 'es' : ''} had already terminated gracefully]\n` 
+                      });
+                    }
                   }
                 });
               });
@@ -910,6 +1017,31 @@ export class SessionManager extends EventEmitter {
               exec(`pkill -9 -P ${process.pid}`, () => {
                 // Ignore errors - processes might already be dead
               });
+              
+              // Check for zombie processes after a short delay
+              setTimeout(() => {
+                if (process.pid) {
+                  const remainingPids = this.getAllDescendantPids(process.pid);
+                  if (remainingPids.length > 0) {
+                    this.emit('script-output', { 
+                      sessionId, 
+                      type: 'stderr', 
+                      data: `\n[WARNING: ${remainingPids.length} zombie process${remainingPids.length > 1 ? 'es' : ''} could not be terminated: ${remainingPids.join(', ')}]\n` 
+                    });
+                    this.emit('script-output', { 
+                      sessionId, 
+                      type: 'stderr', 
+                      data: `[Please manually kill these processes using: kill -9 ${remainingPids.join(' ')}]\n` 
+                    });
+                  } else {
+                    this.emit('script-output', { 
+                      sessionId, 
+                      type: 'stdout', 
+                      data: '\n[All processes terminated successfully]\n' 
+                    });
+                  }
+                }
+              }, 500);
             }, 10000); // 10 second delay for SIGTERM to take effect
           }
         }
