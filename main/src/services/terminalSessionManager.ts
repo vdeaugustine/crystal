@@ -255,8 +255,9 @@ export class TerminalSessionManager extends EventEmitter {
           console.warn(`Error sending SIGTERM to process group: ${error}`);
         }
         
-        // Give processes a chance to clean up gracefully
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Give processes 10 seconds to clean up gracefully
+        console.log(`Waiting 10 seconds for graceful shutdown of terminal process ${pid}...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
         
         // Now forcefully kill the main process
         try {

@@ -910,7 +910,7 @@ export class SessionManager extends EventEmitter {
               exec(`pkill -9 -P ${process.pid}`, () => {
                 // Ignore errors - processes might already be dead
               });
-            }, 200); // Short delay for SIGTERM to take effect
+            }, 10000); // 10 second delay for SIGTERM to take effect
           }
         }
       } catch (error) {

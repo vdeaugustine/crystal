@@ -368,8 +368,9 @@ export class RunCommandManager extends EventEmitter {
           this.logger?.warn(`Error sending SIGTERM to process group ${killGroupId}: ${error}`);
         }
         
-        // Give processes a chance to clean up gracefully
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Give processes 10 seconds to clean up gracefully
+        this.logger?.info(`Waiting 10 seconds for graceful shutdown of process ${pid}...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
         
         // Now forcefully kill the main process
         try {
