@@ -37,7 +37,6 @@ function App() {
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const [isDiscordOpen, setIsDiscordOpen] = useState(false);
   const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
-  const [hasCheckedDiscord, setHasCheckedDiscord] = useState(false);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   
@@ -172,7 +171,6 @@ function App() {
     if (isLoaded && !hasCheckedWelcome) {
       checkInitialState();
       setHasCheckedWelcome(true);
-      setHasCheckedDiscord(true); // Mark both as checked since we're combining the logic
     }
   }, [isLoaded, hasCheckedWelcome]); // Remove sessions.length from dependencies to prevent re-runs
 
