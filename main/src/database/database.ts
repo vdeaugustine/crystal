@@ -608,6 +608,21 @@ export class DatabaseService {
         ('hide_discord', 'false'),
         ('welcome_shown', 'false')
       `).run();
+    } else {
+      // For existing users, ensure default preferences exist
+      const defaultPreferences = [
+        { key: 'hide_welcome', value: 'false' },
+        { key: 'hide_discord', value: 'false' },
+        { key: 'welcome_shown', value: 'false' }
+      ];
+      
+      for (const pref of defaultPreferences) {
+        const existing = this.db.prepare('SELECT value FROM user_preferences WHERE key = ?').get(pref.key);
+        if (!existing) {
+          this.db.prepare('INSERT INTO user_preferences (key, value) VALUES (?, ?)').run(pref.key, pref.value);
+          console.log(`[Database] Added missing default preference: ${pref.key} = ${pref.value}`);
+        }
+      }
     }
   }
 

@@ -13,8 +13,24 @@ export const DiscordPopup: React.FC<DiscordPopupProps> = ({ isOpen, onClose }) =
     // Check if "don't show again" was previously selected from database
     const loadPreference = async () => {
       if (window.electron?.invoke) {
-        const result = await window.electron.invoke('preferences:get', 'hide_discord');
-        setDontShowAgain(result?.data === 'true');
+        try {
+          console.log('[Discord] Loading hide_discord preference...');
+          const result = await window.electron.invoke('preferences:get', 'hide_discord');
+          console.log('[Discord] Preference result:', result);
+          
+          if (result?.success) {
+            // Handle null (preference doesn't exist) as false
+            const shouldHide = result.data === 'true';
+            setDontShowAgain(shouldHide);
+            console.log('[Discord] Set dontShowAgain to:', shouldHide);
+          } else {
+            console.error('[Discord] Failed to load preference:', result?.error);
+          }
+        } catch (error) {
+          console.error('[Discord] Error loading preference:', error);
+        }
+      } else {
+        console.warn('[Discord] Electron invoke not available');
       }
     };
     loadPreference();
@@ -22,7 +38,14 @@ export const DiscordPopup: React.FC<DiscordPopupProps> = ({ isOpen, onClose }) =
 
   const handleClose = async () => {
     if (window.electron?.invoke) {
-      await window.electron.invoke('preferences:set', 'hide_discord', dontShowAgain ? 'true' : 'false');
+      try {
+        const result = await window.electron.invoke('preferences:set', 'hide_discord', dontShowAgain ? 'true' : 'false');
+        if (!result?.success) {
+          console.error('[Discord] Failed to set preference on close:', result?.error);
+        }
+      } catch (error) {
+        console.error('[Discord] Error setting preference on close:', error);
+      }
     }
     onClose();
   };
@@ -30,7 +53,14 @@ export const DiscordPopup: React.FC<DiscordPopupProps> = ({ isOpen, onClose }) =
   const handleRemindLater = async () => {
     // Just close without setting the hide flag
     if (window.electron?.invoke) {
-      await window.electron.invoke('preferences:set', 'hide_discord', 'false');
+      try {
+        const result = await window.electron.invoke('preferences:set', 'hide_discord', 'false');
+        if (!result?.success) {
+          console.error('[Discord] Failed to set preference on remind later:', result?.error);
+        }
+      } catch (error) {
+        console.error('[Discord] Error setting preference on remind later:', error);
+      }
     }
     onClose();
   };
@@ -44,7 +74,14 @@ export const DiscordPopup: React.FC<DiscordPopupProps> = ({ isOpen, onClose }) =
       window.open('https://discord.gg/XrVa6q7DPY', '_blank');
     }
     if (dontShowAgain && window.electron?.invoke) {
-      await window.electron.invoke('preferences:set', 'hide_discord', 'true');
+      try {
+        const result = await window.electron.invoke('preferences:set', 'hide_discord', 'true');
+        if (!result?.success) {
+          console.error('[Discord] Failed to set preference on join discord:', result?.error);
+        }
+      } catch (error) {
+        console.error('[Discord] Error setting preference on join discord:', error);
+      }
     }
     onClose();
   };
@@ -114,7 +151,16 @@ export const DiscordPopup: React.FC<DiscordPopupProps> = ({ isOpen, onClose }) =
                 const newValue = !dontShowAgain;
                 setDontShowAgain(newValue);
                 if (window.electron?.invoke) {
-                  await window.electron.invoke('preferences:set', 'hide_discord', newValue ? 'true' : 'false');
+                  try {
+                    const result = await window.electron.invoke('preferences:set', 'hide_discord', newValue ? 'true' : 'false');
+                    if (result?.success) {
+                      console.log('[Discord] Successfully set hide_discord preference to', newValue);
+                    } else {
+                      console.error('[Discord] Failed to set preference:', result?.error);
+                    }
+                  } catch (error) {
+                    console.error('[Discord] Error setting preference:', error);
+                  }
                 }
                 // Close the popup when don't show again is clicked and set to true
                 if (newValue) {
