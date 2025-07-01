@@ -5,11 +5,7 @@
 </div>
 
 <div align="center">
-  <h2>🌐 Join Our Community</h2>
-  <p>Connect with other Crystal users, share your workflows, and get help!</p>
-  <a href="https://discord.gg/XrVa6q7DPY">
-    <img src="https://img.shields.io/discord/1234567890?color=7289da&label=Join%20our%20Discord&logo=discord&logoColor=white&style=for-the-badge" alt="Discord">
-  </a>
+  [![Join our Discord](https://img.shields.io/badge/Join%20our-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/XrVa6q7DPY)
 </div>
 
 Crystal is an Electron desktop application that lets you run, inspect, and test multiple Claude Code instances simultaneously using git worktrees. Crystal is an independent project created by [Stravu](https://stravu.com/). Stravu is the way AI-first teams collaborate.
