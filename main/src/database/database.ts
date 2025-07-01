@@ -570,6 +570,45 @@ export class DatabaseService {
       this.db.prepare("CREATE INDEX idx_ui_state_key ON ui_state(key)").run();
       console.log('[Database] Created ui_state table');
     }
+
+    // Add app_opens table to track application launches
+    const appOpensTable = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='app_opens'").all();
+    if (appOpensTable.length === 0) {
+      this.db.prepare(`
+        CREATE TABLE app_opens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          welcome_hidden BOOLEAN DEFAULT 0,
+          discord_shown BOOLEAN DEFAULT 0
+        )
+      `).run();
+      this.db.prepare("CREATE INDEX idx_app_opens_opened_at ON app_opens(opened_at)").run();
+      console.log('[Database] Created app_opens table');
+    }
+
+    // Add user_preferences table to store all user preferences
+    const userPreferencesTable = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user_preferences'").all();
+    if (userPreferencesTable.length === 0) {
+      this.db.prepare(`
+        CREATE TABLE user_preferences (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          key TEXT NOT NULL UNIQUE,
+          value TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+      this.db.prepare("CREATE INDEX idx_user_preferences_key ON user_preferences(key)").run();
+      console.log('[Database] Created user_preferences table');
+      
+      // Set default preferences
+      this.db.prepare(`
+        INSERT INTO user_preferences (key, value) VALUES 
+        ('hide_welcome', 'false'),
+        ('hide_discord', 'false'),
+        ('welcome_shown', 'false')
+      `).run();
+    }
   }
 
   // Project operations
@@ -1359,6 +1398,70 @@ export class DatabaseService {
 
   deleteUIState(key: string): void {
     this.db.prepare('DELETE FROM ui_state WHERE key = ?').run(key);
+  }
+
+  // App opens operations
+  recordAppOpen(welcomeHidden: boolean, discordShown: boolean = false): void {
+    this.db.prepare(`
+      INSERT INTO app_opens (welcome_hidden, discord_shown)
+      VALUES (?, ?)
+    `).run(welcomeHidden ? 1 : 0, discordShown ? 1 : 0);
+  }
+
+  getLastAppOpen(): { opened_at: string; welcome_hidden: boolean; discord_shown: boolean } | null {
+    const result = this.db.prepare(`
+      SELECT opened_at, welcome_hidden, discord_shown
+      FROM app_opens
+      ORDER BY opened_at DESC
+      LIMIT 1
+    `).get() as any;
+
+    if (!result) return null;
+    
+    return {
+      opened_at: result.opened_at,
+      welcome_hidden: Boolean(result.welcome_hidden),
+      discord_shown: Boolean(result.discord_shown)
+    };
+  }
+
+  updateLastAppOpenDiscordShown(): void {
+    this.db.prepare(`
+      UPDATE app_opens
+      SET discord_shown = 1
+      WHERE id = (SELECT id FROM app_opens ORDER BY opened_at DESC LIMIT 1)
+    `).run();
+  }
+
+  // User preferences operations
+  getUserPreference(key: string): string | null {
+    const result = this.db.prepare(`
+      SELECT value FROM user_preferences WHERE key = ?
+    `).get(key) as { value: string } | undefined;
+    
+    return result?.value || null;
+  }
+
+  setUserPreference(key: string, value: string): void {
+    this.db.prepare(`
+      INSERT INTO user_preferences (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET 
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(key, value);
+  }
+
+  getUserPreferences(): Record<string, string> {
+    const rows = this.db.prepare(`
+      SELECT key, value FROM user_preferences
+    `).all() as Array<{ key: string; value: string }>;
+    
+    const preferences: Record<string, string> = {};
+    for (const row of rows) {
+      preferences[row.key] = row.value;
+    }
+    return preferences;
   }
 
   close(): void {

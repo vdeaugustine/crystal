@@ -279,6 +279,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 // Expose electron event listeners and utilities for permission requests
 contextBridge.exposeInMainWorld('electron', {
   openExternal: (url: string) => ipcRenderer.invoke('openExternal', url),
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
   on: (channel: string, callback: (...args: any[]) => void) => {
     const validChannels = ['permission:request'];
     if (validChannels.includes(channel)) {

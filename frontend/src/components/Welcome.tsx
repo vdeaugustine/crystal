@@ -1,3 +1,4 @@
+import React from 'react';
 import { Zap, CheckCircle, GitBranch } from 'lucide-react';
 import crystalLogo from '../assets/crystal-logo.svg';
 
@@ -7,6 +8,19 @@ interface WelcomeProps {
 }
 
 export default function Welcome({ isOpen, onClose }: WelcomeProps) {
+  const [dontShowAgain, setDontShowAgain] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Load the preference from database when component mounts
+    const loadPreference = async () => {
+      if (window.electron?.invoke) {
+        const result = await window.electron.invoke('preferences:get', 'hide_welcome');
+        setDontShowAgain(result?.data === 'true');
+      }
+    };
+    loadPreference();
+  }, []);
+  
   if (!isOpen) return null;
 
   return (
@@ -130,20 +144,28 @@ export default function Welcome({ isOpen, onClose }: WelcomeProps) {
         </div>
         
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <label className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              className="mr-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 dark:focus:ring-offset-gray-800"
-              onChange={(e) => {
-                if (e.target.checked) {
-                  localStorage.setItem('crystal-hide-welcome', 'true');
-                } else {
-                  localStorage.removeItem('crystal-hide-welcome');
-                }
-              }}
-            />
-            Don't show this again
-          </label>
+          <button
+            onClick={async () => {
+              const newValue = !dontShowAgain;
+              console.log('[Welcome Debug] Don\'t show again clicked:', newValue);
+              setDontShowAgain(newValue);
+              if (window.electron?.invoke) {
+                await window.electron.invoke('preferences:set', 'hide_welcome', newValue ? 'true' : 'false');
+                console.log('[Welcome Debug] Set hide_welcome preference to', newValue);
+              }
+              // Close the popup when don't show again is clicked and set to true
+              if (newValue) {
+                onClose();
+              }
+            }}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              dontShowAgain
+                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {dontShowAgain ? "Will hide on next launch" : "Don't show this again"}
+          </button>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

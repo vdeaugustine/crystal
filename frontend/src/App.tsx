@@ -12,6 +12,7 @@ import { UpdateDialog } from './components/UpdateDialog';
 import { MainProcessLogger } from './components/MainProcessLogger';
 import { ErrorDialog } from './components/ErrorDialog';
 import { PermissionDialog } from './components/PermissionDialog';
+import { DiscordPopup } from './components/DiscordPopup';
 import { useErrorStore } from './stores/errorStore';
 import { useSessionStore } from './stores/sessionStore';
 import { API } from './utils/api';
@@ -34,6 +35,9 @@ function App() {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [updateVersionInfo, setUpdateVersionInfo] = useState<any>(null);
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
+  const [isDiscordOpen, setIsDiscordOpen] = useState(false);
+  const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
+  const [hasCheckedDiscord, setHasCheckedDiscord] = useState(false);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   
@@ -49,15 +53,40 @@ function App() {
 
   useEffect(() => {
     // Show welcome screen intelligently based on user state
+    // This should only run once when the app is loaded, not when sessions change
     const checkInitialState = async () => {
-      const hideWelcome = localStorage.getItem('crystal-hide-welcome');
-      const hasSeenWelcome = localStorage.getItem('crystal-welcome-shown');
+      if (!window.electron?.invoke) {
+        console.log('[Welcome Debug] Electron API not available');
+        return;
+      }
       
-      if (!hideWelcome && isLoaded) {
+      // Get preferences from database
+      const hideWelcomeResult = await window.electron.invoke('preferences:get', 'hide_welcome');
+      const welcomeShownResult = await window.electron.invoke('preferences:get', 'welcome_shown');
+      
+      const hideWelcome = hideWelcomeResult?.data === 'true';
+      const hasSeenWelcome = welcomeShownResult?.data === 'true';
+      
+      console.log('[Welcome Debug] Checking welcome screen state:', {
+        hideWelcomeRaw: hideWelcomeResult?.data,
+        hideWelcome,
+        hasSeenWelcome,
+        isLoaded
+      });
+      
+      // If user explicitly said "don't show again", respect that preference
+      if (hideWelcome) {
+        console.log('[Welcome Debug] User has hidden welcome screen, not showing');
+        return;
+      }
+      
+      if (isLoaded) {
         try {
           const projectsResponse = await API.projects.getAll();
           const hasProjects = projectsResponse.success && projectsResponse.data && projectsResponse.data.length > 0;
-          const hasSessions = sessions.length > 0;
+          // Get sessions from the API to avoid stale closure
+          const sessionsResponse = await API.sessions.getAll();
+          const hasSessions = sessionsResponse.success && sessionsResponse.data && sessionsResponse.data.length > 0;
           
           // Show welcome if:
           // 1. First time user (no projects and never seen welcome)
@@ -65,10 +94,20 @@ function App() {
           const isFirstTimeUser = !hasProjects && !hasSeenWelcome;
           const isReturningUserWithNoData = !hasProjects && !hasSessions && hasSeenWelcome;
           
-          if (isFirstTimeUser || (isReturningUserWithNoData && !hideWelcome)) {
+          console.log('[Welcome Debug] Conditions:', {
+            hasProjects,
+            hasSessions,
+            isFirstTimeUser,
+            isReturningUserWithNoData
+          });
+          
+          if (isFirstTimeUser || isReturningUserWithNoData) {
+            console.log('[Welcome Debug] Showing welcome screen');
             setIsWelcomeOpen(true);
             // Mark that welcome has been shown at least once
-            localStorage.setItem('crystal-welcome-shown', 'true');
+            await window.electron.invoke('preferences:set', 'welcome_shown', 'true');
+          } else {
+            console.log('[Welcome Debug] Not showing welcome screen');
           }
         } catch (error) {
           console.error('Error checking initial state:', error);
@@ -76,10 +115,106 @@ function App() {
       }
     };
     
-    if (isLoaded) {
+    if (isLoaded && !hasCheckedWelcome) {
       checkInitialState();
+      setHasCheckedWelcome(true);
     }
-  }, [isLoaded, sessions.length]);
+  }, [isLoaded, hasCheckedWelcome]); // Remove sessions.length from dependencies to prevent re-runs
+
+  useEffect(() => {
+    // Track app open and check Discord popup
+    const trackAppOpen = async () => {
+      if (!isLoaded) return;
+      
+      // Check if electron API is available
+      if (!window.electron?.invoke) {
+        console.log('[Discord Debug] Electron API not available yet');
+        return;
+      }
+      
+      try {
+        // Get preferences from database
+        const hideWelcomeResult = await window.electron.invoke('preferences:get', 'hide_welcome');
+        const hideDiscordResult = await window.electron.invoke('preferences:get', 'hide_discord');
+        
+        const hideWelcome = hideWelcomeResult?.data === 'true';
+        const hideDiscord = hideDiscordResult?.data === 'true';
+        let shouldShowDiscord = false;
+        let needsDiscordUpdate = false;
+      
+        console.log('[Discord Debug] Checking Discord popup:', {
+          hideWelcome,
+          hideDiscord,
+          isWelcomeOpen,
+          isLoaded
+        });
+        
+        // First, check if we should show Discord popup BEFORE recording this app open
+        if (hideWelcome && !hideDiscord) {
+          console.log('[Discord Debug] Welcome is hidden, checking if we should show Discord...');
+          // Get the last app open to see if Discord was already shown
+          const result = await window.electron.invoke('app:get-last-open');
+          console.log('[Discord Debug] Last app open result:', result);
+          
+          if (result?.success && result.data) {
+            const lastOpen = result.data;
+            console.log('[Discord Debug] Last app open data:', lastOpen);
+          
+            // Show Discord popup if:
+            // 1. Discord hasn't been shown yet
+            // 2. Either the welcome was just hidden (transition from visible to hidden)
+            //    OR it's been hidden and we haven't shown Discord yet
+            if (!lastOpen.discord_shown) {
+              console.log('[Discord Debug] Showing Discord popup!');
+              shouldShowDiscord = true;
+              setIsDiscordOpen(true);
+              // Mark that we're showing the Discord popup
+              if (window.electron?.invoke) {
+                await window.electron.invoke('app:update-discord-shown');
+              }
+            } else {
+              console.log('[Discord Debug] Not showing Discord popup because:', {
+                welcome_hidden: lastOpen.welcome_hidden,
+                discord_shown: lastOpen.discord_shown
+              });
+            }
+          } else {
+            // No previous app open - this might be the first run after dismissing welcome
+            // Show Discord if welcome is now hidden
+            console.log('[Discord Debug] No previous app open found, showing Discord popup');
+            shouldShowDiscord = true;
+            needsDiscordUpdate = true;
+            setIsDiscordOpen(true);
+            // Don't update discord shown yet since we need to record the app open first
+          }
+        } else {
+          console.log('[Discord Debug] Not checking Discord popup because:', {
+            hideWelcome,
+            hideDiscord
+          });
+        }
+        
+        // Now record this app open
+        console.log('[Discord Debug] Recording current app open');
+        if (window.electron?.invoke) {
+          await window.electron.invoke('app:record-open', hideWelcome, false);
+        }
+        
+        // If we showed Discord popup but didn't update the database yet (no previous app open case)
+        if (shouldShowDiscord && needsDiscordUpdate && window.electron?.invoke) {
+          console.log('[Discord Debug] Updating Discord shown status for new app open');
+          await window.electron.invoke('app:update-discord-shown');
+        }
+      } catch (error) {
+        console.error('[Discord Debug] Error checking Discord popup:', error);
+      }
+    };
+    
+    if (isLoaded && !hasCheckedDiscord) {
+      trackAppOpen();
+      setHasCheckedDiscord(true);
+    }
+  }, [isLoaded, hasCheckedDiscord]); // Remove isWelcomeOpen to prevent re-runs
   
   useEffect(() => {
     // Set up permission request listener
@@ -169,6 +304,10 @@ function App() {
         request={currentPermissionRequest}
         onRespond={handlePermissionResponse}
         session={currentPermissionRequest ? sessions.find(s => s.id === currentPermissionRequest.sessionId) : undefined}
+      />
+      <DiscordPopup 
+        isOpen={isDiscordOpen} 
+        onClose={() => setIsDiscordOpen(false)} 
       />
     </div>
   );
