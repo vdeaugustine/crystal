@@ -17,6 +17,8 @@ export class TerminalSessionManager extends EventEmitter {
   
   constructor() {
     super();
+    // Increase max listeners to prevent warnings when many components listen to events
+    this.setMaxListeners(50);
   }
 
   async createTerminalSession(sessionId: string, worktreePath: string): Promise<void> {

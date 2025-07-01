@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// Increase max listeners for ipcRenderer to prevent warnings when many components listen to events
+ipcRenderer.setMaxListeners(50);
+
 // Response type for IPC calls
 interface IPCResponse<T = any> {
   success: boolean;
@@ -171,53 +174,64 @@ contextBridge.exposeInMainWorld('electronAPI', {
   events: {
     // Session events
     onSessionCreated: (callback: (session: any) => void) => {
-      ipcRenderer.on('session:created', (_event, session) => callback(session));
-      return () => ipcRenderer.removeAllListeners('session:created');
+      const wrappedCallback = (_event: any, session: any) => callback(session);
+      ipcRenderer.on('session:created', wrappedCallback);
+      return () => ipcRenderer.removeListener('session:created', wrappedCallback);
     },
     onSessionUpdated: (callback: (session: any) => void) => {
-      ipcRenderer.on('session:updated', (_event, session) => callback(session));
-      return () => ipcRenderer.removeAllListeners('session:updated');
+      const wrappedCallback = (_event: any, session: any) => callback(session);
+      ipcRenderer.on('session:updated', wrappedCallback);
+      return () => ipcRenderer.removeListener('session:updated', wrappedCallback);
     },
     onSessionDeleted: (callback: (session: any) => void) => {
-      ipcRenderer.on('session:deleted', (_event, session) => callback(session));
-      return () => ipcRenderer.removeAllListeners('session:deleted');
+      const wrappedCallback = (_event: any, session: any) => callback(session);
+      ipcRenderer.on('session:deleted', wrappedCallback);
+      return () => ipcRenderer.removeListener('session:deleted', wrappedCallback);
     },
     onSessionsLoaded: (callback: (sessions: any[]) => void) => {
-      ipcRenderer.on('sessions:loaded', (_event, sessions) => callback(sessions));
-      return () => ipcRenderer.removeAllListeners('sessions:loaded');
+      const wrappedCallback = (_event: any, sessions: any[]) => callback(sessions);
+      ipcRenderer.on('sessions:loaded', wrappedCallback);
+      return () => ipcRenderer.removeListener('sessions:loaded', wrappedCallback);
     },
     onSessionOutput: (callback: (output: any) => void) => {
-      ipcRenderer.on('session:output', (_event, output) => callback(output));
-      return () => ipcRenderer.removeAllListeners('session:output');
+      const wrappedCallback = (_event: any, output: any) => callback(output);
+      ipcRenderer.on('session:output', wrappedCallback);
+      return () => ipcRenderer.removeListener('session:output', wrappedCallback);
     },
     onSessionOutputAvailable: (callback: (info: any) => void) => {
-      ipcRenderer.on('session:output-available', (_event, info) => callback(info));
-      return () => ipcRenderer.removeAllListeners('session:output-available');
+      const wrappedCallback = (_event: any, info: any) => callback(info);
+      ipcRenderer.on('session:output-available', wrappedCallback);
+      return () => ipcRenderer.removeListener('session:output-available', wrappedCallback);
     },
     
     // Project events
     onProjectUpdated: (callback: (project: any) => void) => {
-      ipcRenderer.on('project:updated', (_event, project) => callback(project));
-      return () => ipcRenderer.removeAllListeners('project:updated');
+      const wrappedCallback = (_event: any, project: any) => callback(project);
+      ipcRenderer.on('project:updated', wrappedCallback);
+      return () => ipcRenderer.removeListener('project:updated', wrappedCallback);
     },
     
     // Folder events
     onFolderCreated: (callback: (folder: any) => void) => {
-      ipcRenderer.on('folder:created', (_event, folder) => callback(folder));
-      return () => ipcRenderer.removeAllListeners('folder:created');
+      const wrappedCallback = (_event: any, folder: any) => callback(folder);
+      ipcRenderer.on('folder:created', wrappedCallback);
+      return () => ipcRenderer.removeListener('folder:created', wrappedCallback);
     },
     onFolderUpdated: (callback: (folder: any) => void) => {
-      ipcRenderer.on('folder:updated', (_event, folder) => callback(folder));
-      return () => ipcRenderer.removeAllListeners('folder:updated');
+      const wrappedCallback = (_event: any, folder: any) => callback(folder);
+      ipcRenderer.on('folder:updated', wrappedCallback);
+      return () => ipcRenderer.removeListener('folder:updated', wrappedCallback);
     },
     onFolderDeleted: (callback: (folderId: string) => void) => {
-      ipcRenderer.on('folder:deleted', (_event, folderId) => callback(folderId));
-      return () => ipcRenderer.removeAllListeners('folder:deleted');
+      const wrappedCallback = (_event: any, folderId: string) => callback(folderId);
+      ipcRenderer.on('folder:deleted', wrappedCallback);
+      return () => ipcRenderer.removeListener('folder:deleted', wrappedCallback);
     },
     
     onScriptOutput: (callback: (output: any) => void) => {
-      ipcRenderer.on('script:output', (_event, output) => callback(output));
-      return () => ipcRenderer.removeAllListeners('script:output');
+      const wrappedCallback = (_event: any, output: any) => callback(output);
+      ipcRenderer.on('script:output', wrappedCallback);
+      return () => ipcRenderer.removeListener('script:output', wrappedCallback);
     },
 
     // Generic event cleanup
@@ -227,46 +241,55 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Main process logging
     onMainLog: (callback: (level: string, message: string) => void) => {
-      ipcRenderer.on('main-log', (_event, level, message) => callback(level, message));
-      return () => ipcRenderer.removeAllListeners('main-log');
+      const wrappedCallback = (_event: any, level: string, message: string) => callback(level, message);
+      ipcRenderer.on('main-log', wrappedCallback);
+      return () => ipcRenderer.removeListener('main-log', wrappedCallback);
     },
 
     // Version updates
     onVersionUpdateAvailable: (callback: (versionInfo: any) => void) => {
-      ipcRenderer.on('version:update-available', (_event, versionInfo) => callback(versionInfo));
-      return () => ipcRenderer.removeAllListeners('version:update-available');
+      const wrappedCallback = (_event: any, versionInfo: any) => callback(versionInfo);
+      ipcRenderer.on('version:update-available', wrappedCallback);
+      return () => ipcRenderer.removeListener('version:update-available', wrappedCallback);
     },
     
     // Auto-updater events
     onUpdaterCheckingForUpdate: (callback: () => void) => {
-      ipcRenderer.on('updater:checking-for-update', (_event) => callback());
-      return () => ipcRenderer.removeAllListeners('updater:checking-for-update');
+      const wrappedCallback = (_event: any) => callback();
+      ipcRenderer.on('updater:checking-for-update', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:checking-for-update', wrappedCallback);
     },
     onUpdaterUpdateAvailable: (callback: (info: any) => void) => {
-      ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
-      return () => ipcRenderer.removeAllListeners('updater:update-available');
+      const wrappedCallback = (_event: any, info: any) => callback(info);
+      ipcRenderer.on('updater:update-available', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:update-available', wrappedCallback);
     },
     onUpdaterUpdateNotAvailable: (callback: (info: any) => void) => {
-      ipcRenderer.on('updater:update-not-available', (_event, info) => callback(info));
-      return () => ipcRenderer.removeAllListeners('updater:update-not-available');
+      const wrappedCallback = (_event: any, info: any) => callback(info);
+      ipcRenderer.on('updater:update-not-available', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:update-not-available', wrappedCallback);
     },
     onUpdaterDownloadProgress: (callback: (progressInfo: any) => void) => {
-      ipcRenderer.on('updater:download-progress', (_event, progressInfo) => callback(progressInfo));
-      return () => ipcRenderer.removeAllListeners('updater:download-progress');
+      const wrappedCallback = (_event: any, progressInfo: any) => callback(progressInfo);
+      ipcRenderer.on('updater:download-progress', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:download-progress', wrappedCallback);
     },
     onUpdaterUpdateDownloaded: (callback: (info: any) => void) => {
-      ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
-      return () => ipcRenderer.removeAllListeners('updater:update-downloaded');
+      const wrappedCallback = (_event: any, info: any) => callback(info);
+      ipcRenderer.on('updater:update-downloaded', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:update-downloaded', wrappedCallback);
     },
     onUpdaterError: (callback: (error: any) => void) => {
-      ipcRenderer.on('updater:error', (_event, error) => callback(error));
-      return () => ipcRenderer.removeAllListeners('updater:error');
+      const wrappedCallback = (_event: any, error: any) => callback(error);
+      ipcRenderer.on('updater:error', wrappedCallback);
+      return () => ipcRenderer.removeListener('updater:error', wrappedCallback);
     },
     
     // Process management events
     onZombieProcessesDetected: (callback: (data: any) => void) => {
-      ipcRenderer.on('zombie-processes-detected', (_event, data) => callback(data));
-      return () => ipcRenderer.removeAllListeners('zombie-processes-detected');
+      const wrappedCallback = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('zombie-processes-detected', wrappedCallback);
+      return () => ipcRenderer.removeListener('zombie-processes-detected', wrappedCallback);
     },
   },
 

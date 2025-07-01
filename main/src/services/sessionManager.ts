@@ -19,6 +19,8 @@ export class SessionManager extends EventEmitter {
 
   constructor(private db: DatabaseService) {
     super();
+    // Increase max listeners to prevent warnings when many components listen to events
+    this.setMaxListeners(50);
     this.terminalSessionManager = new TerminalSessionManager();
     
     // Forward terminal output events

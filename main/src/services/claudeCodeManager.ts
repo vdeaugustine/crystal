@@ -35,6 +35,8 @@ export class ClaudeCodeManager extends EventEmitter {
     private permissionIpcPath?: string | null
   ) {
     super();
+    // Increase max listeners to prevent warnings when many components listen to events
+    this.setMaxListeners(50);
   }
 
   async spawnClaudeCode(sessionId: string, worktreePath: string, prompt: string, conversationHistory?: string[], isResume: boolean = false, permissionMode?: 'approve' | 'ignore'): Promise<void> {
