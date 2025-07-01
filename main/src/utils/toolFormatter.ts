@@ -392,13 +392,41 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
     timestamp = new Date().toISOString();
   }
   
-  // Handle tool calls from assistant
+  // Handle messages from assistant
   if (jsonMessage.type === 'assistant' && jsonMessage.message?.content) {
     const content = jsonMessage.message.content;
     
     if (Array.isArray(content)) {
-      const toolUses = content.filter((item: any) => item.type === 'tool_use');
+      let output = '';
       
+      // First, handle thinking messages
+      const thinkingItems = content.filter((item: any) => item.type === 'thinking');
+      if (thinkingItems.length > 0) {
+        thinkingItems.forEach((item: any) => {
+          const time = (() => {
+            try {
+              const date = new Date(timestamp);
+              return !isNaN(date.getTime()) ? date.toLocaleTimeString() : new Date().toLocaleTimeString();
+            } catch {
+              return new Date().toLocaleTimeString();
+            }
+          })();
+          
+          const thinkingContent = item.thinking || '';
+          
+          // Format thinking content with proper indentation and wrapping
+          const lines = thinkingContent.split('\n');
+          const formattedThinking = lines
+            .map((line: string) => `\x1b[90m    ${line}\x1b[0m`)
+            .join('\r\n');
+          
+          output += `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[96m🧠 Thinking\x1b[0m\r\n` +
+                   `${formattedThinking}\r\n\r\n`;
+        });
+      }
+      
+      // Then handle tool uses
+      const toolUses = content.filter((item: any) => item.type === 'tool_use');
       if (toolUses.length > 0) {
         // Store tool calls for later matching
         toolUses.forEach((toolUse: ToolCall) => {
@@ -409,14 +437,14 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
         });
         
         // Format each tool call
-        return toolUses
+        output += toolUses
           .map((toolUse: ToolCall) => 
             formatToolInteraction(toolUse, null, timestamp, undefined, gitRepoPath)
           )
           .join('');
       }
       
-      // Handle regular text content
+      // Finally, handle regular text content
       const textContent = content
         .filter((item: any) => item.type === 'text')
         .map((item: any) => item.text)
@@ -431,8 +459,13 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
             return new Date().toLocaleTimeString();
           }
         })();
-        return `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[35m🤖 Assistant\x1b[0m\r\n` +
-               `\x1b[37m${textContent}\x1b[0m\r\n\r\n`;
+        output += `\r\n\x1b[36m[${time}]\x1b[0m \x1b[1m\x1b[35m🤖 Assistant\x1b[0m\r\n` +
+                 `\x1b[37m${textContent}\x1b[0m\r\n\r\n`;
+      }
+      
+      // Return accumulated output (could be thinking + text, or thinking + tools, etc.)
+      if (output) {
+        return output;
       }
     }
   }
@@ -514,6 +547,7 @@ export function formatJsonForOutputEnhanced(jsonMessage: any, gitRepoPath?: stri
       }
     }
   }
+  
   
   // Handle session messages (like errors)
   if (jsonMessage.type === 'session') {

@@ -99,6 +99,7 @@ export function formatJsonForOutput(jsonMessage: any): string {
            `\x1b[37m${content}\x1b[0m\r\n\r\n`;
   }
   
+  
   if (jsonMessage.type === 'session') {
     const data = jsonMessage.data || {};
     

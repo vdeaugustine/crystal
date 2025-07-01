@@ -71,6 +71,12 @@ export function formatJsonForWeb(jsonMessage: any): string {
     return `\n[${timestamp}] 🤖 Assistant Response\n${content}\n\n`;
   }
   
+  if (jsonMessage.type === 'thinking') {
+    // Format thinking messages with a subtle style
+    const thinkingContent = jsonMessage.thinking || '';
+    return `\n[${timestamp}] 💭 Thinking...\n  ${thinkingContent}\n\n`;
+  }
+  
   // For other message types, show a generic format
   return `\n[${timestamp}] 📄 ${jsonMessage.type}: ${jsonMessage.subtype || 'message'}\n`;
 }
