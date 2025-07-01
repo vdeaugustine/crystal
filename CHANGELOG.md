@@ -1,6 +1,22 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.10] - 2025-07-01
+
+### Added
+- Discord community popup to foster user engagement and support https://discord.gg/XrVa6q7DPY
+
+### Changed
+- Improved Claude thinking block parsing for better display of reasoning process
+- Enhanced process termination with longer timeouts to ensure clean shutdown
+- Better folder state persistence for improved user experience
+- Improved zombie process handling to prevent orphaned processes
+- Main branch detection now uses git folder's actual main branch instead of configuration
+
+### Fixed
+- Fixed double scrollbar issue in diff viewer for better UI consistency
+- Improved folder deletion functionality
+
 ## [0.1.9] - 2025-06-27
 
 ### Changed
