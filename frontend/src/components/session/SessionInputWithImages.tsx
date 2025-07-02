@@ -199,7 +199,7 @@ export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = mem
       )}
 
       <div 
-        className={`flex space-x-2 ${isDragging ? 'ring-2 ring-blue-500 rounded-md' : ''}`}
+        className={`flex items-start gap-2 ${isDragging ? 'ring-2 ring-blue-500 rounded-md' : ''}`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -247,7 +247,11 @@ export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = mem
             }}
           />
         </div>
-        <button onClick={onClickSend} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <button 
+          onClick={onClickSend} 
+          className="px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-w-[100px] font-medium transition-colors"
+          style={{ height: '67px' }}
+        >
           {viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting' ? 'Run' : (activeSession.status === 'waiting' ? 'Send' : 'Continue')}
         </button>
       </div>

@@ -69,7 +69,7 @@ export const SessionInput: React.FC<SessionInputProps> = ({
           Terminal mode: Commands will execute in the worktree directory
         </div>
       )}
-      <div className="flex space-x-2">
+      <div className="flex items-start gap-2">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -86,7 +86,11 @@ export const SessionInput: React.FC<SessionInputProps> = ({
             </button>
           )}
         </div>
-        <button onClick={onClickSend} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+        <button 
+          onClick={onClickSend} 
+          className="px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-w-[100px] font-medium transition-colors"
+          style={{ height: '67px' }}
+        >
           {viewMode === 'terminal' && !activeSession.isRunning && activeSession.status !== 'waiting' ? 'Run' : (activeSession.status === 'waiting' ? 'Send' : 'Continue')}
         </button>
       </div>
