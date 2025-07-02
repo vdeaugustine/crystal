@@ -426,7 +426,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                       </div>
                     ) : null}
                     <MonacoDiffViewer
-                      key={`${file.path}-${file.type}`}
+                      key={`${file.path}-${index}`}
                       file={file}
                       sessionId={sessionId || ''}
                       isDarkMode={isDarkMode}

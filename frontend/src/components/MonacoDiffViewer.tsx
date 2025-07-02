@@ -36,6 +36,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const [isFullContentLoaded, setIsFullContentLoaded] = useState(false);
   const [editorHeight, setEditorHeight] = useState<number>(400); // Default height
   const containerRef = useRef<HTMLDivElement>(null);
+  const debouncedSaveRef = useRef<any>(null);
 
   // Delay mounting editor to ensure stability
   useEffect(() => {
@@ -211,6 +212,11 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     () => debounce(performSave, 1000),
     [performSave]
   );
+  
+  // Store debouncedSave in ref for cleanup
+  useEffect(() => {
+    debouncedSaveRef.current = debouncedSave;
+  }, [debouncedSave]);
 
   // Calculate height based on content
   const calculateEditorHeight = useCallback(() => {
@@ -390,9 +396,8 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   // Cleanup on unmount or when key props change
   useEffect(() => {
     return () => {
-      console.log('MonacoDiffViewer cleanup triggered for file:', file.path);
       // Cancel any pending saves
-      debouncedSave.cancel?.();
+      debouncedSaveRef.current?.cancel?.();
       
       // Clear timeout
       if (savedTimeoutRef.current) {
@@ -435,7 +440,7 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
         }
       }
     };
-  }, [debouncedSave, file.path]); // Removed isReadOnly to prevent unnecessary cleanup
+  }, [file.path]); // Only cleanup when file path changes
 
   const options: monaco.editor.IStandaloneDiffEditorConstructionOptions = {
     readOnly: isReadOnly,
