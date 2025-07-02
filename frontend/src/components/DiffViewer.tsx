@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import { MonacoDiffViewer } from './MonacoDiffViewer';
 import { FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import type { DiffViewerProps } from '../types/diff';
@@ -131,12 +131,17 @@ const parseUnifiedDiff = (diff: string): FileDiff[] => {
   return files;
 };
 
-const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className = '', onFileSave, isAllCommitsSelected = true, mainBranch = 'main' }) => {
+export interface DiffViewerHandle {
+  scrollToFile: (index: number) => void;
+}
+
+const DiffViewer = memo(forwardRef<DiffViewerHandle, DiffViewerProps>(({ diff, sessionId, className = '', onFileSave, isAllCommitsSelected = true, mainBranch = 'main' }, ref) => {
   const [viewType, setViewType] = useState<'split' | 'inline'>('split');
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [filesWithFullContent, setFilesWithFullContent] = useState<FileDiff[]>([]);
   const [loadingFullContent, setLoadingFullContent] = useState(false);
   const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const savedViewType = localStorage.getItem('diffViewType');
@@ -244,6 +249,16 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                 }
               } else {
                 console.warn(`Failed to load full content for ${file.path}:`, result.error);
+                // Check if file was deleted (ENOENT error)
+                if (result.error && result.error.includes('ENOENT')) {
+                  // File was deleted, mark it as deleted type
+                  return {
+                    ...file,
+                    type: 'deleted' as const,
+                    oldValue: file.oldValue || '',
+                    newValue: ''
+                  };
+                }
                 errors[file.path] = result.error || 'Failed to load file content';
                 return file;
               }
@@ -292,6 +307,25 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
       onFileSave(filePath);
     }
   }, [onFileSave]);
+
+  // Expose scroll function to parent
+  useImperativeHandle(ref, () => ({
+    scrollToFile: (index: number) => {
+      const fileElement = document.getElementById(`file-${index}`);
+      if (fileElement && scrollContainerRef.current) {
+        // First expand the file if it's collapsed
+        const fileKey = `${files[index]?.path}-${index}`;
+        if (fileKey && !expandedFiles.has(fileKey)) {
+          setExpandedFiles(prev => new Set([...prev, fileKey]));
+        }
+        
+        // Then scroll to it with a small delay to allow expansion animation
+        setTimeout(() => {
+          fileElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 3);
+      }
+    }
+  }), [files, expandedFiles]);
 
   if (!diff || diff.trim() === '' || files.length === 0) {
     return (
@@ -353,7 +387,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
         </div>
         
         {/* File List */}
-        <div className="flex-1 overflow-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto">
           {filesToRender.map((file, index) => {
             // Skip files with invalid paths
             if (!file.path) {
@@ -384,7 +418,12 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
             }
             
             return (
-              <div key={fileKey} className="border-b border-gray-200 dark:border-gray-700">
+              <div 
+                key={fileKey} 
+                id={`file-${index}`}
+                data-file-path={file.path}
+                className="border-b border-gray-200 dark:border-gray-700"
+              >
                 {/* File header */}
                 <div 
                   className="px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
@@ -398,6 +437,9 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                       {isModified && (
                         <span className="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded">Modified</span>
                       )}
+                      {file.type === 'deleted' && (
+                        <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Deleted</span>
+                      )}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       {file.additions > 0 && <span className="text-green-600">+{file.additions}</span>}
@@ -409,31 +451,39 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
                 {/* Diff content */}
                 {isExpanded && (
                   <div className="border-t border-gray-200 dark:border-gray-700">
-                    {loadErrors[file.path] && isAllCommitsSelected ? (
-                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-700">
-                        <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">Failed to load full file content</span>
-                        </div>
-                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                          {loadErrors[file.path]}
-                        </p>
-                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                          ⚠️ Auto-save is disabled for this file to prevent data loss. Only the diff is shown below.
-                        </p>
+                    {file.type === 'deleted' ? (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                        <p className="text-sm">This file has been deleted from the filesystem.</p>
                       </div>
-                    ) : null}
-                    <MonacoDiffViewer
-                      key={`${file.path}-${index}`}
-                      file={file}
-                      sessionId={sessionId || ''}
-                      isDarkMode={isDarkMode}
-                      viewType={viewType}
-                      onSave={() => handleFileSave(file.path)}
-                      isReadOnly={!isAllCommitsSelected || !!loadErrors[file.path]}
-                    />
+                    ) : (
+                      <>
+                        {loadErrors[file.path] && isAllCommitsSelected ? (
+                          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-700">
+                            <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="font-medium">Failed to load full file content</span>
+                            </div>
+                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                              {loadErrors[file.path]}
+                            </p>
+                            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                              ⚠️ Auto-save is disabled for this file to prevent data loss. Only the diff is shown below.
+                            </p>
+                          </div>
+                        ) : null}
+                        <MonacoDiffViewer
+                          key={`${file.path}-${index}`}
+                          file={file}
+                          sessionId={sessionId || ''}
+                          isDarkMode={isDarkMode}
+                          viewType={viewType}
+                          onSave={() => handleFileSave(file.path)}
+                          isReadOnly={!isAllCommitsSelected || !!loadErrors[file.path]}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -442,7 +492,7 @@ const DiffViewer: React.FC<DiffViewerProps> = memo(({ diff, sessionId, className
         </div>
     </div>
   );
-});
+}));
 
 DiffViewer.displayName = 'DiffViewer';
 

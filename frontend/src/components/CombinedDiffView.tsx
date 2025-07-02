@@ -1,7 +1,8 @@
-import React, { useState, useEffect, memo, useCallback } from 'react';
-import DiffViewer from './DiffViewer';
+import React, { useState, useEffect, memo, useCallback, useRef, useMemo } from 'react';
+import DiffViewer, { DiffViewerHandle } from './DiffViewer';
 import ExecutionList from './ExecutionList';
 import { CommitDialog } from './CommitDialog';
+import { FileList } from './FileList';
 import { API } from '../utils/api';
 import type { CombinedDiffViewProps } from '../types/diff';
 import type { ExecutionDiff, GitDiffResult } from '../types/diff';
@@ -26,6 +27,9 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [lastVisibleState, setLastVisibleState] = useState<boolean>(isVisible);
   const [forceRefresh, setForceRefresh] = useState<number>(0);
+  const [selectedFile, setSelectedFile] = useState<string | undefined>();
+  
+  const diffViewerRef = useRef<DiffViewerHandle>(null);
 
   // Load git commands to get main branch
   useEffect(() => {
@@ -51,6 +55,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
       setModifiedFiles(new Set());
       setCombinedDiff(null);
       setExecutions([]);
+      setSelectedFile(undefined);
     }
   }, [sessionId, lastSessionId]);
 
@@ -309,6 +314,115 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
     }
   }, [sessionId]);
 
+  // Clear selected file when diff changes
+  useEffect(() => {
+    setSelectedFile(undefined);
+  }, [combinedDiff]);
+
+  // Parse files from the diff
+  const filesFromDiff = useMemo(() => {
+    if (!combinedDiff?.diff) return [];
+    
+    const files: Array<{
+      path: string;
+      type: 'added' | 'deleted' | 'modified' | 'renamed';
+      additions: number;
+      deletions: number;
+      isBinary?: boolean;
+    }> = [];
+    
+    const fileMatches = combinedDiff.diff.match(/diff --git[\s\S]*?(?=diff --git|$)/g);
+    
+    if (!fileMatches) return files;
+    
+    for (const fileContent of fileMatches) {
+      const fileNameMatch = fileContent.match(/diff --git a\/(.*?) b\/(.*?)(?:\n|$)/);
+      
+      if (!fileNameMatch) continue;
+      
+      const oldFileName = fileNameMatch[1] || '';
+      const newFileName = fileNameMatch[2] || '';
+      
+      const isBinary = fileContent.includes('Binary files') || fileContent.includes('GIT binary patch');
+      
+      let type: 'added' | 'deleted' | 'modified' | 'renamed' = 'modified';
+      if (fileContent.includes('new file mode')) {
+        type = 'added';
+      } else if (fileContent.includes('deleted file mode')) {
+        type = 'deleted';
+      } else if (fileContent.includes('rename from') && fileContent.includes('rename to')) {
+        type = 'renamed';
+      }
+      
+      // Count additions and deletions
+      const additions = (fileContent.match(/^\+[^+]/gm) || []).length;
+      const deletions = (fileContent.match(/^-[^-]/gm) || []).length;
+      
+      files.push({
+        path: newFileName || oldFileName,
+        type,
+        additions,
+        deletions,
+        isBinary
+      });
+    }
+    
+    return files;
+  }, [combinedDiff]);
+
+  const handleFileClick = useCallback((filePath: string, index: number) => {
+    setSelectedFile(filePath);
+    diffViewerRef.current?.scrollToFile(index);
+  }, []);
+
+  const handleFileDelete = useCallback(async (filePath: string) => {
+    try {
+      const result = await window.electronAPI.invoke('file:delete', {
+        sessionId,
+        filePath
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete file');
+      }
+      
+      // Clear modified files if the deleted file was modified
+      setModifiedFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(filePath);
+        return newSet;
+      });
+      
+      // Reload executions to reflect the deletion
+      const response = await API.sessions.getExecutions(sessionId);
+      if (response.success) {
+        setExecutions(response.data);
+      }
+      
+      // Reload the diff to get the current state
+      if (selectedExecutions.length > 0) {
+        let diffResponse;
+        if (selectedExecutions.length === 1 && selectedExecutions[0] === 0) {
+          // Uncommitted changes
+          diffResponse = await API.sessions.getCombinedDiff(sessionId, [0]);
+        } else if (selectedExecutions.length === executions.length) {
+          // All diffs
+          diffResponse = await API.sessions.getCombinedDiff(sessionId);
+        } else {
+          // Selected range
+          diffResponse = await API.sessions.getCombinedDiff(sessionId, selectedExecutions);
+        }
+        
+        if (diffResponse.success) {
+          setCombinedDiff(diffResponse.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting file:', err);
+      alert(`Failed to delete file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, [sessionId, selectedExecutions, executions.length]);
+
   const handleRestore = useCallback(async () => {
     if (!window.confirm('Are you sure you want to restore all uncommitted changes? This will discard all your local modifications.')) {
       return;
@@ -410,15 +524,30 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
         {/* Commits selection sidebar */}
         {!isFullscreen && (
           <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex flex-col">
-            <ExecutionList
-              sessionId={sessionId}
-              executions={executions}
-              selectedExecutions={selectedExecutions}
-              onSelectionChange={handleSelectionChange}
-              onCommit={() => setShowCommitDialog(true)}
-              onRevert={handleRevert}
-              onRestore={handleRestore}
-            />
+            {/* File list - show only when we have a diff */}
+            {filesFromDiff.length > 0 && (
+              <div className="h-1/3 border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+                <FileList
+                  files={filesFromDiff}
+                  onFileClick={handleFileClick}
+                  onFileDelete={handleFileDelete}
+                  selectedFile={selectedFile}
+                />
+              </div>
+            )}
+            
+            {/* Execution list */}
+            <div className={filesFromDiff.length > 0 ? "flex-1 overflow-hidden" : "h-full"}>
+              <ExecutionList
+                sessionId={sessionId}
+                executions={executions}
+                selectedExecutions={selectedExecutions}
+                onSelectionChange={handleSelectionChange}
+                onCommit={() => setShowCommitDialog(true)}
+                onRevert={handleRevert}
+                onRestore={handleRestore}
+              />
+            </div>
           </div>
         )}
 
@@ -446,6 +575,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
             </div>
           ) : combinedDiff ? (
             <DiffViewer 
+              ref={diffViewerRef}
               diff={combinedDiff.diff} 
               sessionId={sessionId} 
               className="h-full" 
