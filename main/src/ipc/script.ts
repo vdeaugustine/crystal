@@ -35,7 +35,7 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
         return { success: false, error: 'No run script configured for this project' };
       }
 
-      sessionManager.runScript(sessionId, commands, session.worktreePath);
+      await sessionManager.runScript(sessionId, commands, session.worktreePath);
       return { success: true };
     } catch (error) {
       console.error('Failed to run script:', error);
@@ -45,7 +45,7 @@ export function registerScriptHandlers(ipcMain: IpcMain, { sessionManager }: App
 
   ipcMain.handle('sessions:stop-script', async () => {
     try {
-      sessionManager.stopRunningScript();
+      await sessionManager.stopRunningScript();
       return { success: true };
     } catch (error) {
       console.error('Failed to stop script:', error);

@@ -594,9 +594,9 @@ export class SessionManager extends EventEmitter {
     return null;
   }
 
-  runScript(sessionId: string, commands: string[], workingDirectory: string): void {
-    // Stop any currently running script
-    this.stopRunningScript();
+  async runScript(sessionId: string, commands: string[], workingDirectory: string): Promise<void> {
+    // Stop any currently running script and wait for it to fully terminate
+    await this.stopRunningScript();
     
     // Mark session as running
     this.setSessionRunning(sessionId, true);
@@ -825,9 +825,15 @@ export class SessionManager extends EventEmitter {
    * 3. Kills the process group (Unix) or process tree (Windows)
    * 4. Kills individual descendant processes as a fallback
    * 5. Uses graceful SIGTERM first, then forceful SIGKILL
+   * @returns Promise that resolves when the script has been stopped
    */
-  stopRunningScript(): void {
-    if (this.runningScriptProcess && this.currentRunningSessionId) {
+  stopRunningScript(): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.runningScriptProcess || !this.currentRunningSessionId) {
+        resolve();
+        return;
+      }
+
       const sessionId = this.currentRunningSessionId;
       const process = this.runningScriptProcess;
       
@@ -887,17 +893,29 @@ export class SessionManager extends EventEmitter {
                 
                 // Kill descendants individually
                 let killedCount = 0;
+                let processedCount = 0;
+                
+                if (descendantPids.length === 0) {
+                  // No descendants, we're done
+                  this.finishStopScript(sessionId);
+                  resolve();
+                  return;
+                }
+                
                 descendantPids.forEach(pid => {
                   exec(`taskkill /F /PID ${pid}`, (err) => {
                     if (!err) killedCount++;
+                    processedCount++;
                     
                     // Report after all attempts
-                    if (killedCount === descendantPids.length) {
+                    if (processedCount === descendantPids.length) {
                       this.emit('script-output', { 
                         sessionId, 
                         type: 'stdout', 
                         data: `[Terminated ${killedCount} processes using fallback method]\n` 
                       });
+                      this.finishStopScript(sessionId);
+                      resolve();
                     }
                   });
                 });
@@ -908,6 +926,8 @@ export class SessionManager extends EventEmitter {
                   type: 'stdout', 
                   data: `[Successfully terminated process tree]\n` 
                 });
+                this.finishStopScript(sessionId);
+                resolve();
               }
             });
           } else {
@@ -939,6 +959,7 @@ export class SessionManager extends EventEmitter {
               data: '[Waiting 10 seconds for graceful shutdown...]\n' 
             });
             
+            // Use a shorter timeout for faster cleanup
             setTimeout(() => {
               this.emit('script-output', { 
                 sessionId, 
@@ -1043,24 +1064,34 @@ export class SessionManager extends EventEmitter {
                     });
                   }
                 }
+                this.finishStopScript(sessionId);
+                resolve();
               }, 500);
-            }, 10000); // 10 second delay for SIGTERM to take effect
+            }, 2000); // Reduced from 10 seconds to 2 seconds for faster cleanup
           }
+        } else {
+          // No process PID
+          this.finishStopScript(sessionId);
+          resolve();
         }
       } catch (error) {
         console.warn('Error killing script process:', error);
+        this.finishStopScript(sessionId);
+        resolve();
       }
-      
-      // Update session state
-      this.setSessionRunning(sessionId, false);
-      
-      // Emit a final message to indicate the script was stopped
-      this.emit('script-output', { 
-        sessionId, 
-        type: 'stdout', 
-        data: '\n[Script stopped by user]\n' 
-      });
-    }
+    });
+  }
+
+  private finishStopScript(sessionId: string): void {
+    // Update session state
+    this.setSessionRunning(sessionId, false);
+    
+    // Emit a final message to indicate the script was stopped
+    this.emit('script-output', { 
+      sessionId, 
+      type: 'stdout', 
+      data: '\n[Script stopped by user]\n' 
+    });
   }
 
   private setSessionRunning(sessionId: string, isRunning: boolean): void {

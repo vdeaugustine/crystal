@@ -16,6 +16,7 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
   const isDeleting = deletingSessionIds.has(session.id);
   const [hasRunScript, setHasRunScript] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(session.name);
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -106,6 +107,18 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     };
   }, [session.id]);
 
+  useEffect(() => {
+    // Listen for script closing state
+    const handleScriptClosing = (event: CustomEvent) => {
+      setIsClosing(event.detail === session.id);
+    };
+
+    window.addEventListener('script-closing', handleScriptClosing as EventListener);
+    return () => {
+      window.removeEventListener('script-closing', handleScriptClosing as EventListener);
+    };
+  }, [session.id]);
+
   const handleRunScript = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -115,8 +128,19 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     }
 
     try {
+      // Check if there's a running script that needs to be stopped
+      const runningSessionResponse = await API.sessions.getRunningSession();
+      if (runningSessionResponse.success && runningSessionResponse.data) {
+        // Set closing state for the currently running session
+        window.dispatchEvent(new CustomEvent('script-closing', { detail: runningSessionResponse.data }));
+      }
+      
       // First stop any currently running script
+      // The stopScript method now waits for full cleanup before returning
       await API.sessions.stopScript();
+      
+      // Clear closing state after stop completes
+      window.dispatchEvent(new CustomEvent('script-closing', { detail: null }));
       
       // Clear any previous script output for this session
       useSessionStore.getState().clearScriptOutput(session.id);
@@ -132,6 +156,8 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
       window.dispatchEvent(new CustomEvent('script-session-changed', { detail: session.id }));
     } catch (error) {
       console.error('Error running script:', error);
+      // Clear closing state on error
+      window.dispatchEvent(new CustomEvent('script-closing', { detail: null }));
       alert('Failed to run script');
     }
   };
@@ -141,6 +167,8 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
     
     try {
       console.log('Stopping script...');
+      // Set closing state for this session
+      setIsClosing(true);
       const response = await API.sessions.stopScript();
 
       if (!response.success) {
@@ -148,11 +176,17 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
       }
 
       console.log('Script stop request successful');
+      // Clear closing state
+      setIsClosing(false);
       // Update running state for all sessions
       window.dispatchEvent(new CustomEvent('script-session-changed', { detail: null }));
     } catch (error) {
       console.error('Error stopping script:', error);
+      setIsClosing(false);
       alert('Failed to stop script');
+    } finally {
+      // Ensure closing state is cleared
+      setIsClosing(false);
     }
   };
 
@@ -315,8 +349,10 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
               )}
             </span>
           )}
-          {!isEditing && isRunning && (
-            <span className="text-green-600 dark:text-green-400 text-xs">▶️ Running</span>
+          {!isEditing && (isRunning || isClosing) && (
+            <span className={isClosing ? "text-amber-600 dark:text-amber-400 text-xs" : "text-green-600 dark:text-green-400 text-xs"}>
+              {isClosing ? '⏸️ Closing' : '▶️ Running'}
+            </span>
           )}
         </button>
         <div className="flex items-center space-x-1">
@@ -340,15 +376,18 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
               <button
                 onClick={isRunning ? handleStopScript : handleRunScript}
                 className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded ${
-                  isRunning 
+                  isClosing
+                    ? 'cursor-wait text-amber-600 dark:text-amber-400'
+                    : isRunning 
                     ? 'hover:bg-red-100 dark:hover:bg-red-600/20 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300' 
                     : hasRunScript
                       ? 'hover:bg-green-100 dark:hover:bg-green-600/20 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-600/20 text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400'
                 }`}
-                title={isRunning ? 'Stop script' : (hasRunScript ? 'Run script' : 'No run script configured - Click to configure')}
+                title={isClosing ? 'Closing script...' : isRunning ? 'Stop script' : (hasRunScript ? 'Run script' : 'No run script configured - Click to configure')}
+                disabled={isClosing}
               >
-                {isRunning ? '⏹️' : '▶️'}
+                {isClosing ? '⏸️' : isRunning ? '⏹️' : '▶️'}
               </button>
               <button
                 onClick={handleDelete}
@@ -391,9 +430,14 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
                 handleRunScript({ stopPropagation: () => {} } as React.MouseEvent);
               }
             }}
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+            disabled={isClosing}
+            className={`w-full text-left px-4 py-2 text-sm ${
+              isClosing 
+                ? 'text-gray-400 dark:text-gray-600 cursor-wait' 
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+            }`}
           >
-            {isRunning ? 'Stop Script' : 'Run Script'}
+            {isClosing ? 'Closing Script...' : isRunning ? 'Stop Script' : 'Run Script'}
           </button>
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           <button
