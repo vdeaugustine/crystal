@@ -1,6 +1,23 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.11] - 2025-07-03
+
+### Added
+- File navigation support in diff viewer - Click on file paths in the diff to navigate directly to specific files
+
+### Fixed
+- Fixed infinite recursion logging bug that could cause performance issues
+- Fixed run scripts not being properly terminated when stopping sessions
+- Fixed continue button sizing issue in the UI
+- Fixed diff viewer unmount errors
+- Fixed Discord popup behavior for existing users
+- Fixed event emitter memory leak in renderer process
+
+### Improved
+- Better process termination handling with appropriate timeouts
+- More robust zombie process cleanup
+
 ## [0.1.10] - 2025-07-01
 
 ### Added
