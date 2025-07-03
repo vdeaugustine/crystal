@@ -16,7 +16,11 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
   sessionManager.on('session-created', (session) => {
     const mw = getMainWindow();
     if (mw && !mw.isDestroyed()) {
-      mw.webContents.send('session:created', session);
+      try {
+        mw.webContents.send('session:created', session);
+      } catch (error) {
+        console.error('[Main] Failed to send session:created event:', error);
+      }
     }
   });
 
@@ -25,7 +29,11 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     const mw = getMainWindow();
     if (mw && !mw.isDestroyed()) {
       console.log(`[Main] Sending session:updated to renderer for ${session.id}`);
-      mw.webContents.send('session:updated', session);
+      try {
+        mw.webContents.send('session:updated', session);
+      } catch (error) {
+        console.error('[Main] Failed to send session:updated event:', error);
+      }
     } else {
       console.error(`[Main] Cannot send session:updated - mainWindow is ${mw ? 'destroyed' : 'null'}`);
     }
@@ -33,15 +41,23 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
 
   sessionManager.on('session-deleted', (session) => {
     const mw = getMainWindow();
-    if (mw) {
-      mw.webContents.send('session:deleted', session);
+    if (mw && !mw.isDestroyed()) {
+      try {
+        mw.webContents.send('session:deleted', session);
+      } catch (error) {
+        console.error('[Main] Failed to send session:deleted event:', error);
+      }
     }
   });
 
   sessionManager.on('sessions-loaded', (sessions) => {
     const mw = getMainWindow();
-    if (mw) {
-      mw.webContents.send('sessions:loaded', sessions);
+    if (mw && !mw.isDestroyed()) {
+      try {
+        mw.webContents.send('sessions:loaded', sessions);
+      } catch (error) {
+        console.error('[Main] Failed to send sessions:loaded event:', error);
+      }
     }
   });
 
@@ -49,7 +65,11 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     console.error('[Main] Zombie processes detected:', data);
     const mw = getMainWindow();
     if (mw && !mw.isDestroyed()) {
-      mw.webContents.send('zombie-processes-detected', data);
+      try {
+        mw.webContents.send('zombie-processes-detected', data);
+      } catch (error) {
+        console.error('[Main] Failed to send zombie-processes-detected event:', error);
+      }
     }
   });
 

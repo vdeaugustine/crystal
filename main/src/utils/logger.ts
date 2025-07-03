@@ -4,6 +4,15 @@ import * as path from 'path';
 import { getCrystalSubdirectory } from './crystalDirectory';
 import { formatForDatabase } from './timestampUtils';
 
+// Capture the ORIGINAL console methods immediately when this module loads
+// This must happen before any other code can override them
+const ORIGINAL_CONSOLE = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info
+};
+
 export class Logger {
   private logDir: string;
   private currentLogFile: string;
@@ -11,12 +20,7 @@ export class Logger {
   private currentLogSize = 0;
   private readonly MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
   private readonly MAX_LOG_FILES = 5;
-  private originalConsole = {
-    log: console.log,
-    error: console.error,
-    warn: console.warn,
-    info: console.info
-  };
+  private originalConsole = ORIGINAL_CONSOLE;
 
   constructor(private configManager: ConfigManager) {
     // Use the centralized Crystal directory

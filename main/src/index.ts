@@ -41,10 +41,11 @@ let stravuAuthManager: StravuAuthManager;
 let stravuNotebookService: StravuNotebookService;
 
 // Store original console methods before overriding
-let originalLog: typeof console.log;
-let originalError: typeof console.error;
-let originalWarn: typeof console.warn;
-let originalInfo: typeof console.info;
+// These must be captured immediately when the module loads
+const originalLog: typeof console.log = console.log;
+const originalError: typeof console.error = console.error;
+const originalWarn: typeof console.warn = console.warn;
+const originalInfo: typeof console.info = console.info;
 
 const isDevelopment = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
@@ -163,37 +164,64 @@ async function createWindow() {
 
     // Forward to renderer
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-log', 'log', message);
+      try {
+        mainWindow.webContents.send('main-log', 'log', message);
+      } catch (e) {
+        // If sending to renderer fails, use original console to avoid recursion
+        originalLog('[Main] Failed to send log to renderer:', e);
+      }
     }
   };
 
   console.error = (...args: any[]) => {
-    const message = args.map(arg => {
-      if (typeof arg === 'object') {
-        if (arg instanceof Error) {
-          return `Error: ${arg.message}\nStack: ${arg.stack}`;
+    // Prevent infinite recursion by checking if we're already in an error handler
+    if ((console.error as any).__isHandlingError) {
+      return originalError.apply(console, args);
+    }
+    
+    (console.error as any).__isHandlingError = true;
+    
+    try {
+      // If logger is not initialized or we're in the logger itself, use original console
+      if (!logger) {
+        originalError.apply(console, args);
+        return;
+      }
+
+      const message = args.map(arg => {
+        if (typeof arg === 'object') {
+          if (arg instanceof Error) {
+            return `Error: ${arg.message}\nStack: ${arg.stack}`;
+          }
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            // Handle circular structure
+            return `[Object with circular structure: ${arg.constructor?.name || 'Object'}]`;
+          }
         }
+        return String(arg);
+      }).join(' ');
+
+      // Extract Error object if present
+      const errorObj = args.find(arg => arg instanceof Error) as Error | undefined;
+
+      // Use logger but with recursion protection
+      logger.error(message, errorObj);
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
         try {
-          return JSON.stringify(arg, null, 2);
+          mainWindow.webContents.send('main-log', 'error', message);
         } catch (e) {
-          // Handle circular structure
-          return `[Object with circular structure: ${arg.constructor?.name || 'Object'}]`;
+          // If sending to renderer fails, use original console to avoid recursion
+          originalError('[Main] Failed to send error to renderer:', e);
         }
       }
-      return String(arg);
-    }).join(' ');
-
-    // Extract Error object if present
-    const errorObj = args.find(arg => arg instanceof Error) as Error | undefined;
-
-    if (logger) {
-      logger.error(message, errorObj);
-    } else {
+    } catch (e) {
+      // If anything fails in the error handler, fall back to original
       originalError.apply(console, args);
-    }
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-log', 'error', message);
+    } finally {
+      (console.error as any).__isHandlingError = false;
     }
   };
 
@@ -223,7 +251,12 @@ async function createWindow() {
     }
 
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-log', 'warn', message);
+      try {
+        mainWindow.webContents.send('main-log', 'warn', message);
+      } catch (e) {
+        // If sending to renderer fails, use original console to avoid recursion
+        originalWarn('[Main] Failed to send warning to renderer:', e);
+      }
     }
   };
 
@@ -250,7 +283,12 @@ async function createWindow() {
     }
 
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('main-log', 'info', message);
+      try {
+        mainWindow.webContents.send('main-log', 'info', message);
+      } catch (e) {
+        // If sending to renderer fails, use original console to avoid recursion
+        originalInfo('[Main] Failed to send info to renderer:', e);
+      }
     }
   };
 
@@ -261,12 +299,6 @@ async function createWindow() {
 }
 
 async function initializeServices() {
-  // Store original console methods before any overrides
-  originalLog = console.log;
-  originalError = console.error;
-  originalWarn = console.warn;
-  originalInfo = console.info;
-
   configManager = new ConfigManager();
   await configManager.initialize();
 
