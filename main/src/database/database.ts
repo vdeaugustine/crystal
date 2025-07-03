@@ -624,6 +624,15 @@ export class DatabaseService {
         }
       }
     }
+
+    // Add worktree_folder column to projects table if it doesn't exist
+    const projectsTableInfoWorktree = this.db.prepare("PRAGMA table_info(projects)").all();
+    const hasWorktreeFolderColumn = projectsTableInfoWorktree.some((col: any) => col.name === 'worktree_folder');
+    
+    if (!hasWorktreeFolderColumn) {
+      this.db.prepare("ALTER TABLE projects ADD COLUMN worktree_folder TEXT").run();
+      console.log('[Database] Added worktree_folder column to projects table');
+    }
   }
 
   // Project operations
@@ -705,6 +714,10 @@ export class DatabaseService {
     if (updates.open_ide_command !== undefined) {
       fields.push('open_ide_command = ?');
       values.push(updates.open_ide_command);
+    }
+    if (updates.worktree_folder !== undefined) {
+      fields.push('worktree_folder = ?');
+      values.push(updates.worktree_folder);
     }
     if (updates.active !== undefined) {
       fields.push('active = ?');

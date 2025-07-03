@@ -166,7 +166,7 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
             console.log(`[Main] Removing worktree ${dbSession.worktree_name} for session ${sessionId}`);
             archiveMessage += `\x1b[90mRemoving git worktree: ${dbSession.worktree_name}\x1b[0m\r\n`;
 
-            await worktreeManager.removeWorktree(project.path, dbSession.worktree_name);
+            await worktreeManager.removeWorktree(project.path, dbSession.worktree_name, project.worktree_folder);
 
             console.log(`[Main] Successfully removed worktree ${dbSession.worktree_name}`);
             archiveMessage += `\x1b[32m✓ Worktree removed successfully\x1b[0m\r\n`;

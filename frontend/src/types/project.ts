@@ -11,6 +11,7 @@ export interface Project {
   updated_at: string;
   open_ide_command?: string;
   displayOrder?: number;
+  worktree_folder?: string;
 }
 
 export interface ProjectRunCommand {
@@ -41,4 +42,5 @@ export interface UpdateProjectRequest {
   main_branch?: string;
   active?: boolean;
   open_ide_command?: string;
+  worktree_folder?: string;
 }

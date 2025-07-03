@@ -12,6 +12,7 @@ export interface Project {
   default_permission_mode?: 'approve' | 'ignore';
   open_ide_command?: string;
   display_order?: number;
+  worktree_folder?: string;
 }
 
 export interface ProjectRunCommand {

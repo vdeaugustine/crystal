@@ -172,7 +172,7 @@ export class TaskQueue {
           run_script: targetProject.run_script
         }, null, 2));
 
-        const { worktreePath } = await worktreeManager.createWorktree(targetProject.path, worktreeName, undefined, baseBranch);
+        const { worktreePath } = await worktreeManager.createWorktree(targetProject.path, worktreeName, undefined, baseBranch, targetProject.worktree_folder);
         console.log(`[TaskQueue] Worktree created at: ${worktreePath}`);
         
         const sessionName = worktreeName;

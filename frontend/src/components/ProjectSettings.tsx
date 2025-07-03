@@ -19,6 +19,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
   const [buildScript, setBuildScript] = useState('');
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
   const [openIdeCommand, setOpenIdeCommand] = useState('');
+  const [worktreeFolder, setWorktreeFolder] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -39,6 +40,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         });
       }
       setOpenIdeCommand(project.open_ide_command || '');
+      setWorktreeFolder(project.worktree_folder || '');
       setError(null);
     }
   }, [isOpen, project]);
@@ -55,7 +57,8 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         run_script: runScript || null,
         build_script: buildScript || null,
         // main_branch is now automatically detected
-        open_ide_command: openIdeCommand || null
+        open_ide_command: openIdeCommand || null,
+        worktree_folder: worktreeFolder || null
       });
 
       if (!response.success) {
@@ -171,6 +174,40 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                   </div>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
                     The main branch is automatically detected from the project directory
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Worktree Folder
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={worktreeFolder}
+                      onChange={(e) => setWorktreeFolder(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+                      placeholder="worktrees (default)"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const result = await API.dialog.openDirectory({
+                          title: 'Select Worktree Directory',
+                          buttonLabel: 'Select',
+                        });
+                        if (result.success && result.data) {
+                          setWorktreeFolder(result.data);
+                        }
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
+                    The folder where git worktrees will be created. Can be a relative path (e.g., "worktrees") or an absolute path.
+                    Leave empty to use the default "worktrees" folder inside the project directory.
                   </p>
                 </div>
               </div>

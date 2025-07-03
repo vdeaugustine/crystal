@@ -25,17 +25,26 @@ export class WorktreeManager {
     // No longer initialized with a single repo path
   }
 
-  private getProjectPaths(projectPath: string) {
-    if (!this.projectsCache.has(projectPath)) {
-      this.projectsCache.set(projectPath, {
-        baseDir: join(projectPath, 'worktrees')
-      });
+  private getProjectPaths(projectPath: string, worktreeFolder?: string) {
+    const cacheKey = `${projectPath}:${worktreeFolder || 'worktrees'}`;
+    if (!this.projectsCache.has(cacheKey)) {
+      const folderName = worktreeFolder || 'worktrees';
+      let baseDir: string;
+      
+      // Check if worktreeFolder is an absolute path
+      if (worktreeFolder && (worktreeFolder.startsWith('/') || worktreeFolder.includes(':'))) {
+        baseDir = worktreeFolder;
+      } else {
+        baseDir = join(projectPath, folderName);
+      }
+      
+      this.projectsCache.set(cacheKey, { baseDir });
     }
-    return this.projectsCache.get(projectPath)!;
+    return this.projectsCache.get(cacheKey)!;
   }
 
-  async initializeProject(projectPath: string): Promise<void> {
-    const { baseDir } = this.getProjectPaths(projectPath);
+  async initializeProject(projectPath: string, worktreeFolder?: string): Promise<void> {
+    const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder);
     try {
       await mkdir(baseDir, { recursive: true });
     } catch (error) {
@@ -43,10 +52,10 @@ export class WorktreeManager {
     }
   }
 
-  async createWorktree(projectPath: string, name: string, branch?: string, baseBranch?: string): Promise<{ worktreePath: string }> {
+  async createWorktree(projectPath: string, name: string, branch?: string, baseBranch?: string, worktreeFolder?: string): Promise<{ worktreePath: string }> {
     console.log(`[WorktreeManager] Creating worktree: ${name} in project: ${projectPath}`);
     
-    const { baseDir } = this.getProjectPaths(projectPath);
+    const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder);
     const worktreePath = join(baseDir, name);
     const branchName = branch || name;
     
@@ -142,8 +151,8 @@ export class WorktreeManager {
     }
   }
 
-  async removeWorktree(projectPath: string, name: string): Promise<void> {
-    const { baseDir } = this.getProjectPaths(projectPath);
+  async removeWorktree(projectPath: string, name: string, worktreeFolder?: string): Promise<void> {
+    const { baseDir } = this.getProjectPaths(projectPath, worktreeFolder);
     const worktreePath = join(baseDir, name);
     
     try {
