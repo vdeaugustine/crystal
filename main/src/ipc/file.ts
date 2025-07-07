@@ -1,6 +1,7 @@
 import { IpcMain } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { glob } from 'glob';
 import type { AppServices } from './types';
 import type { Session } from '../types/session';
 
@@ -36,6 +37,13 @@ interface FileItem {
   isDirectory: boolean;
   size?: number;
   modified?: Date;
+}
+
+interface FileSearchRequest {
+  sessionId?: string;
+  projectId?: number;
+  pattern: string;
+  limit?: number;
 }
 
 export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): void {
@@ -513,6 +521,101 @@ EOF
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  });
+
+  // Search for files matching a pattern
+  ipcMain.handle('file:search', async (_, request: FileSearchRequest) => {
+    try {
+      // Determine the search directory
+      let searchDirectory: string;
+      
+      if (request.sessionId) {
+        const session = sessionManager.getSession(request.sessionId);
+        if (!session) {
+          throw new Error(`Session not found: ${request.sessionId}`);
+        }
+        searchDirectory = session.worktreePath;
+      } else if (request.projectId) {
+        const project = databaseService.getProject(request.projectId);
+        if (!project) {
+          throw new Error(`Project not found: ${request.projectId}`);
+        }
+        searchDirectory = project.path;
+      } else {
+        throw new Error('Either sessionId or projectId must be provided');
+      }
+
+      // Normalize the pattern for searching
+      const searchPattern = request.pattern.replace(/^@/, '').toLowerCase();
+      
+      // If the pattern contains a path separator, search from that path
+      const pathParts = searchPattern.split(/[/\\]/);
+      const searchDir = pathParts.length > 1 
+        ? path.join(searchDirectory, ...pathParts.slice(0, -1))
+        : searchDirectory;
+      const filePattern = pathParts[pathParts.length - 1] || '';
+      
+      // Check if searchDir exists
+      try {
+        await fs.access(searchDir);
+      } catch {
+        return { success: true, files: [] };
+      }
+
+      // Use glob to find matching files
+      const globPattern = filePattern ? `**/*${filePattern}*` : '**/*';
+      const files = await glob(globPattern, {
+        cwd: searchDir,
+        ignore: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'],
+        nodir: false,
+        dot: true,
+        absolute: false,
+        maxDepth: 5
+      });
+
+      // Convert to relative paths from the original directory
+      const results = await Promise.all(
+        files.map(async (file) => {
+          const fullPath = path.join(searchDir, file);
+          const relativePath = path.relative(searchDirectory, fullPath);
+          
+          try {
+            const stats = await fs.stat(fullPath);
+            return {
+              path: relativePath,
+              isDirectory: stats.isDirectory(),
+              name: path.basename(file)
+            };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      // Filter out null results and apply pattern matching
+      const filteredResults = results
+        .filter((file): file is NonNullable<typeof file> => file !== null)
+        .filter(file => {
+          // Filter by the full search pattern
+          return file.path.toLowerCase().includes(searchPattern);
+        })
+        .sort((a, b) => {
+          // Sort directories first, then by path
+          if (a.isDirectory && !b.isDirectory) return -1;
+          if (!a.isDirectory && b.isDirectory) return 1;
+          return a.path.localeCompare(b.path);
+        })
+        .slice(0, request.limit || 50);
+
+      return { success: true, files: filteredResults };
+    } catch (error) {
+      console.error('Error searching files:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        files: []
       };
     }
   });

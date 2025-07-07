@@ -3,6 +3,7 @@ import { API } from '../utils/api';
 import type { CreateSessionRequest } from '../types/session';
 import { useErrorStore } from '../stores/errorStore';
 import { Shield, ShieldOff, Sparkles, GitBranch } from 'lucide-react';
+import FilePathAutocomplete from './FilePathAutocomplete';
 
 interface CreateSessionDialogProps {
   isOpen: boolean;
@@ -183,14 +184,14 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
             <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Prompt
             </label>
-            <textarea
-              id="prompt"
+            <FilePathAutocomplete
               value={formData.prompt}
-              onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+              onChange={(value) => setFormData({ ...formData, prompt: value })}
+              projectId={projectId?.toString()}
+              placeholder="Enter the prompt for Claude Code... (use @ to reference files)"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400"
+              isTextarea={true}
               rows={4}
-              required
-              placeholder="Enter the prompt for Claude Code..."
             />
             <div className="mt-2 space-y-3">
               <div>

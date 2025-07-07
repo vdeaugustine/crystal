@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, memo } from 'react';
 import { Session } from '../../types/session';
 import { ViewMode } from '../../hooks/useSessionView';
 import { X, Image as ImageIcon } from 'lucide-react';
+import FilePathAutocomplete from '../FilePathAutocomplete';
 
 interface AttachedImage {
   id: string;
@@ -133,7 +134,7 @@ export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = mem
     setAttachedImages(prev => prev.filter(img => img.id !== id));
   }, []);
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     const shouldSend = e.key === 'Enter' && (e.metaKey || e.ctrlKey);
     if (shouldSend) {
       e.preventDefault();
@@ -205,14 +206,17 @@ export const SessionInputWithImages: React.FC<SessionInputWithImagesProps> = mem
         onDragLeave={handleDragLeave}
       >
         <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
+          <FilePathAutocomplete
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={setInput}
+            sessionId={activeSession.id}
+            placeholder={isDragging ? "Drop images here..." : `${placeholder} (use @ to reference files)`}
+            className="w-full px-3 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 resize-none overflow-y-auto"
+            textareaRef={textareaRef}
+            isTextarea={true}
+            rows={4}
             onKeyDown={onKeyDown}
             onPaste={handlePaste}
-            className="w-full px-3 py-2 pr-10 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 resize-none overflow-y-auto"
-            placeholder={isDragging ? "Drop images here..." : placeholder}
             style={{ minHeight: '42px', maxHeight: '200px' }}
           />
           <div className="absolute right-2 top-2 flex gap-1">
