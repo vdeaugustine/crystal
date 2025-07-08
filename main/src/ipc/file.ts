@@ -427,7 +427,7 @@ EOF
       // Process each entry
       const files: FileItem[] = await Promise.all(
         entries
-          .filter(entry => !entry.name.startsWith('.git')) // Exclude .git directory
+          .filter(entry => entry.name !== '.git') // Exclude .git directory only
           .map(async (entry) => {
             const fullPath = path.join(targetPath, entry.name);
             const relativePath = path.relative(session.worktreePath, fullPath);
