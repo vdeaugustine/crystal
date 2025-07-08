@@ -1,6 +1,17 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.12] - 2025-07-08
+
+### Added
+- File tree view is now resizable for better workspace customization
+- Markdown file preview support for better documentation viewing
+- Support for adding files using @<file-path> syntax for easier file references
+- Ability to set a different worktree folder for each project, providing more flexibility in project organization
+
+### Fixed
+- Fixed bug where .gitignore files were incorrectly hidden in the file tree
+
 ## [0.1.11] - 2025-07-03
 
 ### Added
