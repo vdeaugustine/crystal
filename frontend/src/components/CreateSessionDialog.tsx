@@ -171,24 +171,29 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div data-testid="create-session-dialog" className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl relative shadow-xl border border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => {
-            setWorktreeError(null);
-            onClose();
-          }}
-          className="absolute top-4 right-4 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-          title="Close"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <h2 className="text-xl font-bold mb-4 pr-8 text-gray-900 dark:text-white">
-          Create New Session{projectName && ` in ${projectName}`}
-        </h2>
+      <div data-testid="create-session-dialog" className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl border border-gray-200 dark:border-gray-700">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Create New Session{projectName && ` in ${projectName}`}
+          </h2>
+          <button
+            onClick={() => {
+              setWorktreeError(null);
+              onClose();
+            }}
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+            title="Close"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <form id="create-session-form" onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Prompt
@@ -420,42 +425,45 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
               </p>
             </div>
           </div>
-          
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setWorktreeError(null);
-                onClose();
-              }}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 font-medium transition-colors"
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !formData.prompt || !!worktreeError || (!hasApiKey && !formData.worktreeTemplate)}
-              className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors shadow-sm hover:shadow"
-              title={
-                isSubmitting ? 'Creating session...' :
-                !formData.prompt ? 'Please enter a prompt' :
-                worktreeError ? 'Please fix the session name error' :
-                (!hasApiKey && !formData.worktreeTemplate) ? 'Please enter a session name (required without API key)' :
-                undefined
-              }
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating...
-                </span>
-              ) : (
-                `Create ${(formData.count || 1) > 1 ? (formData.count || 1) + ' Sessions' : 'Session'}`
-              )}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
+        
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => {
+              setWorktreeError(null);
+              onClose();
+            }}
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 font-medium transition-colors"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="create-session-form"
+            disabled={isSubmitting || !formData.prompt || !!worktreeError || (!hasApiKey && !formData.worktreeTemplate)}
+            className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors shadow-sm hover:shadow"
+            title={
+              isSubmitting ? 'Creating session...' :
+              !formData.prompt ? 'Please enter a prompt' :
+              worktreeError ? 'Please fix the session name error' :
+              (!hasApiKey && !formData.worktreeTemplate) ? 'Please enter a session name (required without API key)' :
+              undefined
+            }
+          >
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Creating...
+              </span>
+            ) : (
+              `Create ${(formData.count || 1) > 1 ? (formData.count || 1) + ' Sessions' : 'Session'}`
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -80,8 +80,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
           <button
             onClick={onClose}
@@ -93,8 +94,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('general')}
             className={`px-4 py-2 text-sm font-medium ${
@@ -128,7 +131,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         </div>
 
         {activeTab === 'general' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="settings-form" onSubmit={handleSubmit} className="space-y-4">
 
           <div>
             <label className="flex items-center space-x-2">
@@ -329,24 +332,6 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
           {error && (
             <div className="text-red-600 text-sm">{error}</div>
           )}
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : 'Save'}
-              </button>
-            </div>
           </form>
         )}
         
@@ -388,6 +373,29 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             <div className="border-t border-gray-700 pt-6">
               <StravuConnection />
             </div>
+          </div>
+        )}
+        </div>
+
+        {/* Footer */}
+        {activeTab === 'general' && (
+          <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="settings-form"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </button>
           </div>
         )}
       </div>
