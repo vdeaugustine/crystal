@@ -6,6 +6,7 @@ import { MonacoErrorBoundary } from './MonacoErrorBoundary';
 import { useTheme } from '../contexts/ThemeContext';
 import { debounce } from '../utils/debounce';
 import { MarkdownPreview } from './MarkdownPreview';
+import { useResizablePanel } from '../hooks/useResizablePanel';
 
 interface FileItem {
   name: string;
@@ -528,6 +529,14 @@ export function FileEditor({ sessionId }: FileEditorProps) {
   const isDarkMode = theme === 'dark';
   const hasUnsavedChanges = fileContent !== originalContent;
   
+  // Add resizable hook for file tree column
+  const { width: fileTreeWidth, startResize } = useResizablePanel({
+    defaultWidth: 256,  // Same as w-64
+    minWidth: 200,
+    maxWidth: 400,
+    storageKey: 'crystal-file-tree-width'
+  });
+  
   // Check if this is a markdown file
   const isMarkdownFile = useMemo(() => {
     if (!selectedFile) return false;
@@ -604,12 +613,34 @@ export function FileEditor({ sessionId }: FileEditorProps) {
 
   return (
     <div className="h-full flex">
-      <div className="w-64 bg-gray-800 border-r border-gray-700">
+      <div 
+        className="bg-gray-800 border-r border-gray-700 relative flex-shrink-0"
+        style={{ width: `${fileTreeWidth}px` }}
+      >
         <FileTree
           sessionId={sessionId}
           onFileSelect={loadFile}
           selectedPath={selectedFile?.path || null}
         />
+        
+        {/* Resize handle */}
+        <div
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize group z-10"
+          onMouseDown={startResize}
+        >
+          {/* Visual indicator */}
+          <div className="absolute inset-0 bg-gray-700 group-hover:bg-blue-500 transition-colors" />
+          {/* Larger grab area */}
+          <div className="absolute -left-2 -right-2 top-0 bottom-0" />
+          {/* Drag indicator dots */}
+          <div className="absolute top-1/2 -translate-y-1/2 right-0 transform translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex flex-col gap-1">
+              <div className="w-1 h-1 bg-blue-400 rounded-full" />
+              <div className="w-1 h-1 bg-blue-400 rounded-full" />
+              <div className="w-1 h-1 bg-blue-400 rounded-full" />
+            </div>
+          </div>
+        </div>
       </div>
       <div className="flex-1 flex flex-col">
         {selectedFile ? (
