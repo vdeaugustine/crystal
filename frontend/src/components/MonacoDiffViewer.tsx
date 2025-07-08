@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { DiffEditor, type DiffEditorProps, type MonacoDiffEditor } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import { AlertCircle, FileText, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText, Check, Loader2, Eye, Code } from 'lucide-react';
 import type { FileDiff } from '../types/diff';
 import { debounce } from '../utils/debounce';
 import { MonacoErrorBoundary } from './MonacoErrorBoundary';
+import { MarkdownPreview } from './MarkdownPreview';
 
 interface MonacoDiffViewerProps {
   file: FileDiff;
@@ -37,6 +38,15 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
   const [editorHeight, setEditorHeight] = useState<number>(400); // Default height
   const containerRef = useRef<HTMLDivElement>(null);
   const debouncedSaveRef = useRef<any>(null);
+  const [viewMode, setViewMode] = useState<'diff' | 'preview' | 'split'>('diff');
+  const [previewHeight, setPreviewHeight] = useState<number>(600); // Default preview height
+  const previewRef = useRef<HTMLDivElement>(null);
+  
+  // Check if this is a markdown file
+  const isMarkdownFile = useMemo(() => {
+    const ext = file.path.split('.').pop()?.toLowerCase();
+    return ext === 'md' || ext === 'markdown';
+  }, [file.path]);
 
   // Delay mounting editor to ensure stability
   useEffect(() => {
@@ -393,6 +403,33 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
     }
   }, [isReadOnly, isEditorReady]);
 
+  // Calculate preview height when content or view mode changes
+  useEffect(() => {
+    if (!isMarkdownFile || viewMode === 'diff') return;
+
+    const calculatePreviewHeight = () => {
+      if (previewRef.current) {
+        // Get the actual height of the preview content
+        const contentHeight = previewRef.current.scrollHeight;
+        // Add some padding
+        const calculatedHeight = Math.max(600, contentHeight + 50);
+        setPreviewHeight(calculatedHeight);
+      }
+    };
+
+    // Calculate height after a delay to ensure content is rendered
+    const timer = setTimeout(calculatePreviewHeight, 300);
+
+    // Also recalculate when window resizes
+    const handleResize = debounce(calculatePreviewHeight, 250);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [currentContent, viewMode, isMarkdownFile]);
+
   // Cleanup on unmount or when key props change
   useEffect(() => {
     return () => {
@@ -512,44 +549,135 @@ export const MonacoDiffViewer: React.FC<MonacoDiffViewerProps> = ({
           </span>
         </div>
         
-        {/* Save Status or Read-only indicator */}
-        {isReadOnly ? (
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-            <AlertCircle className="w-3 h-3" />
-            <span>Read-only (select all commits to edit)</span>
-          </div>
-        ) : saveStatus !== 'idle' && (
-          <div className={`flex items-center gap-1 text-xs ${getSaveStatusColor()}`}>
-            {getSaveStatusIcon()}
-            <span>{getSaveStatusText()}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Preview Toggle for Markdown Files */}
+          {isMarkdownFile && (
+            <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+              <button
+                onClick={() => setViewMode('diff')}
+                className={`px-2 py-1 text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1 ${
+                  viewMode === 'diff'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+                title="Show diff view"
+              >
+                <Code className="w-3 h-3" />
+                Diff
+              </button>
+              <button
+                onClick={() => setViewMode('split')}
+                className={`px-2 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
+                  viewMode === 'split'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+                title="Show split view"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Split
+              </button>
+              <button
+                onClick={() => setViewMode('preview')}
+                className={`px-2 py-1 text-xs font-medium rounded-r-lg transition-colors flex items-center gap-1 ${
+                  viewMode === 'preview'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+                title="Show markdown preview"
+              >
+                <Eye className="w-3 h-3" />
+                Preview
+              </button>
+            </div>
+          )}
+          
+          {/* Save Status or Read-only indicator */}
+          {isReadOnly ? (
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <AlertCircle className="w-3 h-3" />
+              <span>Read-only (select all commits to edit)</span>
+            </div>
+          ) : saveStatus !== 'idle' && (
+            <div className={`flex items-center gap-1 text-xs ${getSaveStatusColor()}`}>
+              {getSaveStatusIcon()}
+              <span>{getSaveStatusText()}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Editor */}
-      <div className="relative" ref={containerRef} style={{ height: `${editorHeight}px`, overflow: 'hidden' }}>
-        {(!isEditorReady || !canMountEditor) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Loading editor...</span>
-            </div>
+      {/* Editor or Preview */}
+      {viewMode === 'preview' && isMarkdownFile ? (
+        <div ref={previewRef} className="relative overflow-auto" style={{ height: `${previewHeight}px` }}>
+          <MarkdownPreview
+            content={currentContent}
+            className="h-full"
+            id={`diff-preview-${sessionId}-${file.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
+          />
+        </div>
+      ) : viewMode === 'split' && isMarkdownFile ? (
+        <div className="flex" style={{ height: `${Math.max(editorHeight, previewHeight)}px` }}>
+          {/* Diff Editor */}
+          <div className="w-1/2 border-r border-gray-200 dark:border-gray-700" ref={containerRef} style={{ overflow: 'hidden' }}>
+            {(!isEditorReady || !canMountEditor) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading editor...</span>
+                </div>
+              </div>
+            )}
+            {file.path && canMountEditor && (
+              <MonacoErrorBoundary onReset={() => setIsEditorReady(false)}>
+                <DiffEditor
+                  height={editorHeight}
+                  language={getLanguage(file.path)}
+                  original={file.oldValue || ''}
+                  modified={currentContent}
+                  theme={isDarkMode ? 'vs-dark' : 'vs'}
+                  options={options}
+                  onMount={handleEditorDidMount}
+                />
+              </MonacoErrorBoundary>
+            )}
           </div>
-        )}
-        {file.path && canMountEditor && (
-          <MonacoErrorBoundary onReset={() => setIsEditorReady(false)}>
-            <DiffEditor
-              height={editorHeight}
-              language={getLanguage(file.path)}
-              original={file.oldValue || ''}
-              modified={currentContent}
-              theme={isDarkMode ? 'vs-dark' : 'vs'}
-              options={options}
-              onMount={handleEditorDidMount}
+          {/* Preview */}
+          <div ref={previewRef} className="w-1/2 overflow-auto">
+            <MarkdownPreview
+              content={currentContent}
+              className="h-full"
+              id={`diff-split-preview-${sessionId}-${file.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
             />
-          </MonacoErrorBoundary>
-        )}
-      </div>
+          </div>
+        </div>
+      ) : (
+        <div className="relative" ref={containerRef} style={{ height: `${editorHeight}px`, overflow: 'hidden' }}>
+          {(!isEditorReady || !canMountEditor) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-10">
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Loading editor...</span>
+              </div>
+            </div>
+          )}
+          {file.path && canMountEditor && (
+            <MonacoErrorBoundary onReset={() => setIsEditorReady(false)}>
+              <DiffEditor
+                height={editorHeight}
+                language={getLanguage(file.path)}
+                original={file.oldValue || ''}
+                modified={currentContent}
+                theme={isDarkMode ? 'vs-dark' : 'vs'}
+                options={options}
+                onMount={handleEditorDidMount}
+              />
+            </MonacoErrorBoundary>
+          )}
+        </div>
+      )}
     </div>
   );
 };

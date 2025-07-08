@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import markdown styles */
+@import './styles/markdown.css';
+
 /* Ensure proper overflow handling */
 html, body, #root {
   height: 100%;

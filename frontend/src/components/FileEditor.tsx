@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import Editor from '@monaco-editor/react';
-import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, RefreshCw, Plus, Trash2, FolderPlus, Search, X, Eye, Code } from 'lucide-react';
 import { MonacoErrorBoundary } from './MonacoErrorBoundary';
 import { useTheme } from '../contexts/ThemeContext';
 import { debounce } from '../utils/debounce';
+import { MarkdownPreview } from './MarkdownPreview';
 
 interface FileItem {
   name: string;
@@ -520,11 +521,19 @@ export function FileEditor({ sessionId }: FileEditorProps) {
   const [originalContent, setOriginalContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const editorRef = useRef<unknown>(null);
 
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
   const hasUnsavedChanges = fileContent !== originalContent;
+  
+  // Check if this is a markdown file
+  const isMarkdownFile = useMemo(() => {
+    if (!selectedFile) return false;
+    const ext = selectedFile.path.split('.').pop()?.toLowerCase();
+    return ext === 'md' || ext === 'markdown';
+  }, [selectedFile]);
 
   const loadFile = useCallback(async (file: FileItem) => {
     if (file.isDirectory) return;
@@ -541,6 +550,7 @@ export function FileEditor({ sessionId }: FileEditorProps) {
         setFileContent(result.content);
         setOriginalContent(result.content);
         setSelectedFile(file);
+        setViewMode('edit'); // Reset to edit mode when opening a new file
       } else {
         setError(result.error);
       }
@@ -612,18 +622,49 @@ export function FileEditor({ sessionId }: FileEditorProps) {
                   {hasUnsavedChanges && <span className="text-yellow-400 ml-2">●</span>}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                {hasUnsavedChanges ? (
-                  <>
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                    <span className="text-yellow-400">Auto-saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-green-400 rounded-full" />
-                    <span className="text-green-400">All changes saved</span>
-                  </>
+              <div className="flex items-center gap-2">
+                {/* Preview Toggle for Markdown Files */}
+                {isMarkdownFile && (
+                  <div className="flex items-center rounded-lg border border-gray-600 bg-gray-700">
+                    <button
+                      onClick={() => setViewMode('edit')}
+                      className={`px-2 py-1 text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1 ${
+                        viewMode === 'edit'
+                          ? 'bg-blue-500 text-white'
+                          : 'text-gray-300 hover:bg-gray-600'
+                      }`}
+                      title="Edit mode"
+                    >
+                      <Code className="w-3 h-3" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setViewMode('preview')}
+                      className={`px-2 py-1 text-xs font-medium rounded-r-lg transition-colors flex items-center gap-1 ${
+                        viewMode === 'preview'
+                          ? 'bg-blue-500 text-white'
+                          : 'text-gray-300 hover:bg-gray-600'
+                      }`}
+                      title="Preview mode"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Preview
+                    </button>
+                  </div>
                 )}
+                <div className="flex items-center gap-2 text-sm">
+                  {hasUnsavedChanges ? (
+                    <>
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                      <span className="text-yellow-400">Auto-saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 bg-green-400 rounded-full" />
+                      <span className="text-green-400">All changes saved</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             {error && (
@@ -631,23 +672,33 @@ export function FileEditor({ sessionId }: FileEditorProps) {
                 Error: {error}
               </div>
             )}
-            <div className="flex-1">
-              <MonacoErrorBoundary>
-                <Editor
-                  theme={isDarkMode ? 'vs-dark' : 'light'}
-                  value={fileContent}
-                  onChange={handleEditorChange}
-                  onMount={handleEditorMount}
-                  options={{
-                    minimap: { enabled: true },
-                    fontSize: 14,
-                    wordWrap: 'on',
-                    automaticLayout: true,
-                    scrollBeyondLastLine: false,
-                  }}
-                  language={getLanguageFromPath(selectedFile.path)}
-                />
-              </MonacoErrorBoundary>
+            <div className="flex-1 overflow-hidden">
+              {viewMode === 'preview' && isMarkdownFile ? (
+                <div className="h-full overflow-auto bg-white dark:bg-gray-900">
+                  <MarkdownPreview
+                    content={fileContent}
+                    className="min-h-full"
+                    id={`file-editor-preview-${sessionId}-${selectedFile.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
+                  />
+                </div>
+              ) : (
+                <MonacoErrorBoundary>
+                  <Editor
+                    theme={isDarkMode ? 'vs-dark' : 'light'}
+                    value={fileContent}
+                    onChange={handleEditorChange}
+                    onMount={handleEditorMount}
+                    options={{
+                      minimap: { enabled: true },
+                      fontSize: 14,
+                      wordWrap: 'on',
+                      automaticLayout: true,
+                      scrollBeyondLastLine: false,
+                    }}
+                    language={getLanguageFromPath(selectedFile.path)}
+                  />
+                </MonacoErrorBoundary>
+              )}
             </div>
           </>
         ) : (
