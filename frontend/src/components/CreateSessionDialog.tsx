@@ -105,6 +105,15 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check if session name is required
+    if (!hasApiKey && !formData.worktreeTemplate) {
+      showError({
+        title: 'Session Name Required',
+        error: 'Please provide a session name or add an Anthropic API key in Settings to enable auto-naming.'
+      });
+      return;
+    }
+    
     // Validate worktree name
     const validationError = validateWorktreeName(formData.worktreeTemplate || '');
     if (validationError) {
@@ -231,7 +240,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
           
           <div>
             <label htmlFor="worktreeTemplate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Session Name (Optional)
+              Session Name {hasApiKey ? '(Optional)' : '(Required)'}
             </label>
             <div className="flex gap-2">
               <input
@@ -250,7 +259,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                     ? 'border-red-400 focus:ring-red-500' 
                     : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
                 }`}
-                placeholder="Leave empty for AI-generated name"
+                placeholder={hasApiKey ? "Leave empty for AI-generated name" : "Enter a name for your session"}
                 disabled={isGeneratingName}
               />
               {hasApiKey && formData.prompt.trim() && (
@@ -290,8 +299,13 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
             {worktreeError && (
               <p className="text-xs text-red-600 dark:text-red-400 mt-1">{worktreeError}</p>
             )}
+            {!hasApiKey && !formData.worktreeTemplate && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Session name is required. Add an Anthropic API key in Settings to enable AI-powered auto-naming.
+              </p>
+            )}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {!worktreeError && 'The name that will be used to label your session and create your worktree folder.'}
+              {!worktreeError && !(!hasApiKey && !formData.worktreeTemplate) && 'The name that will be used to label your session and create your worktree folder.'}
             </p>
           </div>
           
@@ -421,8 +435,15 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.prompt || !!worktreeError}
+              disabled={isSubmitting || !formData.prompt || !!worktreeError || (!hasApiKey && !formData.worktreeTemplate)}
               className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition-colors shadow-sm hover:shadow"
+              title={
+                isSubmitting ? 'Creating session...' :
+                !formData.prompt ? 'Please enter a prompt' :
+                worktreeError ? 'Please fix the session name error' :
+                (!hasApiKey && !formData.worktreeTemplate) ? 'Please enter a session name (required without API key)' :
+                undefined
+              }
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
