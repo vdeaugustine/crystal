@@ -51,13 +51,13 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       // Initialize git if needed
       if (!isGitRepo) {
         try {
-          // Use the specified main branch name if provided
-          const branchName = projectData.mainBranch || 'main';
+          // Always use 'main' as the default branch name for new repos
+          const branchName = 'main';
 
           nodeExecSync(`cd "${projectData.path}" && git init`, { encoding: 'utf-8' });
           console.log('[Main] Git repository initialized successfully');
 
-          // Create and checkout the specified branch
+          // Create and checkout the main branch
           nodeExecSync(`cd "${projectData.path}" && git checkout -b ${branchName}`, { encoding: 'utf-8' });
           console.log(`[Main] Created and checked out branch: ${branchName}`);
 
@@ -70,9 +70,9 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         }
       }
 
-      // Detect or use the provided main branch
-      let mainBranch: string | undefined = projectData.mainBranch;
-      if (!mainBranch && isGitRepo) {
+      // Always detect the main branch - never use projectData.mainBranch
+      let mainBranch: string | undefined;
+      if (isGitRepo) {
         try {
           mainBranch = await worktreeManager.detectMainBranch(projectData.path);
           console.log('[Main] Detected main branch:', mainBranch);

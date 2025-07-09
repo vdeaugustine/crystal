@@ -43,10 +43,12 @@ export function DraggableProjectTreeView() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [selectedProjectForSettings, setSelectedProjectForSettings] = useState<Project | null>(null);
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+  const [newProject, setNewProject] = useState({ name: '', path: '', buildScript: '', runScript: '' });
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
   const [pendingMainBranchProject, setPendingMainBranchProject] = useState<Project | null>(null);
+  const [detectedMainBranch, setDetectedMainBranch] = useState<string>('main');
+  const [detectedBranchForNewProject, setDetectedBranchForNewProject] = useState<string | null>(null);
   const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
   const [selectedProjectForFolder, setSelectedProjectForFolder] = useState<Project | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
@@ -488,6 +490,19 @@ export function DraggableProjectTreeView() {
     const hasShownWarning = localStorage.getItem(warningKey);
     
     if (!hasShownWarning) {
+      // Fetch the current branch before showing warning
+      try {
+        const response = await window.electronAPI.git.detectBranch(project.path);
+        if (response.success && response.data) {
+          setDetectedMainBranch(response.data);
+        } else {
+          setDetectedMainBranch('main');
+        }
+      } catch (error) {
+        console.error('Failed to detect branch:', error);
+        setDetectedMainBranch('main');
+      }
+      
       // Show warning dialog
       setPendingMainBranchProject(project);
       setShowMainBranchWarning(true);
@@ -535,10 +550,11 @@ export function DraggableProjectTreeView() {
     try {
       const response = await API.projects.detectBranch(path);
       if (response.success && response.data) {
-        setNewProject(prev => ({ ...prev, mainBranch: response.data }));
+        setDetectedBranchForNewProject(response.data);
       }
     } catch (error) {
-      console.log('Could not detect branch, using default');
+      console.log('Could not detect branch');
+      setDetectedBranchForNewProject(null);
     }
   };
 
@@ -559,7 +575,7 @@ export function DraggableProjectTreeView() {
       }
 
       setShowAddProjectDialog(false);
-      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+      setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
       
       // Add the new project to the list without reloading everything
       const newProjectWithSessions = { ...response.data, sessions: [], folders: [] };
@@ -1394,28 +1410,13 @@ export function DraggableProjectTreeView() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Main Branch <span className="text-red-600 dark:text-red-400">*</span>
+                  Current Branch <span className="text-gray-500">(Auto-detected)</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newProject.mainBranch}
-                    onChange={(e) => setNewProject({ ...newProject, mainBranch: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="main"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => detectCurrentBranch(newProject.path)}
-                    disabled={!newProject.path}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Auto-detect
-                  </button>
+                <div className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200">
+                  {detectedBranchForNewProject || (newProject.path ? 'Detecting...' : 'Select a repository path first')}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  This must be the branch currently checked out in the folder. Defaults to 'main' for new repos.
+                  The main branch is automatically detected from the repository. This will be used for git operations.
                 </p>
               </div>
 
@@ -1456,7 +1457,7 @@ export function DraggableProjectTreeView() {
               <button
                 onClick={() => {
                   setShowAddProjectDialog(false);
-                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+                  setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
                 }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
@@ -1464,7 +1465,7 @@ export function DraggableProjectTreeView() {
               </button>
               <button
                 onClick={handleCreateProject}
-                disabled={!newProject.name || !newProject.path || !newProject.mainBranch}
+                disabled={!newProject.name || !newProject.path}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Add Project
@@ -1491,7 +1492,7 @@ export function DraggableProjectTreeView() {
           }}
           projectName={pendingMainBranchProject.name}
           projectId={pendingMainBranchProject.id}
-          mainBranch={pendingMainBranchProject.main_branch || 'main'}
+          mainBranch={detectedMainBranch}
         />
       )}
       

@@ -14,7 +14,8 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+  const [newProject, setNewProject] = useState({ name: '', path: '', buildScript: '', runScript: '' });
+  const [detectedBranch, setDetectedBranch] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const { showError } = useErrorStore();
@@ -70,10 +71,11 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
     try {
       const response = await API.projects.detectBranch(path);
       if (response.success && response.data) {
-        setNewProject(prev => ({ ...prev, mainBranch: response.data }));
+        setDetectedBranch(response.data);
       }
     } catch (error) {
-      console.log('Could not detect branch, using default');
+      console.log('Could not detect branch');
+      setDetectedBranch(null);
     }
   };
 
@@ -97,7 +99,8 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
       const createdProject = response.data;
       
       setShowAddDialog(false);
-      setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+      setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
+      setDetectedBranch(null);
       
       // Auto-open the newly created project
       if (createdProject) {
@@ -218,7 +221,8 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
             <button
               onClick={() => {
                 setShowAddDialog(false);
-                setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+                setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
+      setDetectedBranch(null);
               }}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors"
               title="Close"
@@ -279,28 +283,13 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Main Branch <span className="text-red-400">*</span>
+                  Current Branch <span className="text-gray-500">(Auto-detected)</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newProject.mainBranch}
-                    onChange={(e) => setNewProject({ ...newProject, mainBranch: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:outline-none focus:border-blue-500"
-                    placeholder="main"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => detectCurrentBranch(newProject.path)}
-                    disabled={!newProject.path}
-                    className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Auto-detect
-                  </button>
+                <div className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-gray-200">
+                  {detectedBranch || (newProject.path ? 'Detecting...' : 'Select a repository path first')}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  This must be the branch currently checked out in the folder. Defaults to 'main' for new repos.
+                  The main branch is automatically detected from the repository. This will be used for git operations.
                 </p>
               </div>
 
@@ -341,7 +330,8 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
               <button
                 onClick={() => {
                   setShowAddDialog(false);
-                  setNewProject({ name: '', path: '', mainBranch: 'main', buildScript: '', runScript: '' });
+                  setNewProject({ name: '', path: '', buildScript: '', runScript: '' });
+      setDetectedBranch(null);
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors"
               >
@@ -349,7 +339,7 @@ export default function ProjectSelector({ onProjectChange }: ProjectSelectorProp
               </button>
               <button
                 onClick={handleCreateProject}
-                disabled={!newProject.name || !newProject.path || !newProject.mainBranch}
+                disabled={!newProject.name || !newProject.path}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Add Project

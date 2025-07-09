@@ -18,6 +18,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
   const [runScript, setRunScript] = useState('');
   const [buildScript, setBuildScript] = useState('');
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
+  const [mainBranch, setMainBranch] = useState('');
   const [openIdeCommand, setOpenIdeCommand] = useState('');
   const [worktreeFolder, setWorktreeFolder] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -31,11 +32,16 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
       setSystemPrompt(project.system_prompt || '');
       setRunScript(project.run_script || '');
       setBuildScript(project.build_script || '');
+      setMainBranch(project.main_branch || '');
       // Fetch the current branch when dialog opens
       if (project.path) {
         window.electronAPI.git.detectBranch(project.path).then((result) => {
           if (result.success && result.data) {
             setCurrentBranch(result.data);
+            // If no main branch is set, use the detected branch
+            if (!project.main_branch) {
+              setMainBranch(result.data);
+            }
           }
         });
       }
@@ -56,7 +62,7 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
         system_prompt: systemPrompt || null,
         run_script: runScript || null,
         build_script: buildScript || null,
-        // main_branch is now automatically detected
+        main_branch: mainBranch || null,
         open_ide_command: openIdeCommand || null,
         worktree_folder: worktreeFolder || null
       });
@@ -173,7 +179,24 @@ export default function ProjectSettings({ project, isOpen, onClose, onUpdate, on
                     {currentBranch || 'Detecting...'}
                   </div>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
-                    The main branch is automatically detected from the project directory
+                    This is the currently checked out branch in the project directory
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Main Branch Override <span className="text-gray-500">(Advanced)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={mainBranch}
+                    onChange={(e) => setMainBranch(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+                    placeholder={currentBranch || 'main'}
+                  />
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-500">
+                    <span className="text-yellow-600 dark:text-yellow-500">⚠️ Note:</span> This overrides the auto-detected branch for git operations like "Rebase from main" and "Squash and rebase to main". 
+                    Only change this if your main branch has a different name than the current branch. Leave empty to use the auto-detected branch.
                   </p>
                 </div>
 

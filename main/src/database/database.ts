@@ -706,7 +706,10 @@ export class DatabaseService {
       fields.push('build_script = ?');
       values.push(updates.build_script);
     }
-    // main_branch is now automatically detected from the project directory
+    if (updates.main_branch !== undefined) {
+      fields.push('main_branch = ?');
+      values.push(updates.main_branch);
+    }
     if (updates.default_permission_mode !== undefined) {
       fields.push('default_permission_mode = ?');
       values.push(updates.default_permission_mode);

@@ -331,6 +331,17 @@ export class WorktreeManager {
     }
   }
 
+  async getEffectiveMainBranch(project: { path: string; main_branch?: string }): Promise<string> {
+    // If there's a main_branch override set in the project, use it
+    if (project.main_branch) {
+      console.log(`[WorktreeManager] Using main branch override: ${project.main_branch}`);
+      return project.main_branch;
+    }
+    
+    // Otherwise, auto-detect the main branch
+    return await this.getProjectMainBranch(project.path);
+  }
+
   async hasChangesToRebase(worktreePath: string, mainBranch: string): Promise<boolean> {
     try {
       // Check if main branch has commits that the current branch doesn't have
