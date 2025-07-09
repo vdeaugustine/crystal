@@ -120,25 +120,10 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     // Send real-time updates to renderer
     const mw = getMainWindow();
     if (mw) {
-      if (output.type === 'json') {
-        // For JSON, send both formatted output and raw JSON
-        const { formatJsonForOutputEnhanced } = await import('./utils/toolFormatter');
-        const formattedOutput = formatJsonForOutputEnhanced(output.data);
-        if (formattedOutput) {
-          // Send formatted as stdout for Output view
-          mw.webContents.send('session:output', {
-            sessionId: output.sessionId,
-            type: 'stdout',
-            data: formattedOutput,
-            timestamp: output.timestamp
-          });
-        }
-        // Also send raw JSON for Messages view
-        mw.webContents.send('session:output', output);
-      } else {
-        // Send non-JSON outputs as-is
-        mw.webContents.send('session:output', output);
-      }
+      // Always send the output as-is, without formatting
+      // JSON messages will be formatted when loaded from the database via sessions:get-output
+      // This prevents duplicate formatted messages in the Output view
+      mw.webContents.send('session:output', output);
     }
   });
 

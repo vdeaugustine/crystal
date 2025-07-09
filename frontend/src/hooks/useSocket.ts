@@ -5,7 +5,7 @@ import { API } from '../utils/api';
 import type { Session, SessionOutput } from '../types/session';
 
 export function useSocket() {
-  const { setSessions, loadSessions, addSession, updateSession, deleteSession, addSessionOutput } = useSessionStore();
+  const { setSessions, loadSessions, addSession, updateSession, deleteSession } = useSessionStore();
   const { showError } = useErrorStore();
   
   useEffect(() => {
@@ -82,11 +82,12 @@ export function useSocket() {
     const unsubscribeSessionOutput = window.electronAPI.events.onSessionOutput((output: SessionOutput) => {
       console.log(`[useSocket] Received session output for ${output.sessionId}, type: ${output.type}`);
       
-      // Add output to session store for real-time updates
-      addSessionOutput(output);
+      // Don't add output to session store anymore - we'll reload from database
+      // This prevents duplicate outputs from being displayed
+      // addSessionOutput(output);
       
-      // Emit custom event to notify that new output is available
-      // This allows the view to decide whether to reload from database
+      // Just emit custom event to notify that new output is available
+      // The view will reload all output from the database
       window.dispatchEvent(new CustomEvent('session-output-available', {
         detail: { sessionId: output.sessionId }
       }));
@@ -152,7 +153,7 @@ export function useSocket() {
       // Clean up all event listeners
       unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
     };
-  }, [setSessions, loadSessions, addSession, updateSession, deleteSession, addSessionOutput, showError]);
+  }, [setSessions, loadSessions, addSession, updateSession, deleteSession, showError]);
   
   // Return a mock socket object for compatibility
   return {
