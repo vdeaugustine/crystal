@@ -1,6 +1,22 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.1.13] - 2025-07-09
+
+### Added
+- Clear button for terminal tab to easily clear terminal output
+- SQLite database documentation for better developer understanding
+
+### Fixed
+- Fixed duplicated output issue that was causing redundant display of messages
+- Fixed reliability of Mermaid diagram rendering
+- Main branch detection now properly uses the current project directory's actual branch
+
+### Improved
+- Better UX around @ file mentions with improved autocomplete and validation
+- Settings dialogs now have sticky footers for better accessibility
+- Session naming now requires manual input when no API key is set
+
 ## [0.1.12] - 2025-07-08
 
 ### Added
