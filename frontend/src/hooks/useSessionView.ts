@@ -1359,6 +1359,18 @@ export const useSessionView = (
     }
     return tips;
   };
+
+  const handleClearTerminal = useCallback(() => {
+    if (scriptTerminalInstance.current) {
+      scriptTerminalInstance.current.clear();
+      
+      // Also clear the stored script output for this session
+      if (activeSession) {
+        useSessionStore.getState().clearScriptOutput(activeSession.id);
+        lastProcessedScriptOutputLength.current = 0;
+      }
+    }
+  }, [activeSession]);
   
   return {
     theme,
@@ -1422,6 +1434,7 @@ export const useSessionView = (
     handleNavigateToPrompt,
     debugState,
     forceResetLoadingState,
+    handleClearTerminal,
   };
 };
 
