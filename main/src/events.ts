@@ -9,7 +9,8 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     claudeCodeManager,
     executionTracker,
     runCommandManager,
-    gitDiffManager
+    gitDiffManager,
+    worktreeManager
   } = services;
 
   // Listen to sessionManager events and broadcast to renderer
@@ -232,8 +233,12 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         }
 
         // Get commit history for this branch
-        const project = sessionManager.getProjectForSession(sessionId);
-        const mainBranch = project?.main_branch || 'main';
+        let mainBranch = 'main';
+        try {
+          mainBranch = await worktreeManager.detectMainBranch(session.worktreePath);
+        } catch (error) {
+          console.log(`[Main] Could not detect main branch, using default: ${error}`);
+        }
         const commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch);
 
         if (commits.length > 0) {
@@ -318,8 +323,12 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
         }
 
         // Get commit history for this branch
-        const project = sessionManager.getProjectForSession(sessionId);
-        const mainBranch = project?.main_branch || 'main';
+        let mainBranch = 'main';
+        try {
+          mainBranch = await worktreeManager.detectMainBranch(session.worktreePath);
+        } catch (error) {
+          console.log(`[Main] Could not detect main branch, using default: ${error}`);
+        }
         const commits = gitDiffManager.getCommitHistory(session.worktreePath, 10, mainBranch);
 
         if (commits.length > 0) {

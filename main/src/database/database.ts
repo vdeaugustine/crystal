@@ -648,7 +648,7 @@ export class DatabaseService {
     const result = this.db.prepare(`
       INSERT INTO projects (name, path, system_prompt, run_script, main_branch, build_script, default_permission_mode, open_ide_command, display_order)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, path, systemPrompt || null, runScript || null, mainBranch || null, buildScript || null, defaultPermissionMode || 'ignore', openIdeCommand || null, displayOrder);
+    `).run(name, path, systemPrompt || null, runScript || null, null, buildScript || null, defaultPermissionMode || 'ignore', openIdeCommand || null, displayOrder);
     
     const project = this.getProject(result.lastInsertRowid as number);
     if (!project) {

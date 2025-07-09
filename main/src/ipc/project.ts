@@ -87,7 +87,6 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
         projectData.path,
         projectData.systemPrompt,
         projectData.runScript,
-        mainBranch,
         projectData.buildScript,
         undefined, // default_permission_mode
         projectData.openIdeCommand

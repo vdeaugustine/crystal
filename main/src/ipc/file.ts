@@ -120,14 +120,8 @@ export function registerFileHandlers(ipcMain: IpcMain, services: AppServices): v
         throw new Error(`Session not found: ${request.sessionId}`);
       }
 
-      // Get project information if available
-      let mainBranch = 'main'; // default
-      if (session.projectId) {
-        const project = databaseService.getProject(session.projectId);
-        if (project && project.main_branch) {
-          mainBranch = project.main_branch;
-        }
-      }
+      // Note: mainBranch detection removed as it wasn't being used in this function
+      // If needed in the future, use worktreeManager.detectMainBranch(session.worktreePath)
 
       if (!session.worktreePath) {
         throw new Error(`Session worktree path is undefined for session: ${request.sessionId}`);

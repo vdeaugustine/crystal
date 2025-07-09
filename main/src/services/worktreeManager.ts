@@ -331,14 +331,8 @@ export class WorktreeManager {
     }
   }
 
-  async getEffectiveMainBranch(project: { path: string; main_branch?: string }): Promise<string> {
-    // If there's a main_branch override set in the project, use it
-    if (project.main_branch) {
-      console.log(`[WorktreeManager] Using main branch override: ${project.main_branch}`);
-      return project.main_branch;
-    }
-    
-    // Otherwise, auto-detect the main branch
+  async getEffectiveMainBranch(project: { path: string }): Promise<string> {
+    // Always auto-detect the main branch
     return await this.getProjectMainBranch(project.path);
   }
 
