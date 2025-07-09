@@ -45,6 +45,13 @@ const FilePathAutocomplete: React.FC<FilePathAutocompleteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [activePattern, setActivePattern] = useState<{ start: number; pattern: string } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ 
+    left?: number; 
+    right?: number; 
+    bottom?: number;
+    top?: number;
+    maxWidth?: number;
+  } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,6 +89,84 @@ const FilePathAutocomplete: React.FC<FilePathAutocompleteProps> = ({
       }
     }
     return null;
+  }, []);
+
+  // Calculate dropdown position to ensure it's visible
+  const calculateDropdownPosition = useCallback(() => {
+    const inputElement = getInputElement();
+    if (!inputElement || !dropdownRef.current) return;
+
+    const inputRect = inputElement.getBoundingClientRect();
+    const dropdownRect = dropdownRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const padding = 20; // Padding from viewport edges
+    
+    // Calculate available space horizontally
+    const spaceOnRight = viewportWidth - inputRect.left - padding;
+    const spaceOnLeft = inputRect.right - padding;
+    
+    // Calculate available space vertically
+    const spaceBelow = viewportHeight - inputRect.bottom - padding;
+    const spaceAbove = inputRect.top - padding;
+    const dropdownHeight = Math.min(dropdownRect.height, 240); // max-h-60 = 240px
+    
+    // Calculate optimal width
+    const desiredWidth = Math.min(dropdownRect.width, 800); // Max 800px as before
+    const availableWidth = Math.max(spaceOnRight, spaceOnLeft);
+    const actualWidth = Math.min(desiredWidth, availableWidth);
+    
+    // Decide horizontal positioning
+    let horizontalPosition: { left?: number; right?: number; maxWidth?: number } = {};
+    if (spaceOnRight >= actualWidth || spaceOnRight >= spaceOnLeft) {
+      // Position from left edge
+      horizontalPosition = {
+        left: 0,
+        right: undefined,
+        maxWidth: spaceOnRight
+      };
+    } else {
+      // Position from right edge
+      horizontalPosition = {
+        right: padding,
+        left: undefined,
+        maxWidth: spaceOnLeft
+      };
+    }
+    
+    // Decide vertical positioning
+    let verticalPosition: { bottom?: number; top?: number } = {};
+    if (spaceBelow >= dropdownHeight) {
+      // Position below input (default)
+      verticalPosition = {
+        top: inputRect.height + 4, // mt-1 = 4px
+        bottom: undefined
+      };
+    } else if (spaceAbove >= dropdownHeight) {
+      // Position above input
+      verticalPosition = {
+        bottom: inputRect.height + 4, // mb-1 = 4px
+        top: undefined
+      };
+    } else {
+      // Not enough space, use the side with more space
+      if (spaceBelow >= spaceAbove) {
+        verticalPosition = {
+          top: inputRect.height + 4,
+          bottom: undefined
+        };
+      } else {
+        verticalPosition = {
+          bottom: inputRect.height + 4,
+          top: undefined
+        };
+      }
+    }
+    
+    setDropdownPosition({
+      ...horizontalPosition,
+      ...verticalPosition
+    });
   }, []);
 
   // Search for files
@@ -218,6 +303,14 @@ const FilePathAutocomplete: React.FC<FilePathAutocompleteProps> = ({
     }
   };
 
+  // Calculate position when dropdown is shown
+  useEffect(() => {
+    if (showSuggestions && suggestions.length > 0) {
+      // Small delay to ensure dropdown is rendered
+      setTimeout(calculateDropdownPosition, 0);
+    }
+  }, [showSuggestions, suggestions, calculateDropdownPosition]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -273,16 +366,23 @@ const FilePathAutocomplete: React.FC<FilePathAutocompleteProps> = ({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5"
+          className="absolute z-50 max-h-60 overflow-auto rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-black ring-opacity-5"
           style={{
-            minWidth: '200px',
-            maxWidth: '400px'
+            minWidth: Math.min(300, dropdownPosition?.maxWidth || 300) + 'px',
+            maxWidth: dropdownPosition?.maxWidth || '800px',
+            width: 'max-content',
+            ...(dropdownPosition && {
+              left: dropdownPosition.left !== undefined ? dropdownPosition.left : 'auto',
+              right: dropdownPosition.right !== undefined ? dropdownPosition.right : 'auto',
+              top: dropdownPosition.top !== undefined ? dropdownPosition.top : 'auto',
+              bottom: dropdownPosition.bottom !== undefined ? dropdownPosition.bottom : 'auto'
+            })
           }}
         >
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.path}
-              className={`flex items-center px-3 py-2 cursor-pointer ${
+              className={`flex items-center px-4 py-2.5 cursor-pointer min-w-0 ${
                 index === selectedIndex
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-300 hover:bg-gray-700'
@@ -291,11 +391,11 @@ const FilePathAutocomplete: React.FC<FilePathAutocompleteProps> = ({
               onMouseEnter={() => setSelectedIndex(index)}
             >
               {suggestion.isDirectory ? (
-                <Folder className="w-4 h-4 mr-2 flex-shrink-0" />
+                <Folder className="w-4 h-4 mr-3 flex-shrink-0" />
               ) : (
-                <FileText className="w-4 h-4 mr-2 flex-shrink-0" />
+                <FileText className="w-4 h-4 mr-3 flex-shrink-0" />
               )}
-              <span className="text-sm truncate">{suggestion.path}</span>
+              <span className="text-sm truncate pr-2" title={suggestion.path}>{suggestion.path}</span>
             </div>
           ))}
         </div>
