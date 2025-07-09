@@ -214,6 +214,12 @@ export const useSessionView = (
         setIsWaitingForFirstOutput(false);
       }
       
+      // Reset continuing conversation flag after successfully loading output
+      if (isContinuingConversationRef.current) {
+        console.log(`[loadOutputContent] Resetting continuing conversation flag after output load`);
+        isContinuingConversationRef.current = false;
+      }
+      
       setLoadError(null);
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -435,9 +441,9 @@ export const useSessionView = (
       return;
     }
     
-    // Skip if continuing conversation
-    if (isContinuingConversationRef.current) {
-      console.log(`[Output Load Effect] Skipping - continuing conversation`);
+    // Skip initial load if continuing conversation, but allow explicit reloads
+    if (isContinuingConversationRef.current && outputLoadState === 'idle' && !shouldReloadOutput) {
+      console.log(`[Output Load Effect] Skipping initial load - continuing conversation`);
       return;
     }
     
@@ -504,10 +510,12 @@ export const useSessionView = (
       const { sessionId } = event.detail;
       
       // Check if this is for the active session
-      if (activeSession?.id === sessionId && outputLoadState === 'loaded') {
-        // If we're already loaded and receive new output, trigger a reload
-        console.log(`[Output Available] New output for active session ${sessionId}, requesting reload`);
-        setShouldReloadOutput(true);
+      if (activeSession?.id === sessionId) {
+        // Trigger reload if we're loaded or if we're continuing a conversation
+        if (outputLoadState === 'loaded' || isContinuingConversationRef.current) {
+          console.log(`[Output Available] New output for active session ${sessionId}, requesting reload (state: ${outputLoadState}, continuing: ${isContinuingConversationRef.current})`);
+          setShouldReloadOutput(true);
+        }
       }
     };
     
