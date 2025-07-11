@@ -725,7 +725,13 @@ export const useSessionView = (
             console.log(`[Terminal Write Effect] Writing buffered output after init`);
             terminalInstance.current.write(formattedOutput);
             lastProcessedOutputLength.current = formattedOutput.length;
-            terminalInstance.current.scrollToBottom();
+            // Only auto-scroll if user is already at the bottom
+            const buffer = terminalInstance.current.buffer.active;
+            const isAtBottom = buffer.viewportY >= buffer.length - terminalInstance.current.rows;
+            
+            if (isAtBottom) {
+              terminalInstance.current.scrollToBottom();
+            }
           }
         }, 100);
       }
@@ -762,7 +768,13 @@ export const useSessionView = (
     }
     
     if (formattedOutput.length > 0) {
-      terminalInstance.current.scrollToBottom();
+      // Only auto-scroll if user is already at the bottom
+      const buffer = terminalInstance.current.buffer.active;
+      const isAtBottom = buffer.viewportY >= buffer.length - terminalInstance.current.rows;
+      
+      if (isAtBottom) {
+        terminalInstance.current.scrollToBottom();
+      }
     }
   }, [formattedOutput, currentSessionIdForOutput, initTerminal, terminalRef, viewMode]);
 
@@ -777,7 +789,13 @@ export const useSessionView = (
       const newOutput = fullScriptOutput.substring(lastProcessedScriptOutputLength.current);
       scriptTerminalInstance.current.write(newOutput);
       lastProcessedScriptOutputLength.current = fullScriptOutput.length;
-      scriptTerminalInstance.current.scrollToBottom();
+      // Only auto-scroll if user is already at the bottom
+      const buffer = scriptTerminalInstance.current.buffer.active;
+      const isAtBottom = buffer.viewportY >= buffer.length - scriptTerminalInstance.current.rows;
+      
+      if (isAtBottom) {
+        scriptTerminalInstance.current.scrollToBottom();
+      }
     }
   }, [scriptOutput, activeSessionId]);
 
