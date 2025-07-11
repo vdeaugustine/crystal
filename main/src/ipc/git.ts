@@ -17,6 +17,11 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const project = sessionManager.getProjectForSession(sessionId);
       // Get the main branch from the project directory's current branch
       const mainBranch = project?.path ? await worktreeManager.getProjectMainBranch(project.path) : 'main';
+      
+      console.log(`[IPC:git] Getting commits for session ${sessionId}`);
+      console.log(`[IPC:git] Project path: ${project?.path || 'not found'}`);
+      console.log(`[IPC:git] Detected main branch: ${mainBranch}`);
+      
       const commits = gitDiffManager.getCommitHistory(session.worktreePath, 50, mainBranch);
 
       // Check for uncommitted changes
@@ -75,7 +80,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       // Get git commit history
       const project = sessionManager.getProjectForSession(sessionId);
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = project ? await worktreeManager.getEffectiveMainBranch(project) : 'main';
+      const mainBranch = project ? await worktreeManager.getProjectMainBranch(project.path) : 'main';
       const commits = gitDiffManager.getCommitHistory(session.worktreePath, 50, mainBranch);
       const executionIndex = parseInt(executionId) - 1;
 
@@ -206,7 +211,7 @@ EOF
       // Get git commit history
       const project = sessionManager.getProjectForSession(sessionId);
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = project ? await worktreeManager.getEffectiveMainBranch(project) : 'main';
+      const mainBranch = project ? await worktreeManager.getProjectMainBranch(project.path) : 'main';
       const commits = gitDiffManager.getCommitHistory(session.worktreePath, 50, mainBranch);
 
       if (!commits.length) {
@@ -451,7 +456,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // Add message to session output about starting the rebase
       const timestamp = new Date().toLocaleTimeString();
@@ -518,7 +523,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // First, abort the rebase
       try {
@@ -611,7 +616,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // Add message to session output about starting the squash and rebase
       const timestamp = new Date().toLocaleTimeString();
@@ -680,7 +685,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // Add message to session output about starting the rebase
       const timestamp = new Date().toLocaleTimeString();
@@ -913,7 +918,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
       const hasChanges = await worktreeManager.hasChangesToRebase(session.worktreePath, mainBranch);
 
       return { success: true, data: hasChanges };
@@ -936,7 +941,7 @@ EOF
       }
 
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getEffectiveMainBranch(project);
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // Get current branch name
       const { execSync } = require('child_process');
