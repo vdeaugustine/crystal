@@ -6,7 +6,6 @@ interface GitErrorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   errorDetails: GitErrorDetails | null;
-  formatGitOutput: (output: string) => string;
   getGitErrorTips: (errorDetails: GitErrorDetails) => string[];
   onAbortAndUseClaude: () => void;
 }
@@ -15,7 +14,6 @@ export const GitErrorDialog: React.FC<GitErrorDialogProps> = ({
   isOpen,
   onClose,
   errorDetails,
-  formatGitOutput,
   getGitErrorTips,
   onAbortAndUseClaude,
 }) => {
