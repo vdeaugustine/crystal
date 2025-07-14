@@ -56,7 +56,7 @@ All core features have been successfully implemented with significant enhancemen
   - View Diff View: Git diff viewer with file statistics
   - Terminal View: Dedicated terminal for running project scripts
 - **Sidebar navigation**: Session list, project selector, prompt history
-- **Real-time updates**: WebSocket-based live output streaming
+- **Real-time updates**: IPC-based live output streaming
 - **Status indicators**: Color-coded badges with animations
 - **Unread indicators**: Activity tracking across views
 
@@ -126,7 +126,7 @@ All core features have been successfully implemented with significant enhancemen
 
 ### Backend Services (Integrated in Main Process)
 - **Runtime**: Node.js with TypeScript
-- **API Server**: Express.js embedded server on port 3001
+- **IPC Server**: Direct IPC communication with renderer process
 - **Database**: Better-SQLite3 for synchronous operations
 - **Task Queue**: Bull with in-memory queue for Electron
 - **Claude Integration**: @anthropic-ai/claude-code SDK
@@ -134,9 +134,8 @@ All core features have been successfully implemented with significant enhancemen
 - **Git Integration**: Command-line git worktree management
 
 ### Communication
-- **Electron IPC**: Secure inter-process communication
-- **WebSockets**: Socket.io for real-time updates (development mode)
-- **RESTful API**: Express endpoints for CRUD operations
+- **Electron IPC**: Secure inter-process communication for all operations
+- **Event System**: IPC-based event handling for real-time updates
 
 ## Architecture
 
@@ -150,12 +149,12 @@ All core features have been successfully implemented with significant enhancemen
 │  │   (Sessions)    │ │   (XTerm.js)    │ │  Dialog    │  │
 │  └─────────────────┘ └─────────────────┘ └────────────┘  │
 ├─────────────────────────────────────────────────────────┤
-│          IPC Communication / WebSocket (dev)             │
+│                 IPC Communication                        │
 ├─────────────────────────────────────────────────────────┤
 │              Main Process (Electron + Node.js)           │
 │ ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐  │
-│ │   Express    │ │  Task Queue  │ │   Session        │  │
-│ │   Server     │ │    (Bull)    │ │   Manager        │  │
+│ │  Task Queue  │ │  Session     │ │   Config         │  │
+│ │    (Bull)    │ │  Manager     │ │   Manager        │  │
 │ └──────────────┘ └──────────────┘ └───────────────────┘  │
 │ ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐  │
 │ │  Worktree    │ │ Claude Code  │ │   Config         │  │
@@ -567,7 +566,7 @@ The react-diff-viewer-continued library uses emotion/styled-components internall
 2. **Worktree Setup**: Backend creates new git worktree using `git worktree add`
 3. **Claude Instance**: Spawns Claude Code process in worktree using node-pty
 4. **Database Storage**: Session metadata and output stored in SQLite
-5. **Real-time Updates**: WebSocket streams session status and terminal output
+5. **Real-time Updates**: IPC streams session status and terminal output
 6. **Session Management**: Users can switch between sessions, continue conversations
 
 ## Available Commands
