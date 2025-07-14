@@ -1,6 +1,6 @@
 # Crystal - Multi-Session Claude Code Manager
 
-Created by [Stravu](https://stravu.com/)
+Created by [Stravu](https://stravu.com/?utm_source=Crystal&utm_medium=OS&utm_campaign=Crystal&utm_id=1)
 
 ## Project Overview
 
@@ -684,7 +684,7 @@ Enable verbose logging in Settings to see detailed logs for troubleshooting.
 
 ## Disclaimer
 
-Crystal is an independent project created by [Stravu](https://stravu.com/). Claude™ is a trademark of Anthropic, PBC. Crystal is not affiliated with, endorsed by, or sponsored by Anthropic. This tool is designed to work with Claude Code, which must be installed separately.
+Crystal is an independent project created by [Stravu](https://stravu.com/?utm_source=Crystal&utm_medium=OS&utm_campaign=Crystal&utm_id=1). Claude™ is a trademark of Anthropic, PBC. Crystal is not affiliated with, endorsed by, or sponsored by Anthropic. This tool is designed to work with Claude Code, which must be installed separately.
 
 ## important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
