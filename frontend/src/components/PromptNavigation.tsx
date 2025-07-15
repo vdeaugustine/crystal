@@ -3,6 +3,7 @@ import { formatDistanceToNow } from '../utils/formatters';
 import { formatDuration, getTimeDifference, isValidTimestamp, parseTimestamp } from '../utils/timestampUtils';
 import { API } from '../utils/api';
 import { useSessionStore } from '../stores/sessionStore';
+import { PromptDetailModal } from './PromptDetailModal';
 
 interface PromptMarker {
   id: number;
@@ -23,6 +24,7 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
   const [prompts, setPrompts] = useState<PromptMarker[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
+  const [modalPrompt, setModalPrompt] = useState<{ prompt: PromptMarker; index: number } | null>(null);
   const activeSession = useSessionStore((state) => state.sessions.find(s => s.id === sessionId));
 
   const calculateDuration = (currentPrompt: PromptMarker, currentIndex: number): string => {
@@ -181,6 +183,10 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
     onNavigateToPrompt(marker);
   };
 
+  const handlePromptDoubleClick = (marker: PromptMarker, index: number) => {
+    setModalPrompt({ prompt: marker, index });
+  };
+
   if (isLoading && prompts.length === 0) {
     return (
       <div className="w-64 bg-gray-800 border-l border-gray-700 p-4">
@@ -191,11 +197,12 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
   }
 
   return (
-    <div className="w-64 bg-gray-800 border-l border-gray-700 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-700">
-        <h3 className="font-semibold text-gray-700 dark:text-gray-300">Prompt History</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to navigate</p>
-      </div>
+    <>
+      <div className="w-64 bg-gray-800 border-l border-gray-700 flex flex-col h-full">
+        <div className="p-4 border-b border-gray-700">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300">Prompt History</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click to navigate • Double-click for details</p>
+        </div>
       
       <div className="flex-1 overflow-y-auto">
         {prompts.length === 0 ? (
@@ -208,6 +215,7 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
               <button
                 key={marker.id}
                 onClick={() => handlePromptClick(marker)}
+                onDoubleClick={() => handlePromptDoubleClick(marker, index)}
                 className={`w-full text-left p-3 rounded-lg transition-colors ${
                   selectedPromptId === marker.id
                     ? 'bg-blue-900/30 border-blue-700 border'
@@ -237,5 +245,14 @@ export function PromptNavigation({ sessionId, onNavigateToPrompt }: PromptNaviga
         )}
       </div>
     </div>
+    
+    {modalPrompt && (
+      <PromptDetailModal
+        prompt={modalPrompt.prompt}
+        promptIndex={modalPrompt.index}
+        onClose={() => setModalPrompt(null)}
+      />
+    )}
+    </>
   );
 }

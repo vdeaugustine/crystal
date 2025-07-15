@@ -4,7 +4,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { useResizable } from './hooks/useResizable';
 import { Sidebar } from './components/Sidebar';
 import { SessionView } from './components/SessionView';
-import { PromptHistory } from './components/PromptHistory';
+import { PromptHistoryModal } from './components/PromptHistoryModal';
 import Help from './components/Help';
 import Welcome from './components/Welcome';
 import { AboutDialog } from './components/AboutDialog';
@@ -17,8 +17,6 @@ import { useErrorStore } from './stores/errorStore';
 import { useSessionStore } from './stores/sessionStore';
 import { API } from './utils/api';
 
-type ViewMode = 'sessions' | 'prompts';
-
 interface PermissionRequest {
   id: string;
   sessionId: string;
@@ -28,7 +26,6 @@ interface PermissionRequest {
 }
 
 function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('sessions');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -37,6 +34,7 @@ function App() {
   const [currentPermissionRequest, setCurrentPermissionRequest] = useState<PermissionRequest | null>(null);
   const [isDiscordOpen, setIsDiscordOpen] = useState(false);
   const [hasCheckedWelcome, setHasCheckedWelcome] = useState(false);
+  const [isPromptHistoryOpen, setIsPromptHistoryOpen] = useState(false);
   const { currentError, clearError } = useErrorStore();
   const { sessions, isLoaded } = useSessionStore();
   
@@ -49,6 +47,20 @@ function App() {
   
   useIPCEvents();
   const { showNotification } = useNotifications();
+
+  // Add keyboard shortcut for prompt history
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + P to open prompt history
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        setIsPromptHistoryOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     // Show welcome screen and Discord popup intelligently based on user state
@@ -236,14 +248,13 @@ function App() {
       >
       </div>
       <Sidebar 
-        viewMode={viewMode} 
-        onViewModeChange={setViewMode} 
         onHelpClick={() => setIsHelpOpen(true)}
         onAboutClick={() => setIsAboutOpen(true)}
+        onPromptHistoryClick={() => setIsPromptHistoryOpen(true)}
         width={sidebarWidth}
         onResize={startResize}
       />
-      {viewMode === 'sessions' ? <SessionView /> : <PromptHistory />}
+      <SessionView />
       <Help isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <Welcome isOpen={isWelcomeOpen} onClose={() => setIsWelcomeOpen(false)} />
       <AboutDialog isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
@@ -268,6 +279,10 @@ function App() {
       <DiscordPopup 
         isOpen={isDiscordOpen} 
         onClose={() => setIsDiscordOpen(false)} 
+      />
+      <PromptHistoryModal
+        isOpen={isPromptHistoryOpen}
+        onClose={() => setIsPromptHistoryOpen(false)}
       />
     </div>
   );

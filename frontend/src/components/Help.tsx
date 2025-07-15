@@ -228,6 +228,10 @@ export default function Help({ isOpen, onClose }: HelpProps) {
                   <span className="text-gray-700 dark:text-gray-300">Send Input / Continue Conversation</span>
                   <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">Cmd/Ctrl + Enter</kbd>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700 dark:text-gray-300">Open Prompt History</span>
+                  <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">Cmd/Ctrl + P</kbd>
+                </div>
               </div>
             </section>
 

@@ -4,18 +4,15 @@ import { DraggableProjectTreeView } from './DraggableProjectTreeView';
 import { Info } from 'lucide-react';
 import crystalLogo from '../assets/crystal-logo.svg';
 
-type ViewMode = 'sessions' | 'prompts';
-
 interface SidebarProps {
-  viewMode: ViewMode;
-  onViewModeChange: (mode: ViewMode) => void;
   onHelpClick: () => void;
   onAboutClick: () => void;
+  onPromptHistoryClick: () => void;
   width: number;
   onResize: (e: React.MouseEvent) => void;
 }
 
-export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick, width, onResize }: SidebarProps) {
+export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width, onResize }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showStatusGuide, setShowStatusGuide] = useState(false);
 
@@ -82,35 +79,20 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick,
           </div>
         </div>
 
-
-        {/* Navigation Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <div className="flex">
-            <button
-              onClick={() => onViewModeChange('sessions')}
-              className={`flex-1 px-4 py-3 text-sm font-medium ${
-                viewMode === 'sessions'
-                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-b-2 border-blue-500'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              Sessions
-            </button>
-            <button
-              onClick={() => onViewModeChange('prompts')}
-              className={`flex-1 px-4 py-3 text-sm font-medium ${
-                viewMode === 'prompts'
-                  ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-b-2 border-blue-500'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              Prompts
-            </button>
-          </div>
+        {/* Prompt History Button */}
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={onPromptHistoryClick}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+            title="View Prompt History (Cmd/Ctrl + P)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>View Prompt History</span>
+          </button>
         </div>
 
-
-      {viewMode === 'sessions' && (
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           <div className="px-4 py-2 text-sm uppercase flex items-center justify-between overflow-hidden">
             <span className="truncate text-gray-700 dark:text-gray-400">Projects & Sessions</span>
@@ -124,7 +106,6 @@ export function Sidebar({ viewMode, onViewModeChange, onHelpClick, onAboutClick,
           </div>
           <DraggableProjectTreeView />
         </div>
-      )}
     </div>
 
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
