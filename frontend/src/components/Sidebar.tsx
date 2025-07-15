@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Settings } from './Settings';
 import { DraggableProjectTreeView } from './DraggableProjectTreeView';
-import { Info } from 'lucide-react';
+import { Info, Clock } from 'lucide-react';
 import crystalLogo from '../assets/crystal-logo.svg';
 
 interface SidebarProps {
@@ -79,30 +79,26 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
           </div>
         </div>
 
-        {/* Prompt History Button */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onPromptHistoryClick}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-            title="View Prompt History (Cmd/Ctrl + P)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>View Prompt History</span>
-          </button>
-        </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           <div className="px-4 py-2 text-sm uppercase flex items-center justify-between overflow-hidden">
             <span className="truncate text-gray-700 dark:text-gray-400">Projects & Sessions</span>
-            <button 
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-              title="View status legend"
-              onClick={() => setShowStatusGuide(true)}
-            >
-              <Info className="w-4 h-4" />
-            </button>
+            <div className="flex items-center space-x-1">
+              <button 
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                title="View Prompt History (Cmd/Ctrl + P)"
+                onClick={onPromptHistoryClick}
+              >
+                <Clock className="w-4 h-4" />
+              </button>
+              <button 
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                title="View status legend"
+                onClick={() => setShowStatusGuide(true)}
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <DraggableProjectTreeView />
         </div>
