@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm run:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(electron-rebuild:*)",
+      "Bash(npx electron-rebuild:*)",
+      "Bash(npm run rebuild:*)"
+    ],
+    "deny": []
+  }
+}

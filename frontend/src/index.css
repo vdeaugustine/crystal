@@ -1,9 +1,9 @@
+/* Import markdown styles */
+@import './styles/markdown.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import markdown styles */
-@import './styles/markdown.css';
 
 /* Ensure proper overflow handling */
 html, body, #root {
