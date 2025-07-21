@@ -118,9 +118,9 @@ async function createWindow() {
     
     if (app.isPackaged) {
       // In packaged app, the structure is different
-      // The app.getAppPath() returns the path to app.asar
-      // We need to go up from main/dist to get to frontend/dist
-      indexPath = path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html');
+      // __dirname is /app.asar/main/dist/main/src/
+      // We need to go up to /app.asar/frontend/dist/index.html
+      indexPath = path.join(__dirname, '..', '..', '..', '..', 'frontend', 'dist', 'index.html');
     } else {
       // In development build (not packaged), use app path
       const appPath = app.getAppPath();
