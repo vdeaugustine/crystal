@@ -401,6 +401,7 @@ async function initializeServices() {
     stravuNotebookService,
     taskQueue,
     getMainWindow: () => mainWindow,
+    logger,
   };
 
   // Set up IPC event listeners for real-time updates
