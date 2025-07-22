@@ -117,29 +117,23 @@ async function createWindow() {
     let indexPath: string;
     
     if (app.isPackaged) {
-      // In packaged app with asar, we need to use the protocol to load the file
-      // The path inside the asar is relative to the app root
-      indexPath = path.join(app.getAppPath(), 'frontend', 'dist', 'index.html');
+      // In packaged app with asar, the HTML file is at the root of the asar archive
+      // Use app.getAppPath() which correctly handles asar archives
+      const appPath = app.getAppPath();
+      indexPath = path.join(appPath, 'frontend', 'dist', 'index.html');
     } else {
-      // In development build (not packaged), __dirname points to main/dist/main/src
-      // We need to go up to the project root and then to frontend/dist
-      indexPath = path.join(__dirname, '..', '..', '..', '..', 'frontend', 'dist', 'index.html');
+      // In development build (not packaged), use app path
+      const appPath = app.getAppPath();
+      indexPath = path.join(appPath, 'frontend', 'dist', 'index.html');
     }
     
     console.log('Loading production build...');
     console.log('App is packaged:', app.isPackaged);
     console.log('App path:', app.getAppPath());
-    console.log('__dirname:', __dirname);
     console.log('Index path:', indexPath);
 
     try {
-      if (app.isPackaged) {
-        // For packaged apps, use the file:// protocol with the full path
-        await mainWindow.loadURL(`file://${indexPath}`);
-      } else {
-        // For non-packaged builds, use loadFile
-        await mainWindow.loadFile(indexPath);
-      }
+      await mainWindow.loadFile(indexPath);
     } catch (error) {
       console.error('Failed to load index.html:', error);
       
@@ -153,7 +147,6 @@ async function createWindow() {
           <li>App is packaged: ${app.isPackaged}</li>
           <li>App path: ${appPath}</li>
           <li>__dirname: ${__dirname}</li>
-          <li>process.cwd(): ${process.cwd()}</li>
           <li>Expected path: ${indexPath}</li>
         </ul>
       `);
