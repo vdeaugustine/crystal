@@ -117,10 +117,10 @@ async function createWindow() {
     let indexPath: string;
     
     if (app.isPackaged) {
-      // In packaged app, the structure is different
-      // __dirname is /app.asar/main/dist/main/src/
-      // We need to go up to /app.asar/frontend/dist/index.html
-      indexPath = path.join(__dirname, '..', '..', '..', '..', 'frontend', 'dist', 'index.html');
+      // In packaged app with asar, the HTML file is at the root of the asar archive
+      // Use app.getAppPath() which correctly handles asar archives
+      const appPath = app.getAppPath();
+      indexPath = path.join(appPath, 'frontend', 'dist', 'index.html');
     } else {
       // In development build (not packaged), use app path
       const appPath = app.getAppPath();
@@ -129,7 +129,7 @@ async function createWindow() {
     
     console.log('Loading production build...');
     console.log('App is packaged:', app.isPackaged);
-    console.log('__dirname:', __dirname);
+    console.log('App path:', app.getAppPath());
     console.log('Index path:', indexPath);
 
     try {
