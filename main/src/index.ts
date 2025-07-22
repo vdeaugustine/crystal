@@ -117,9 +117,9 @@ async function createWindow() {
     let indexPath: string;
     
     if (app.isPackaged) {
-      // In packaged app, __dirname is app.asar/main/dist/main/src/
-      // We need to go up to app.asar root and then to frontend/dist/index.html
-      indexPath = path.join(__dirname, '..', '..', '..', '..', 'frontend', 'dist', 'index.html');
+      // In packaged app with asar, we need to use the protocol to load the file
+      // The path inside the asar is relative to the app root
+      indexPath = path.join(app.getAppPath(), 'frontend', 'dist', 'index.html');
     } else {
       // In development build (not packaged), __dirname points to main/dist/main/src
       // We need to go up to the project root and then to frontend/dist
@@ -133,7 +133,13 @@ async function createWindow() {
     console.log('Index path:', indexPath);
 
     try {
-      await mainWindow.loadFile(indexPath);
+      if (app.isPackaged) {
+        // For packaged apps, use the file:// protocol with the full path
+        await mainWindow.loadURL(`file://${indexPath}`);
+      } else {
+        // For non-packaged builds, use loadFile
+        await mainWindow.loadFile(indexPath);
+      }
     } catch (error) {
       console.error('Failed to load index.html:', error);
       
