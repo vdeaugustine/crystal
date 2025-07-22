@@ -35,7 +35,6 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
     checkpointPrefix: 'checkpoint: '
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [mainBranch, setMainBranch] = useState<string>('main');
   const { showError } = useErrorStore();
   
   // Fetch project details to get last used model
@@ -104,7 +103,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
           }
           
           if (mainBranchResponse.success && mainBranchResponse.data) {
-            setMainBranch(mainBranchResponse.data);
+            // Main branch detected but not currently used in UI
           }
         }).catch((err: any) => {
           console.error('Failed to fetch branches:', err);
