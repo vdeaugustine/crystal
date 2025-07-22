@@ -1503,7 +1503,7 @@ export function DraggableProjectTreeView() {
                           <div
                             key={session.id}
                             className="relative"
-                            style={{ marginLeft: '24px' }}
+                            style={{ marginLeft: '8px' }}
                           >
                             {/* Tree lines for root sessions */}
                             <div className="absolute inset-0 pointer-events-none">
