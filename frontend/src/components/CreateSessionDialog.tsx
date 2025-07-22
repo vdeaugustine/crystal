@@ -4,8 +4,6 @@ import type { CreateSessionRequest } from '../types/session';
 import { useErrorStore } from '../stores/errorStore';
 import { Shield, ShieldOff, Sparkles, GitBranch, ChevronRight, ChevronDown, Zap, Brain, Target } from 'lucide-react';
 import FilePathAutocomplete from './FilePathAutocomplete';
-import { CommitModeSettings } from './CommitModeSettings';
-import type { CommitModeSettings as CommitModeSettingsType } from '../../../shared/types';
 
 interface CreateSessionDialogProps {
   isOpen: boolean;
@@ -29,11 +27,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
   const [branches, setBranches] = useState<Array<{ name: string; isCurrent: boolean; hasWorktree: boolean }>>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [ultrathink, setUltrathink] = useState(false);
-  const [autoCommit, setAutoCommit] = useState(true); // Default to true - kept for backwards compatibility
-  const [commitModeSettings, setCommitModeSettings] = useState<CommitModeSettingsType>({ 
-    mode: 'checkpoint',
-    checkpointPrefix: 'checkpoint: '
-  });
+  const [autoCommit, setAutoCommit] = useState(true); // Default to true
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mainBranch, setMainBranch] = useState<string>('main');
   const [showMainBranchWarning, setShowMainBranchWarning] = useState(false);
@@ -207,9 +201,7 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
         ...formData,
         prompt: finalPrompt,
         projectId,
-        autoCommit, // Keep for backwards compatibility
-        commitMode: commitModeSettings.mode,
-        commitModeSettings: JSON.stringify(commitModeSettings)
+        autoCommit
       });
       
       if (!response.success) {
@@ -564,20 +556,20 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                   </p>
                 </div>
                 
-                {/* Commit Mode Settings */}
-                <CommitModeSettings
-                  projectId={projectId}
-                  mode={commitModeSettings.mode}
-                  settings={commitModeSettings}
-                  onChange={(mode, settings) => {
-                    setCommitModeSettings(settings);
-                    // Update autoCommit for backwards compatibility
-                    setAutoCommit(mode !== 'disabled');
-                  }}
-                />
-                
-                {/* Ultrathink checkbox */}
-                <div className="pt-2">
+                {/* Checkboxes */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoCommit}
+                      onChange={(e) => setAutoCommit(e.target.checked)}
+                      className="h-4 w-4 text-green-600 rounded border-gray-300 dark:border-gray-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Auto-commit after each prompt
+                    </span>
+                  </label>
+                  
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"

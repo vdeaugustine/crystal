@@ -261,11 +261,7 @@ process.on('SIGINT', () => {
 `;
 
 // Write the standalone script
-const outputPath = path.join(__dirname, 'dist/main/src/services/mcpPermissionBridgeStandalone.js');
-const outputDir = path.dirname(outputPath);
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-}
+const outputPath = path.join(__dirname, 'dist/services/mcpPermissionBridgeStandalone.js');
 fs.writeFileSync(outputPath, bridgeScript);
 fs.chmodSync(outputPath, 0o755);
 

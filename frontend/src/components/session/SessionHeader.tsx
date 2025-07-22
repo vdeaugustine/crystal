@@ -3,7 +3,6 @@ import { Session, GitCommands } from '../../types/session';
 import { StatusIndicator } from '../StatusIndicator';
 import { ViewTabs } from './ViewTabs';
 import { ViewMode } from '../../hooks/useSessionView';
-import { CommitModeIndicator } from '../CommitModeIndicator';
 
 interface SessionHeaderProps {
   activeSession: Session;
@@ -83,7 +82,6 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
           {/* Status Indicator */}
           <div className="flex items-center gap-2 mt-2">
             <StatusIndicator key={`status-${activeSession.id}-${activeSession.status}`} session={activeSession} size="medium" showText showProgress />
-            <CommitModeIndicator mode={activeSession.commitMode} />
           </div>
           
           {/* Git Actions */}

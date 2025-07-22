@@ -29,8 +29,6 @@ interface CreateSessionJob {
   baseBranch?: string;
   autoCommit?: boolean;
   model?: string;
-  commitMode?: 'structured' | 'checkpoint' | 'disabled';
-  commitModeSettings?: string; // JSON string of CommitModeSettings
 }
 
 interface ContinueSessionJob {
@@ -194,9 +192,7 @@ export class TaskQueue {
           job.data.folderId,
           model,
           baseCommit,
-          actualBaseBranch,
-          job.data.commitMode,
-          job.data.commitModeSettings
+          actualBaseBranch
         );
         console.log(`[TaskQueue] Session created with ID: ${session.id}`);
 
@@ -279,7 +275,7 @@ export class TaskQueue {
     return job;
   }
 
-  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string, autoCommit?: boolean, model?: string, commitMode?: 'structured' | 'checkpoint' | 'disabled', commitModeSettings?: string): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
+  async createMultipleSessions(prompt: string, worktreeTemplate: string, count: number, permissionMode?: 'approve' | 'ignore', projectId?: number, baseBranch?: string, autoCommit?: boolean, model?: string): Promise<(Bull.Job<CreateSessionJob> | any)[]> {
     let folderId: string | undefined;
     let generatedBaseName: string | undefined;
     
@@ -336,7 +332,7 @@ export class TaskQueue {
     for (let i = 0; i < count; i++) {
       // Use the generated base name if no template was provided
       const templateToUse = worktreeTemplate || generatedBaseName || '';
-      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit, model, commitMode, commitModeSettings }));
+      jobs.push(this.sessionQueue.add({ prompt, worktreeTemplate: templateToUse, index: i, permissionMode, projectId, folderId, baseBranch, autoCommit, model }));
     }
     return Promise.all(jobs);
   }
