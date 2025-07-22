@@ -438,23 +438,21 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                 )}
               </div>
               
-              {/* Sessions Count - Only show if > 1 */}
-              {(formData.count ?? 1) > 1 && (
-                <div>
-                  <label htmlFor="count" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Number of Sessions: {formData.count}
-                  </label>
-                  <input
-                    id="count"
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={formData.count}
-                    onChange={(e) => setFormData({ ...formData, count: parseInt(e.target.value) || 1 })}
-                    className="w-full"
-                  />
-                </div>
-              )}
+              {/* Sessions Count - Always visible */}
+              <div>
+                <label htmlFor="count" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Number of Sessions: {formData.count}
+                </label>
+                <input
+                  id="count"
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={formData.count}
+                  onChange={(e) => setFormData({ ...formData, count: parseInt(e.target.value) || 1 })}
+                  className="w-full"
+                />
+              </div>
             </div>
             
             {/* Advanced Options Toggle */}
@@ -518,24 +516,6 @@ export function CreateSessionDialog({ isOpen, onClose, projectName, projectId }:
                   </div>
                 )}
                 
-                {/* Number of Sessions */}
-                <div>
-                  <label htmlFor="count-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Number of Sessions
-                  </label>
-                  <input
-                    id="count-input"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={formData.count}
-                    onChange={(e) => setFormData({ ...formData, count: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Creates multiple sessions with numbered suffixes
-                  </p>
-                </div>
                 
                 {/* Commit Mode Settings */}
                 <CommitModeSettings
