@@ -25,7 +25,6 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   }),
   
   navigateToSessions: () => set({ 
-    activeView: 'sessions',
-    activeProjectId: null 
+    activeView: 'sessions'
   }),
 }));

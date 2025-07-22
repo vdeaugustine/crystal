@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
-import { useNavigationStore } from '../stores/navigationStore';
 import { StatusIndicator } from './StatusIndicator';
 import { API } from '../utils/api';
 import { Star, Archive } from 'lucide-react';
@@ -13,7 +12,6 @@ interface SessionListItemProps {
 
 export function SessionListItem({ session, isNested = false }: SessionListItemProps) {
   const { activeSessionId, setActiveSession, deletingSessionIds, addDeletingSessionId, removeDeletingSessionId } = useSessionStore();
-  const { navigateToSessions } = useNavigationStore();
   const isActive = activeSessionId === session.id;
   const isDeleting = deletingSessionIds.has(session.id);
   const [hasRunScript, setHasRunScript] = useState(false);
@@ -330,7 +328,6 @@ export function SessionListItem({ session, isNested = false }: SessionListItemPr
           onClick={() => {
             console.log('[SessionListItem] Clicking session:', session.id, session.name);
             setActiveSession(session.id);
-            navigateToSessions();
           }}
           className="flex items-center justify-start space-x-3 flex-1 min-w-0"
         >

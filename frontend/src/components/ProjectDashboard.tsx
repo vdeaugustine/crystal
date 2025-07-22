@@ -93,16 +93,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
   const renderSessionRow = useCallback((session: SessionBranchInfo) => {
     const staleClass = session.isStale ? 'bg-yellow-50 dark:bg-yellow-900/20' : '';
     
-    const handleSessionClick = async () => {
-      console.log('[ProjectDashboard] Session clicked:', session.sessionId, session.sessionName);
-      try {
-        await useSessionStore.getState().setActiveSession(session.sessionId);
-        console.log('[ProjectDashboard] Session set, now navigating to sessions view');
-        useNavigationStore.getState().navigateToSessions();
-        console.log('[ProjectDashboard] Navigation completed');
-      } catch (error) {
-        console.error('[ProjectDashboard] Error in handleSessionClick:', error);
-      }
+    const handleSessionClick = () => {
+      useSessionStore.getState().setActiveSession(session.sessionId);
+      useNavigationStore.getState().navigateToSessions();
     };
     
     return (
@@ -164,7 +157,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400"
-              onClick={(e) => e.stopPropagation()}
             >
               <GitPullRequest className="w-4 h-4" />
               <span>#{session.pullRequest.number}</span>
