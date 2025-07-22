@@ -113,14 +113,26 @@ async function createWindow() {
       return originalHandle.call(this, channel, wrappedListener);
     };
   } else {
-    // Log the path we're trying to load
-    const indexPath = path.join(__dirname, '../../frontend/dist/index.html');
+    // In production, use app.getAppPath() to get the root directory
+    // This works correctly whether the app is packaged in ASAR or not
+    const indexPath = path.join(app.getAppPath(), 'frontend/dist/index.html');
     console.log('Loading index.html from:', indexPath);
 
     try {
       await mainWindow.loadFile(indexPath);
     } catch (error) {
       console.error('Failed to load index.html:', error);
+      console.error('App path:', app.getAppPath());
+      console.error('__dirname:', __dirname);
+      
+      // Fallback: try relative path (for edge cases)
+      const fallbackPath = path.join(__dirname, '../../../../frontend/dist/index.html');
+      console.error('Trying fallback path:', fallbackPath);
+      try {
+        await mainWindow.loadFile(fallbackPath);
+      } catch (fallbackError) {
+        console.error('Fallback path also failed:', fallbackError);
+      }
     }
   }
 
