@@ -113,43 +113,39 @@ async function createWindow() {
       return originalHandle.call(this, channel, wrappedListener);
     };
   } else {
-    // In production/packaged apps, we need to handle the file path differently
-    let indexPath: string;
+    // Use app.getAppPath() which works correctly in both packaged and unpackaged apps
+    const appPath = app.getAppPath();
+    const indexPath = path.join(appPath, 'frontend', 'dist', 'index.html');
     
-    if (app.isPackaged) {
-      // In packaged app, the structure is different
-      // The app.getAppPath() returns the path to app.asar
-      // We need to go up from main/dist to get to frontend/dist
-      indexPath = path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html');
-    } else {
-      // In development build (not packaged), use app path
-      const appPath = app.getAppPath();
-      indexPath = path.join(appPath, 'frontend', 'dist', 'index.html');
-    }
-    
-    console.log('Loading production build...');
+    console.log('Loading index.html from:', indexPath);
     console.log('App is packaged:', app.isPackaged);
-    console.log('__dirname:', __dirname);
-    console.log('Index path:', indexPath);
+    console.log('App path:', appPath);
 
     try {
       await mainWindow.loadFile(indexPath);
     } catch (error) {
       console.error('Failed to load index.html:', error);
       
-      // Show detailed error in the window for debugging
-      const appPath = app.getAppPath();
-      mainWindow.loadURL(`data:text/html,<h1>Failed to load application</h1>
-        <p>Could not find index.html at: ${indexPath}</p>
-        <p>Error: ${error}</p>
-        <p>Debug info:</p>
-        <ul>
-          <li>App is packaged: ${app.isPackaged}</li>
-          <li>App path: ${appPath}</li>
-          <li>__dirname: ${__dirname}</li>
-          <li>Expected path: ${indexPath}</li>
-        </ul>
-      `);
+      // If the above fails, try the old path structure as a fallback
+      const fallbackPath = path.join(__dirname, '../../frontend/dist/index.html');
+      console.log('Trying fallback path:', fallbackPath);
+      
+      try {
+        await mainWindow.loadFile(fallbackPath);
+      } catch (fallbackError) {
+        console.error('Failed with fallback path too:', fallbackError);
+        
+        // As a last resort, show an error in the window
+        mainWindow.loadURL(`data:text/html,<h1>Failed to load application</h1>
+          <p>Could not find index.html at:</p>
+          <ul>
+            <li>${indexPath}</li>
+            <li>${fallbackPath}</li>
+          </ul>
+          <p>App path: ${appPath}</p>
+          <p>__dirname: ${__dirname}</p>
+        `);
+      }
     }
   }
 
