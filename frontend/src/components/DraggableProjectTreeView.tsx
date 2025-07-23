@@ -717,8 +717,8 @@ export function DraggableProjectTreeView() {
 
   const handleProjectClick = async (project: Project) => {
     // Navigate to the project dashboard
-    const { navigateToProjectDashboard } = useNavigationStore.getState();
-    navigateToProjectDashboard(project.id);
+    const { navigateToProject } = useNavigationStore.getState();
+    navigateToProject(project.id);
   };
   
 
