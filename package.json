@@ -59,8 +59,23 @@
     "bull": "^4.16.3",
     "dotenv": "^16.4.7",
     "electron-updater": "^6.6.2",
+    "ajv": "^8.17.1",
+    "ajv-draft-04": "^1.0.0",
+    "ajv-formats": "^3.0.1",
+    "argparse": "^1.0.10",
+    "fs-extra": "^11.3.0",
     "glob": "^11.0.0",
+    "import-lazy": "^4.0.0",
+    "jju": "^1.4.0",
+    "luxon": "^3.5.0",
+    "msgpackr": "^1.11.5",
+    "msgpackr-extract": "^3.0.3",
+    "resolve": "^1.22.1",
+    "semver": "^7.5.4",
+    "string-argv": "^0.3.1",
+    "supports-color": "^8.1.1",
     "openai": "^5.1.1",
+    "umzug": "^3.8.1",
     "web-streams-polyfill": "^3.3.3"
   },
   "devDependencies": {
@@ -86,16 +101,26 @@
       "package.json",
       "node_modules/**/*",
       "!node_modules/@anthropic-ai/claude-code/vendor/**/*.jar",
+      "!node_modules/**/build/**",
+      "node_modules/luxon/build/**",
+      "node_modules/@homebridge/node-pty-prebuilt-multiarch/build/**",
+      "node_modules/better-sqlite3/build/**",
+      "!node_modules/**/.deps/**",
+      "!node_modules/**/*.o",
+      "!node_modules/**/*.a",
+      "!node_modules/.bin/**",
       "build/**/*",
       "LICENSE",
       "NOTICES"
     ],
+    "includeSubNodeModules": true,
     "npmRebuild": true,
     "buildDependenciesFromSource": false,
     "asar": true,
     "asarUnpack": [
       "node_modules/**/*.node",
       "!node_modules/@anthropic-ai/claude-code/vendor/**",
+      "!node_modules/lzma-native/**",
       "main/dist/services/mcpPermissionBridge.js",
       "main/dist/services/mcpPermissionBridgeStandalone.js",
       "main/dist/services/**/*.js"
@@ -113,7 +138,10 @@
       "target": [
         {
           "target": "default",
-          "arch": "universal"
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "artifactName": "${productName}-${version}-macOS-universal.${ext}"
