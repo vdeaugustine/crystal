@@ -6,6 +6,7 @@ import { GitStatusIndicator } from './GitStatusIndicator';
 import { API } from '../utils/api';
 import { Star, Archive } from 'lucide-react';
 import type { Session, GitStatus } from '../types/session';
+import { useContextMenu } from '../contexts/ContextMenuContext';
 
 interface SessionListItemProps {
   session: Session;
@@ -23,9 +24,8 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
   const [isClosing, setIsClosing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(session.name);
-  const [showContextMenu, setShowContextMenu] = useState(false);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [gitStatus, setGitStatus] = useState<GitStatus | undefined>(session.gitStatus);
+  const { menuState, openMenu, closeMenu, isMenuOpen } = useContextMenu();
   
   // Selective subscription for git status loading state
   const gitStatusLoading = useSessionStore((state) => state.gitStatusLoading.has(session.id));
@@ -299,31 +299,17 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowContextMenu(true);
+    openMenu('session', session, { x: e.clientX, y: e.clientY });
   };
-
-  const closeContextMenu = () => {
-    setShowContextMenu(false);
-  };
-
-  // Close context menu when clicking outside
-  useEffect(() => {
-    if (showContextMenu) {
-      const handleClick = () => closeContextMenu();
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [showContextMenu]);
 
   const handleRename = () => {
-    closeContextMenu();
+    closeMenu();
     setEditName(session.name);
     setIsEditing(true);
   };
 
   const handleDeleteFromMenu = () => {
-    closeContextMenu();
+    closeMenu();
     handleDelete({ stopPropagation: () => {} } as React.MouseEvent);
   };
 
@@ -449,10 +435,10 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
       </div>
 
       {/* Context Menu */}
-      {showContextMenu && (
+      {isMenuOpen('session', session.id) && menuState.position && (
         <div
-          className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[150px]"
-          style={{ top: contextMenuPosition.y, left: contextMenuPosition.x }}
+          className="context-menu fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[150px]"
+          style={{ top: menuState.position.y, left: menuState.position.x }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -463,7 +449,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
           </button>
           <button
             onClick={() => {
-              closeContextMenu();
+              closeMenu();
               if (isRunning) {
                 handleStopScript({ stopPropagation: () => {} } as React.MouseEvent);
               } else {

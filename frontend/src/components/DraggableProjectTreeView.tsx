@@ -13,6 +13,7 @@ import { debounce } from '../utils/debounce';
 import type { Session } from '../types/session';
 import type { Project } from '../types/project';
 import type { Folder } from '../types/folder';
+import { useContextMenu } from '../contexts/ContextMenuContext';
 
 interface ProjectWithSessions extends Project {
   sessions: Session[];
@@ -61,10 +62,8 @@ export function DraggableProjectTreeView() {
   const [selectedProjectForFolder, setSelectedProjectForFolder] = useState<Project | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [parentFolderForCreate, setParentFolderForCreate] = useState<Folder | null>(null);
-  const [showFolderContextMenu, setShowFolderContextMenu] = useState(false);
-  const [folderContextMenuPosition, setFolderContextMenuPosition] = useState({ x: 0, y: 0 });
-  const [selectedFolderForMenu, setSelectedFolderForMenu] = useState<Folder | null>(null);
   const { showError } = useErrorStore();
+  const { menuState, openMenu, closeMenu, isMenuOpen } = useContextMenu();
   
   // Folder rename state
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -519,27 +518,11 @@ export function DraggableProjectTreeView() {
     setEditingFolderName(folder.name);
   };
 
-  const handleFolderContextMenu = (e: React.MouseEvent, folder: Folder, _projectId: number) => {
+  const handleFolderContextMenu = (e: React.MouseEvent, folder: Folder, projectId: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelectedFolderForMenu(folder);
-    setFolderContextMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowFolderContextMenu(true);
+    openMenu('folder', { ...folder, projectId }, { x: e.clientX, y: e.clientY });
   };
-
-  const closeFolderContextMenu = () => {
-    setShowFolderContextMenu(false);
-    setSelectedFolderForMenu(null);
-  };
-
-  // Close folder context menu when clicking outside
-  useEffect(() => {
-    if (showFolderContextMenu) {
-      const handleClick = () => closeFolderContextMenu();
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [showFolderContextMenu]);
 
   const handleSaveFolderEdit = async () => {
     if (!editingFolderId || !editingFolderName.trim()) {
@@ -2092,16 +2075,16 @@ export function DraggableProjectTreeView() {
       )}
 
       {/* Folder Context Menu */}
-      {showFolderContextMenu && selectedFolderForMenu && (
+      {isMenuOpen('folder') && menuState.payload && menuState.position && (
         <div
-          className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[150px]"
-          style={{ top: folderContextMenuPosition.y, left: folderContextMenuPosition.x }}
+          className="context-menu fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50 min-w-[150px]"
+          style={{ top: menuState.position.y, left: menuState.position.x }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => {
-              closeFolderContextMenu();
-              handleStartFolderEdit(selectedFolderForMenu);
+              closeMenu();
+              handleStartFolderEdit(menuState.payload);
             }}
             className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
           >
@@ -2109,10 +2092,10 @@ export function DraggableProjectTreeView() {
           </button>
           <button
             onClick={() => {
-              closeFolderContextMenu();
+              closeMenu();
               // Find the project that contains this folder
               const project = projectsWithSessions.find(p => 
-                p.folders?.some(f => f.id === selectedFolderForMenu.id)
+                p.folders?.some(f => f.id === menuState.payload.id)
               );
               if (project) {
                 setSelectedProjectForCreate(project);
@@ -2126,13 +2109,14 @@ export function DraggableProjectTreeView() {
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           <button
             onClick={() => {
-              closeFolderContextMenu();
-              // Find the project that contains this folder
-              const project = projectsWithSessions.find(p => 
-                p.folders?.some(f => f.id === selectedFolderForMenu.id)
-              );
-              if (project) {
-                handleDeleteFolder(selectedFolderForMenu, project.id);
+              closeMenu();
+              // Find the project that contains this folder or use projectId from payload
+              const projectId = menuState.payload.projectId || 
+                projectsWithSessions.find(p => 
+                  p.folders?.some(f => f.id === menuState.payload.id)
+                )?.id;
+              if (projectId) {
+                handleDeleteFolder(menuState.payload, projectId);
               }
             }}
             className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-700 dark:hover:text-red-300"
