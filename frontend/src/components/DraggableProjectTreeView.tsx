@@ -49,6 +49,7 @@ export function DraggableProjectTreeView() {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
   const { setActiveSession } = useSessionStore();
   const { navigateToSessions } = useNavigationStore();
+  const activeProjectId = useNavigationStore((state) => state.activeProjectId);
   const [detectedBranchForNewProject, setDetectedBranchForNewProject] = useState<string | null>(null);
   
   // Track recent sessions to handle auto-selection for multiple session creation
@@ -736,6 +737,8 @@ export function DraggableProjectTreeView() {
   };
 
   const handleProjectClick = async (project: Project) => {
+    // Clear active session since only one thing can be selected at a time
+    setActiveSession(null);
     // Navigate to the project dashboard
     const { navigateToProject } = useNavigationStore.getState();
     navigateToProject(project.id);
@@ -1558,12 +1561,17 @@ export function DraggableProjectTreeView() {
           const sessionCount = project.sessions.length;
           const isDraggingOver = dragState.overType === 'project' && dragState.overProjectId === project.id;
           const unviewedCount = project.sessions.filter(s => s.status === 'completed_unviewed').length;
+          const isActiveProject = activeProjectId === project.id;
           
           return (
             <div key={project.id} className="mb-1">
               <div 
-                className={`group flex items-center space-x-1 px-2 py-2 rounded-lg cursor-pointer transition-colors bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                  isDraggingOver ? 'bg-blue-100 dark:bg-blue-900' : ''
+                className={`group flex items-center space-x-1 px-2 py-2 rounded-lg cursor-pointer transition-colors ${
+                  isActiveProject 
+                    ? 'bg-blue-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
+                    : isDraggingOver 
+                      ? 'bg-blue-100 dark:bg-blue-900' 
+                      : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
                 draggable
                 onDragStart={(e) => handleProjectDragStart(e, project)}
