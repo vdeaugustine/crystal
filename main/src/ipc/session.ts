@@ -14,7 +14,8 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
     taskQueue,
     worktreeManager,
     claudeCodeManager,
-    worktreeNameGenerator
+    worktreeNameGenerator,
+    gitStatusManager
   } = services;
 
   // Session management handlers
@@ -435,6 +436,14 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       console.log(`[IPC] sessions:get-output called for session: ${sessionId}`);
       const outputs = await sessionManager.getSessionOutputs(sessionId);
       console.log(`[IPC] Retrieved ${outputs.length} outputs for session ${sessionId}`);
+      
+      // Refresh git status when session is loaded/viewed
+      const session = await sessionManager.getSession(sessionId);
+      if (session && !session.archived) {
+        gitStatusManager.refreshSessionGitStatus(sessionId, false).catch(error => {
+          console.error(`[IPC] Failed to refresh git status for session ${sessionId}:`, error);
+        });
+      }
 
       // Transform JSON messages to formatted stdout on the fly
       const { formatJsonForOutputEnhanced } = await import('../utils/toolFormatter');

@@ -44,10 +44,8 @@ interface RevListCount {
 
 export class GitStatusManager extends EventEmitter {
   private cache: GitStatusCache = {};
-  private pollInterval: NodeJS.Timeout | null = null;
-  private readonly POLL_INTERVAL_MS = 60000; // 60 seconds - reduced frequency to minimize unnecessary loads
+  // Removed polling - now event-driven only
   private readonly CACHE_TTL_MS = 5000; // 5 seconds cache
-  private isPolling = true; // Default to true so initial poll works
   private refreshDebounceTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly DEBOUNCE_MS = 500; // 500ms debounce for rapid refresh requests
   private gitLogger: GitStatusLogger;
@@ -200,37 +198,20 @@ export class GitStatusManager extends EventEmitter {
   }
 
   /**
-   * Start polling for git status updates
+   * Start git status manager (no longer polls)
    */
   startPolling(): void {
-    if (this.pollInterval) {
-      return; // Already polling
-    }
-
-    // Initial poll will log its own start message
-    
-    // Initial poll
-    this.pollAllSessions();
-    
-    // Set up interval
-    this.pollInterval = setInterval(() => {
-      this.pollAllSessions();
-    }, this.POLL_INTERVAL_MS);
-
-    // Note: In Electron main process, we don't have access to document
-    // Window visibility changes should be handled via IPC from renderer
+    // This method is kept for compatibility but no longer polls
+    // Git status updates are now event-driven only
+    this.gitLogger.logPollStart(0); // Log that we're not polling any sessions
   }
 
   /**
-   * Stop polling for git status updates
+   * Stop git status manager
    */
   stopPolling(): void {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-      // Log summary on stop
-      this.gitLogger.logSummary();
-    }
+    // No polling to stop, but still clean up other resources
+    this.gitLogger.logSummary();
 
     // Clear any pending debounce timers
     this.refreshDebounceTimers.forEach(timer => clearTimeout(timer));
@@ -246,19 +227,12 @@ export class GitStatusManager extends EventEmitter {
     // Cancel all active operations
     this.abortControllers.forEach(controller => controller.abort());
     this.abortControllers.clear();
-
-    // Note: In Electron main process, we don't have access to document
-    // Window visibility changes should be handled via IPC from renderer
   }
 
   // Called when window focus changes
   handleVisibilityChange(isHidden: boolean): void {
-    this.isPolling = !isHidden;
     this.gitLogger.logFocusChange(!isHidden);
-    if (!isHidden) {
-      // Immediately poll when window becomes visible again to get fresh status
-      this.pollAllSessions();
-    }
+    // No longer polls on visibility change - status updates are event-driven
   }
 
   /**
@@ -319,13 +293,9 @@ export class GitStatusManager extends EventEmitter {
   }
 
   /**
-   * Poll all active sessions for git status
+   * Refresh git status for all active sessions (called manually, not on a timer)
    */
-  private async pollAllSessions(): Promise<void> {
-    if (!this.isPolling) {
-      return; // Skip polling when paused
-    }
-
+  async refreshAllSessions(): Promise<void> {
     try {
       const sessions = await this.sessionManager.getAllSessions();
       const activeSessions = sessions.filter(s => 
@@ -333,9 +303,6 @@ export class GitStatusManager extends EventEmitter {
       );
 
       this.gitLogger.logPollStart(activeSessions.length);
-
-      // Don't emit loading events during automatic polling
-      // Loading spinners are distracting during background updates
 
       // Process sessions with concurrent limiting
       let successCount = 0;
@@ -357,7 +324,7 @@ export class GitStatusManager extends EventEmitter {
       
       this.gitLogger.logPollComplete(successCount, errorCount);
     } catch (error) {
-      this.logger?.error('[GitStatus] Critical error during poll cycle:', error as Error);
+      this.logger?.error('[GitStatus] Critical error during refresh:', error as Error);
     }
   }
 

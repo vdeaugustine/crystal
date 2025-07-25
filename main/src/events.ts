@@ -15,13 +15,22 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
   } = services;
 
   // Listen to sessionManager events and broadcast to renderer
-  sessionManager.on('session-created', (session) => {
+  sessionManager.on('session-created', async (session) => {
     const mw = getMainWindow();
     if (mw && !mw.isDestroyed()) {
       try {
         mw.webContents.send('session:created', session);
       } catch (error) {
         console.error('[Main] Failed to send session:created event:', error);
+      }
+    }
+    
+    // Refresh git status for newly created session
+    if (session.id && !session.archived) {
+      try {
+        await gitStatusManager.refreshSessionGitStatus(session.id, false);
+      } catch (error) {
+        console.error(`[Main] Failed to refresh git status for new session ${session.id}:`, error);
       }
     }
   });
