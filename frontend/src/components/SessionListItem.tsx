@@ -234,7 +234,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
     setShowArchiveConfirm(true);
   }, [isDeleting]);
 
-  const handleConfirmArchive = async () => {
+  const handleConfirmArchive = useCallback(async () => {
     addDeletingSessionId(session.id);
     try {
       const response = await API.sessions.delete(session.id);
