@@ -3,6 +3,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { StatusIndicator } from './StatusIndicator';
 import { GitStatusIndicator } from './GitStatusIndicator';
+import { ConfirmDialog } from './ConfirmDialog';
 import { API } from '../utils/api';
 import { Star, Archive } from 'lucide-react';
 import type { Session, GitStatus } from '../types/session';
@@ -26,6 +27,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
   const [editName, setEditName] = useState(session.name);
   const [gitStatus, setGitStatus] = useState<GitStatus | undefined>(session.gitStatus);
   const { menuState, openMenu, closeMenu, isMenuOpen } = useContextMenu();
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   
   // Selective subscription for git status loading state
   const gitStatusLoading = useSessionStore((state) => state.gitStatusLoading.has(session.id));
@@ -228,14 +230,11 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
     // Prevent deletion if already being deleted
     if (isDeleting) return;
     
-    const confirmMessage = `Archive session "${session.name}"? This will:\n` +
-      `• Move the session to the archived sessions list\n` +
-      `• Preserve all session history and outputs\n` +
-      (session.isMainRepo ? `• Close the active Claude Code connection` : `• Remove the git worktree (${session.worktreePath?.split('/').pop() || 'worktree'})`);
-    
-    const confirmed = window.confirm(confirmMessage);
-    if (!confirmed) return;
-    
+    // Show the confirmation dialog
+    setShowArchiveConfirm(true);
+  }, [isDeleting]);
+
+  const handleConfirmArchive = async () => {
     addDeletingSessionId(session.id);
     try {
       const response = await API.sessions.delete(session.id);
@@ -470,10 +469,21 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
             onClick={handleDeleteFromMenu}
             className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-700 dark:hover:text-red-300"
           >
-            {session.isMainRepo ? 'Archive' : 'Delete'}
+            Archive
           </button>
         </div>
       )}
+      
+      <ConfirmDialog
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        onConfirm={handleConfirmArchive}
+        title={`Archive Session`}
+        message={`Archive session "${session.name}"? This will:\n\n• Move the session to the archived sessions list\n• Preserve all session history and outputs\n${session.isMainRepo ? '• Close the active Claude Code connection' : `• Remove the git worktree locally (${session.worktreePath?.split('/').pop() || 'worktree'})`}`}
+        confirmText="Archive"
+        confirmButtonClass="bg-amber-600 hover:bg-amber-700 text-white"
+        icon={<Archive className="w-6 h-6 text-amber-500 flex-shrink-0" />}
+      />
     </>
   );
 });
