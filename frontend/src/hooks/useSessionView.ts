@@ -59,6 +59,9 @@ export const useSessionView = (
   const [isWaitingForFirstOutput, setIsWaitingForFirstOutput] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isOpeningIDE, setIsOpeningIDE] = useState(false);
+  const [contextCompacted, setContextCompacted] = useState(false);
+  const [compactedContext, setCompactedContext] = useState<string | null>(null);
+  const [hasConversationHistory, setHasConversationHistory] = useState(false);
   
   const [, forceUpdate] = useState({});
   const [shouldReloadOutput, setShouldReloadOutput] = useState(false);
@@ -335,6 +338,10 @@ export const useSessionView = (
       editor: false,
     });
     
+    // Reset context compaction state when switching sessions
+    setContextCompacted(false);
+    setCompactedContext(null);
+    
     // Clear terminal immediately when session changes
     if (terminalInstance.current) {
       console.log(`[useSessionView] Clearing terminal for session switch`);
@@ -354,6 +361,20 @@ export const useSessionView = (
 
     console.log(`[useSessionView] Setting up for session ${activeSession.id}, status: ${activeSession.status}`);
     setCurrentSessionIdForOutput(activeSession.id);
+    
+    // Check if session has conversation history
+    const checkConversationHistory = async () => {
+      try {
+        const response = await API.sessions.getConversationMessages(activeSession.id);
+        if (response.success && response.data) {
+          setHasConversationHistory(response.data.length > 0);
+        }
+      } catch (error) {
+        console.error('Failed to check conversation history:', error);
+        setHasConversationHistory(false);
+      }
+    };
+    checkConversationHistory();
     
     // Don't reset the terminal when switching sessions - preserve the state
     // if (scriptTerminalInstance.current) {
@@ -1134,6 +1155,16 @@ export const useSessionView = (
     
     let finalInput = ultrathink ? `${input}\nultrathink` : input;
     
+    // Check if we have compacted context to inject
+    if (contextCompacted && compactedContext) {
+      console.log('[Context Compaction] Injecting compacted context into prompt');
+      finalInput = `<session_context>\n${compactedContext}\n</session_context>\n\n${finalInput}`;
+      
+      // Clear the compacted context after using it
+      setContextCompacted(false);
+      setCompactedContext(null);
+    }
+    
     // If there are attached images, save them and append paths to input
     if (attachedImages && attachedImages.length > 0) {
       try {
@@ -1170,6 +1201,16 @@ export const useSessionView = (
     isContinuingConversationRef.current = true;
     
     let finalInput = ultrathink ? `${input}\nultrathink` : input;
+    
+    // Check if we have compacted context to inject
+    if (contextCompacted && compactedContext) {
+      console.log('[Context Compaction] Injecting compacted context into continuation prompt');
+      finalInput = `<session_context>\n${compactedContext}\n</session_context>\n\n${finalInput}`;
+      
+      // Clear the compacted context after using it
+      setContextCompacted(false);
+      setCompactedContext(null);
+    }
     
     // If there are attached images, save them and append paths to input
     if (attachedImages && attachedImages.length > 0) {
@@ -1497,6 +1538,58 @@ export const useSessionView = (
     }
   }, [activeSession]);
   
+  const handleCompactContext = async () => {
+    if (!activeSession) return;
+    
+    try {
+      console.log('[Context Compaction] Starting compaction for session:', activeSession.id);
+      
+      // Generate the compacted context
+      const response = await API.sessions.generateCompactedContext(activeSession.id);
+      
+      if (response.success && response.data) {
+        const summary = response.data.summary;
+        setCompactedContext(summary);
+        setContextCompacted(true);
+        
+        // Add the summary to the terminal output immediately
+        if (terminalInstance.current) {
+          terminalInstance.current.write('\r\n');
+          terminalInstance.current.write('\x1b[1;33m══════════════════════════════════════════════════════════════════\x1b[0m\r\n');
+          terminalInstance.current.write('\x1b[1;33m                     CONTEXT COMPACTED\x1b[0m\r\n');
+          terminalInstance.current.write('\x1b[1;33m══════════════════════════════════════════════════════════════════\x1b[0m\r\n\r\n');
+          terminalInstance.current.write('\x1b[90mThe following context summary has been generated and will be\x1b[0m\r\n');
+          terminalInstance.current.write('\x1b[90mautomatically included with your next prompt:\x1b[0m\r\n\r\n');
+          
+          // Write the summary with proper formatting
+          const lines = summary.split('\n');
+          lines.forEach((line: string) => {
+            terminalInstance.current?.write(line + '\r\n');
+          });
+          
+          terminalInstance.current.write('\r\n\x1b[1;33m══════════════════════════════════════════════════════════════════\x1b[0m\r\n');
+          terminalInstance.current.write('\x1b[1;32m✓ Context ready - will be injected into your next prompt\x1b[0m\r\n');
+          terminalInstance.current.write('\x1b[1;33m══════════════════════════════════════════════════════════════════\x1b[0m\r\n\r\n');
+          
+          // Scroll to bottom to show the summary
+          terminalInstance.current.scrollToBottom();
+        }
+        
+        console.log('[Context Compaction] Context successfully compacted and displayed');
+      } else {
+        console.error('[Context Compaction] Failed to compact context:', response.error);
+        if (terminalInstance.current) {
+          terminalInstance.current.write('\r\n\x1b[1;31m✗ Failed to compact context: ' + (response.error || 'Unknown error') + '\x1b[0m\r\n');
+        }
+      }
+    } catch (error) {
+      console.error('[Context Compaction] Error during compaction:', error);
+      if (terminalInstance.current) {
+        terminalInstance.current.write('\r\n\x1b[1;31m✗ Error during context compaction\x1b[0m\r\n');
+      }
+    }
+  };
+  
   return {
     theme,
     viewMode,
@@ -1561,6 +1654,10 @@ export const useSessionView = (
     debugState,
     forceResetLoadingState,
     handleClearTerminal,
+    handleCompactContext,
+    contextCompacted,
+    hasConversationHistory,
+    compactedContext,
   };
 };
 
