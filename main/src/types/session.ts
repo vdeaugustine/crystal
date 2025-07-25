@@ -71,6 +71,7 @@ export interface SessionUpdate {
   run_started_at?: string | null;
   model?: string;
   gitStatus?: GitStatus;
+  skip_continue_next?: boolean;
 }
 
 export interface SessionOutput {

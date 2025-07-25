@@ -1077,9 +1077,19 @@ export class ClaudeCodeManager extends EventEmitter {
     const dbSession = this.sessionManager.getDbSession(sessionId);
     const permissionMode = dbSession?.permission_mode;
     
-    // For continuing a session, we use the --continue flag
-    // The conversationHistory parameter is kept for compatibility but not used with --continue
-    return this.spawnClaudeCode(sessionId, worktreePath, prompt, [], true, permissionMode, model);
+    // Check if we should skip --continue flag this time (after prompt compaction)
+    const shouldSkipContinue = dbSession?.skip_continue_next || false;
+    
+    if (shouldSkipContinue) {
+      // Clear the flag and start a fresh session without --continue
+      this.sessionManager.updateSession(sessionId, { skip_continue_next: false });
+      console.log(`[ClaudeCodeManager] Skipping --continue flag for session ${sessionId} due to prompt compaction`);
+      return this.spawnClaudeCode(sessionId, worktreePath, prompt, [], false, permissionMode, model);
+    } else {
+      // For continuing a session, we use the --continue flag
+      // The conversationHistory parameter is kept for compatibility but not used with --continue
+      return this.spawnClaudeCode(sessionId, worktreePath, prompt, [], true, permissionMode, model);
+    }
   }
 
   async stopSession(sessionId: string): Promise<void> {

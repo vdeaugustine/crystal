@@ -65,6 +65,7 @@ export interface Session {
   base_branch?: string;
   commit_mode?: 'structured' | 'checkpoint' | 'disabled';
   commit_mode_settings?: string; // JSON string of CommitModeSettings
+  skip_continue_next?: boolean;
 }
 
 export interface SessionOutput {
@@ -116,6 +117,7 @@ export interface UpdateSessionData {
   model?: string;
   commit_mode?: 'structured' | 'checkpoint' | 'disabled';
   commit_mode_settings?: string; // JSON string of CommitModeSettings
+  skip_continue_next?: boolean;
 }
 
 export interface PromptMarker {

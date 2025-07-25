@@ -405,6 +405,14 @@ export class DatabaseService {
       console.log('[Database] Added auto_commit column to sessions table');
     }
 
+    // Add skip_continue_next column to sessions table if it doesn't exist
+    const hasSkipContinueNextColumn = sessionTableInfoFavorite.some((col: any) => col.name === 'skip_continue_next');
+    
+    if (!hasSkipContinueNextColumn) {
+      this.db.prepare("ALTER TABLE sessions ADD COLUMN skip_continue_next BOOLEAN DEFAULT 0").run();
+      console.log('[Database] Added skip_continue_next column to sessions table');
+    }
+
     // Handle folder table migration
     // First, check if project_folders table exists (old schema)
     const projectFoldersExists = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='project_folders'").all().length > 0;

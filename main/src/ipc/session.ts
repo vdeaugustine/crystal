@@ -516,7 +516,10 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         sessionOutputs: sessionOutputs as any // Type conversion needed
       });
       
-      console.log('[IPC] Generated compacted context summary');
+      // Set flag to skip --continue on the next execution
+      await sessionManager.updateSession(sessionId, { skip_continue_next: true });
+      console.log('[IPC] Generated compacted context summary and set skip_continue_next flag');
+      
       return { success: true, data: { summary } };
     } catch (error) {
       console.error('Failed to generate compacted context:', error);
