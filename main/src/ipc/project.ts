@@ -283,14 +283,19 @@ export function registerProjectHandlers(ipcMain: IpcMain, services: AppServices)
       // Use gitStatusManager from services
       const { gitStatusManager } = services;
       
-      // Refresh git status for each session
-      let refreshedCount = 0;
-      for (const session of projectSessions) {
-        if (session.worktreePath) {
-          await gitStatusManager.refreshSessionGitStatus(session.id, true); // true = user initiated
-          refreshedCount++;
-        }
-      }
+      // Refresh git status for each session (parallel for better performance)
+      const refreshPromises = projectSessions
+        .filter(session => session.worktreePath)
+        .map(session => 
+          gitStatusManager.refreshSessionGitStatus(session.id, true) // true = user initiated
+            .catch(error => {
+              console.error(`[Main] Failed to refresh git status for session ${session.id}:`, error);
+              return null;
+            })
+        );
+      
+      const results = await Promise.allSettled(refreshPromises);
+      const refreshedCount = results.filter(result => result.status === 'fulfilled').length;
       
       console.log(`[Main] Refreshed git status for ${refreshedCount} sessions`);
       

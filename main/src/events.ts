@@ -25,13 +25,15 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
       }
     }
     
-    // Refresh git status for newly created session
+    // Refresh git status for newly created session (non-blocking for UI responsiveness)
     if (session.id && !session.archived) {
-      try {
-        await gitStatusManager.refreshSessionGitStatus(session.id, false);
-      } catch (error) {
-        console.error(`[Main] Failed to refresh git status for new session ${session.id}:`, error);
-      }
+      // Add a small delay for newly created sessions to prevent overwhelming git operations
+      // when multiple sessions are created rapidly
+      setTimeout(() => {
+        gitStatusManager.refreshSessionGitStatus(session.id, false).catch(error => {
+          console.error(`[Main] Failed to refresh git status for new session ${session.id}:`, error);
+        });
+      }, 1000); // 1 second delay to allow session creation UI to complete
     }
   });
 
