@@ -41,7 +41,7 @@ export interface ProjectDashboardData {
   projectName: string;
   projectPath: string;
   mainBranch: string;
-  mainBranchStatus: MainBranchStatus;
+  mainBranchStatus?: MainBranchStatus; // Optional during progressive loading
   remotes?: RemoteStatus[];
   sessionBranches: SessionBranchInfo[];
   lastRefreshed: string;

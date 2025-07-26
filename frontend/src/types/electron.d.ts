@@ -177,6 +177,9 @@ interface ElectronAPI {
   // Dashboard
   dashboard: {
     getProjectStatus: (projectId: number) => Promise<IPCResponse>;
+    getProjectStatusProgressive: (projectId: number) => Promise<IPCResponse>;
+    onUpdate: (callback: (data: any) => void) => () => void;
+    onSessionUpdate: (callback: (data: any) => void) => () => void;
   };
 
   // UI State management

@@ -57,6 +57,129 @@ interface ProjectDashboardData {
 export function registerDashboardHandlers(ipcMain: IpcMain, services: AppServices) {
   const { databaseService, worktreeManager } = services;
 
+  // Progressive loading handler that streams updates
+  ipcMain.handle('dashboard:get-project-status-progressive', async (event, projectId: number) => {
+    try {
+      // Get project details
+      const project = databaseService.getProject(projectId);
+      if (!project) {
+        return {
+          success: false,
+          error: 'Project not found'
+        };
+      }
+
+      // Ensure the project path exists and is a git repository
+      if (!fs.existsSync(project.path)) {
+        return {
+          success: false,
+          error: 'Project path does not exist'
+        };
+      }
+
+      const gitDir = path.join(project.path, '.git');
+      if (!fs.existsSync(gitDir)) {
+        return {
+          success: false,
+          error: 'Project is not a git repository'
+        };
+      }
+
+      // Get the main branch name dynamically
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
+
+      // Send initial data immediately
+      const initialData: Partial<ProjectDashboardData> = {
+        projectId: project.id,
+        projectName: project.name,
+        projectPath: project.path,
+        mainBranch,
+        sessionBranches: [],
+        lastRefreshed: formatForDatabase()
+      };
+
+      // Send initial update
+      event.sender.send('dashboard:update', { projectId, data: initialData, isPartial: true });
+
+      // Start async operations in parallel
+      const fetchPromise = execAsync('git fetch origin', { cwd: project.path, timeout: 15000 }).catch(error => {
+        console.warn('Failed to fetch from origin:', error);
+      });
+
+      const mainBranchPromise = getMainBranchStatusAsync(project.path, mainBranch);
+      const remotesPromise = getRemoteStatuses(project.path, mainBranch);
+
+      // Get all sessions for this project
+      const sessions = databaseService.getAllSessions(projectId);
+      const activeSessions = sessions.filter(session => !session.archived);
+
+      // Process sessions in parallel with progressive updates
+      const sessionPromises = activeSessions.map(async (session) => {
+        try {
+          const branchInfo = await getSessionBranchInfoAsync(
+            session,
+            project.path,
+            mainBranch
+          );
+          if (branchInfo) {
+            // Send individual session update
+            event.sender.send('dashboard:session-update', { 
+              projectId, 
+              session: branchInfo 
+            });
+          }
+          return branchInfo;
+        } catch (error) {
+          console.error(`Failed to get branch info for session ${session.id}:`, error);
+          return null;
+        }
+      });
+
+      // Wait for main branch status and remotes
+      const [mainBranchStatus, remotes] = await Promise.all([
+        mainBranchPromise,
+        remotesPromise
+      ]);
+
+      // Send main branch and remotes update
+      event.sender.send('dashboard:update', { 
+        projectId, 
+        data: { 
+          mainBranchStatus,
+          remotes: remotes.length > 0 ? remotes : undefined
+        }, 
+        isPartial: true 
+      });
+
+      // Wait for all sessions to complete
+      await fetchPromise; // Ensure fetch completes
+      const sessionBranches = (await Promise.all(sessionPromises)).filter(result => result !== null);
+
+      // Send final complete data
+      const dashboardData: ProjectDashboardData = {
+        projectId: project.id,
+        projectName: project.name,
+        projectPath: project.path,
+        mainBranch,
+        mainBranchStatus,
+        remotes: remotes.length > 0 ? remotes : undefined,
+        sessionBranches,
+        lastRefreshed: formatForDatabase()
+      };
+
+      return {
+        success: true,
+        data: dashboardData
+      };
+    } catch (error) {
+      console.error('Error getting project dashboard status:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get project status'
+      };
+    }
+  });
+
   ipcMain.handle('dashboard:get-project-status', async (_event, projectId: number) => {
     try {
       // Get project details

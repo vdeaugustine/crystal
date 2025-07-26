@@ -443,6 +443,21 @@ export class API {
       if (!isElectron()) throw new Error('Electron API not available');
       return window.electronAPI.dashboard.getProjectStatus(projectId);
     },
+
+    async getProjectStatusProgressive(projectId: number) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.dashboard.getProjectStatusProgressive(projectId);
+    },
+
+    onUpdate(callback: (data: any) => void) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.dashboard.onUpdate(callback);
+    },
+
+    onSessionUpdate(callback: (data: any) => void) {
+      if (!isElectron()) throw new Error('Electron API not available');
+      return window.electronAPI.dashboard.onSessionUpdate(callback);
+    },
   };
 }
 

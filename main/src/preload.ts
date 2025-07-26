@@ -219,6 +219,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Dashboard
   dashboard: {
     getProjectStatus: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('dashboard:get-project-status', projectId),
+    getProjectStatusProgressive: (projectId: number): Promise<IPCResponse> => ipcRenderer.invoke('dashboard:get-project-status-progressive', projectId),
+    onUpdate: (callback: (data: any) => void) => {
+      const subscription = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('dashboard:update', subscription);
+      return () => ipcRenderer.removeListener('dashboard:update', subscription);
+    },
+    onSessionUpdate: (callback: (data: any) => void) => {
+      const subscription = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('dashboard:session-update', subscription);
+      return () => ipcRenderer.removeListener('dashboard:session-update', subscription);
+    },
   },
 
   // UI State management

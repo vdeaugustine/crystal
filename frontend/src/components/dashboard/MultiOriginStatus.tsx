@@ -4,7 +4,7 @@ import type { RemoteStatus, MainBranchStatus } from '../../types/projectDashboar
 
 interface MultiOriginStatusProps {
   mainBranch: string;
-  mainBranchStatus: MainBranchStatus;
+  mainBranchStatus?: MainBranchStatus;
   remotes?: RemoteStatus[];
   onReviewUpdates?: () => void;
 }
@@ -15,6 +15,11 @@ export const MultiOriginStatus: React.FC<MultiOriginStatusProps> = ({
   remotes = [],
   onReviewUpdates
 }) => {
+  // Handle progressive loading - mainBranchStatus might not be available yet
+  if (!mainBranchStatus) {
+    return null;
+  }
+
   // Find upstream and origin remotes
   const upstream = remotes.find(r => r.isUpstream || r.name === 'upstream');
   const origin = remotes.find(r => !r.isUpstream && r.name === 'origin');

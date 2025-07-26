@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, GitBranch, AlertCircle, CheckCircle, GitPullRequest, Loader2, XCircle, Filter } from 'lucide-react';
 import { API } from '../utils/api';
 import type { ProjectDashboardData, SessionBranchInfo } from '../types/projectDashboard';
@@ -23,8 +23,40 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'stale' | 'changes' | 'pr'>('all');
+  const [isProgressive] = useState(true); // Use progressive loading by default
+  const pendingSessionUpdatesRef = useRef<Map<string, SessionBranchInfo>>(new Map());
 
-  const fetchDashboardData = useCallback(async (useCache: boolean = true) => {
+  // Debounced function to apply pending session updates
+  const applyPendingSessionUpdates = useMemo(
+    () => debounce(() => {
+      const updates = Array.from(pendingSessionUpdatesRef.current.values());
+      if (updates.length === 0) return;
+
+      setDashboardData(prevData => {
+        if (!prevData) return null;
+        
+        const sessionMap = new Map(
+          prevData.sessionBranches.map(s => [s.sessionId, s])
+        );
+        
+        // Apply all pending updates
+        updates.forEach(update => {
+          sessionMap.set(update.sessionId, update);
+        });
+        
+        // Clear pending updates
+        pendingSessionUpdatesRef.current.clear();
+        
+        return {
+          ...prevData,
+          sessionBranches: Array.from(sessionMap.values())
+        };
+      });
+    }, 100), // 100ms debounce for smooth updates
+    []
+  );
+
+  const fetchDashboardData = useCallback(async (useCache: boolean = true, useProgressive: boolean = true) => {
     // Check cache first if not forcing refresh
     if (useCache) {
       const cachedData = dashboardCache.get(projectId);
@@ -40,15 +72,30 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
     setError(null);
     
     try {
-      const response = await API.dashboard.getProjectStatus(projectId);
-      
-      if (response.success && response.data) {
-        setDashboardData(response.data);
-        setLastRefreshTime(new Date());
-        // Cache the data
-        dashboardCache.set(projectId, response.data);
+      if (useProgressive && isProgressive) {
+        // Use progressive loading
+        const response = await API.dashboard.getProjectStatusProgressive(projectId);
+        
+        if (response.success && response.data) {
+          setDashboardData(response.data);
+          setLastRefreshTime(new Date());
+          // Cache the data
+          dashboardCache.set(projectId, response.data);
+        } else {
+          setError(response.error || 'Failed to fetch project status');
+        }
       } else {
-        setError(response.error || 'Failed to fetch project status');
+        // Use traditional loading
+        const response = await API.dashboard.getProjectStatus(projectId);
+        
+        if (response.success && response.data) {
+          setDashboardData(response.data);
+          setLastRefreshTime(new Date());
+          // Cache the data
+          dashboardCache.set(projectId, response.data);
+        } else {
+          setError(response.error || 'Failed to fetch project status');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -56,16 +103,66 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [projectId, dashboardData]);
+  }, [projectId, dashboardData, isProgressive]);
 
   // Debounced refresh function
   const debouncedRefresh = useMemo(
     () => debounce(() => {
       dashboardCache.invalidate(projectId);
-      fetchDashboardData(false);
+      fetchDashboardData(false, true);
     }, 500),
     [projectId, fetchDashboardData]
   );
+
+  // Set up progressive loading event listeners
+  useEffect(() => {
+    if (!isProgressive) return;
+
+    const cleanupFns: Array<() => void> = [];
+
+    // Handle dashboard updates
+    const unsubscribeUpdate = API.dashboard.onUpdate((event) => {
+      if (event.projectId === projectId) {
+        setDashboardData(prevData => {
+          if (!prevData && event.data) {
+            // Initial data
+            return event.data as ProjectDashboardData;
+          } else if (prevData && event.data && event.isPartial) {
+            // Merge partial update
+            return { ...prevData, ...event.data };
+          } else if (event.data) {
+            // Full update
+            dashboardCache.set(projectId, event.data);
+            return event.data as ProjectDashboardData;
+          }
+          return prevData;
+        });
+        
+        if (!event.isPartial) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    });
+    cleanupFns.push(unsubscribeUpdate);
+
+    // Handle individual session updates with debouncing
+    const unsubscribeSession = API.dashboard.onSessionUpdate((event) => {
+      if (event.projectId === projectId && event.session) {
+        // Add to pending updates
+        pendingSessionUpdatesRef.current.set(event.session.sessionId, event.session);
+        // Trigger debounced update
+        applyPendingSessionUpdates();
+      }
+    });
+    cleanupFns.push(unsubscribeSession);
+
+    return () => {
+      cleanupFns.forEach(fn => fn());
+      // Cancel any pending updates
+      applyPendingSessionUpdates.cancel();
+    };
+  }, [projectId, isProgressive, applyPendingSessionUpdates]);
 
   useEffect(() => {
     // Clear previous data when switching projects to show skeleton
@@ -263,12 +360,14 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = React.memo(({ p
       {dashboardData ? (
         <div className="p-6 flex-1 flex flex-col overflow-hidden">
           {/* Multi-Origin Status */}
-          <MultiOriginStatus 
-            mainBranch={dashboardData.mainBranch}
-            mainBranchStatus={dashboardData.mainBranchStatus}
-            remotes={dashboardData.remotes}
-            onReviewUpdates={() => console.log('Review updates clicked')}
-          />
+          {dashboardData.mainBranchStatus && (
+            <MultiOriginStatus 
+              mainBranch={dashboardData.mainBranch}
+              mainBranchStatus={dashboardData.mainBranchStatus}
+              remotes={dashboardData.remotes}
+              onReviewUpdates={() => console.log('Review updates clicked')}
+            />
+          )}
           
           {/* Status Summary Cards */}
           <StatusSummaryCards sessions={dashboardData.sessionBranches} />
