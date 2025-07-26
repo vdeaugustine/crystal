@@ -526,7 +526,16 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
       });
       
       // Set flag to skip --continue on the next execution
+      console.log('[IPC] Setting skip_continue_next flag to true for session:', sessionId);
       await sessionManager.updateSession(sessionId, { skip_continue_next: true });
+      
+      // Verify the flag was set
+      const updatedSession = databaseService.getSession(sessionId);
+      console.log('[IPC] Verified skip_continue_next flag after update:', {
+        raw_value: updatedSession?.skip_continue_next,
+        type: typeof updatedSession?.skip_continue_next,
+        is_truthy: !!updatedSession?.skip_continue_next
+      });
       console.log('[IPC] Generated compacted context summary and set skip_continue_next flag');
       
       return { success: true, data: { summary } };

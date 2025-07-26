@@ -1078,16 +1078,34 @@ export class ClaudeCodeManager extends EventEmitter {
     const permissionMode = dbSession?.permission_mode;
     
     // Check if we should skip --continue flag this time (after prompt compaction)
-    const shouldSkipContinue = dbSession?.skip_continue_next || false;
+    // SQLite returns 0/1 for booleans, so we need to check explicitly
+    const skipContinueRaw = dbSession?.skip_continue_next;
+    const shouldSkipContinue = skipContinueRaw === 1 || skipContinueRaw === true;
+    
+    console.log(`[ClaudeCodeManager] continueSession called for ${sessionId}:`, {
+      skip_continue_next_raw: skipContinueRaw,
+      skip_continue_next_type: typeof skipContinueRaw,
+      skip_continue_next_value: skipContinueRaw,
+      shouldSkipContinue,
+      hasDbSession: !!dbSession,
+      permissionMode,
+      model
+    });
     
     if (shouldSkipContinue) {
       // Clear the flag and start a fresh session without --continue
+      console.log(`[ClaudeCodeManager] Clearing skip_continue_next flag for session ${sessionId}`);
       this.sessionManager.updateSession(sessionId, { skip_continue_next: false });
+      
+      // Verify the flag was cleared
+      const updatedDbSession = this.sessionManager.getDbSession(sessionId);
+      console.log(`[ClaudeCodeManager] Verified skip_continue_next flag is now:`, updatedDbSession?.skip_continue_next);
       console.log(`[ClaudeCodeManager] Skipping --continue flag for session ${sessionId} due to prompt compaction`);
       return this.spawnClaudeCode(sessionId, worktreePath, prompt, [], false, permissionMode, model);
     } else {
       // For continuing a session, we use the --continue flag
       // The conversationHistory parameter is kept for compatibility but not used with --continue
+      console.log(`[ClaudeCodeManager] Using --continue flag for session ${sessionId}`);
       return this.spawnClaudeCode(sessionId, worktreePath, prompt, [], true, permissionMode, model);
     }
   }

@@ -1158,7 +1158,15 @@ export class DatabaseService {
   }
 
   getSession(id: string): Session | undefined {
-    return this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as Session | undefined;
+    const session = this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as Session | undefined;
+    if (session && session.skip_continue_next !== undefined) {
+      console.log(`[Database] Retrieved session ${id} with skip_continue_next:`, {
+        raw_value: session.skip_continue_next,
+        type: typeof session.skip_continue_next,
+        is_truthy: !!session.skip_continue_next
+      });
+    }
+    return session;
   }
 
   getAllSessions(projectId?: number): Session[] {
@@ -1238,14 +1246,20 @@ export class DatabaseService {
       updates.push('model = ?');
       values.push(data.model);
     }
+    if (data.skip_continue_next !== undefined) {
+      updates.push('skip_continue_next = ?');
+      const boolValue = data.skip_continue_next ? 1 : 0;
+      values.push(boolValue);
+      console.log(`[Database] Setting skip_continue_next to ${boolValue} (from ${data.skip_continue_next}) for session ${id}`);
+    }
 
     if (updates.length === 0) {
       return this.getSession(id);
     }
 
-    // Only update the updated_at timestamp if we're changing something other than is_favorite, auto_commit, or model
+    // Only update the updated_at timestamp if we're changing something other than is_favorite, auto_commit, model, or skip_continue_next
     // This prevents the session from showing as "unviewed" when just toggling these settings
-    const isOnlyToggleUpdate = updates.length === 1 && (updates[0] === 'is_favorite = ?' || updates[0] === 'auto_commit = ?' || updates[0] === 'model = ?');
+    const isOnlyToggleUpdate = updates.length === 1 && (updates[0] === 'is_favorite = ?' || updates[0] === 'auto_commit = ?' || updates[0] === 'model = ?' || updates[0] === 'skip_continue_next = ?');
     if (!isOnlyToggleUpdate) {
       updates.push('updated_at = CURRENT_TIMESTAMP');
     }

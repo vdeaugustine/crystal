@@ -289,6 +289,11 @@ export class SessionManager extends EventEmitter {
       console.log(`[SessionManager] Updating model to ${update.model}`);
     }
     
+    if (update.skip_continue_next !== undefined) {
+      dbUpdate.skip_continue_next = update.skip_continue_next;
+      console.log(`[SessionManager] Updating skip_continue_next to ${update.skip_continue_next}`);
+    }
+    
     const updatedDbSession = this.db.updateSession(id, dbUpdate);
     if (!updatedDbSession) {
       console.error(`[SessionManager] Session ${id} not found in database`);
