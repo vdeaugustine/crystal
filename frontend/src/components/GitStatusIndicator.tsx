@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Edit, FileText, CircleArrowUp, CircleArrowDown, GitBranch, AlertTriangle, HelpCircle, GitMerge, Loader2 } from 'lucide-react';
+import { Check, Edit, CircleArrowDown, AlertTriangle, HelpCircle, GitMerge, Loader2 } from 'lucide-react';
 import type { GitStatus } from '../types/session';
 
 interface GitStatusIndicatorProps {
@@ -91,24 +91,26 @@ function buildTooltipContent(gitStatus: GitStatus, config: GitStatusConfig): str
     tooltipContent += '\n+ untracked files';
   }
   
-  // Add actionable information
+  // Add actionable information based on new simplified scheme
   let actionableInfo = '';
   
   // Check sync status
   const isFullySynced = isGitStatusFullySynced(gitStatus);
+  const hasCommitsToMerge = gitStatus.ahead && gitStatus.ahead > 0 && !gitStatus.hasUncommittedChanges && !gitStatus.hasUntrackedFiles && (!gitStatus.behind || gitStatus.behind === 0);
+  const hasConflictRisk = gitStatus.ahead && gitStatus.ahead > 0 && gitStatus.behind && gitStatus.behind > 0;
   
-  if (isFullySynced) {
-    actionableInfo = '✅ Fully synced with main - safe to remove worktree';
-  } else if (gitStatus.isReadyToMerge) {
-    actionableInfo = '🔀 Has commits not in main - needs merge';
-  } else if (gitStatus.hasUncommittedChanges) {
-    actionableInfo = '⚠️ Commit changes before merging';
-  } else if (gitStatus.behind && gitStatus.behind > 0) {
-    actionableInfo = '⬇️ Behind main - pull latest changes';
-  } else if (gitStatus.state === 'diverged') {
-    actionableInfo = '🔄 Diverged - rebase or merge with main';
-  } else if (gitStatus.ahead && gitStatus.ahead > 0) {
-    actionableInfo = '⬆️ Ahead of main - needs merge';
+  if (hasCommitsToMerge || gitStatus.isReadyToMerge) {
+    actionableInfo = '🔀 Ready to merge - no conflicts expected';
+  } else if (hasConflictRisk) {
+    actionableInfo = '⚠️ Rebase from main before merging to avoid conflicts';
+  } else if (gitStatus.state === 'conflict') {
+    actionableInfo = '🚫 Resolve merge conflicts before continuing';
+  } else if (gitStatus.hasUncommittedChanges || gitStatus.hasUntrackedFiles) {
+    actionableInfo = '📝 Commit changes before merging';
+  } else if (gitStatus.behind && gitStatus.behind > 0 && (!gitStatus.ahead || gitStatus.ahead === 0)) {
+    actionableInfo = '⬇️ Consider updating or removing - no unique changes';
+  } else if (isFullySynced) {
+    actionableInfo = '✅ Safe to remove - no unique changes';
   }
   
   if (actionableInfo) {
@@ -124,119 +126,102 @@ function buildTooltipContent(gitStatus: GitStatus, config: GitStatusConfig): str
 function getGitStatusConfig(gitStatus: GitStatus): GitStatusConfig {
   const iconProps = { size: 14, strokeWidth: 2 };
   
-  // Check if truly synced with main
-  const isFullySynced = isGitStatusFullySynced(gitStatus);
+  // HIGH PRIORITY: Branches with changes that matter
   
-  // Special case: Fully synced with main
-  if (isFullySynced) {
+  // 1. Ready to Merge (HIGH PRIORITY) - Has commits to merge, clean working directory, not behind
+  if (gitStatus.isReadyToMerge || 
+      (gitStatus.ahead && gitStatus.ahead > 0 && !gitStatus.hasUncommittedChanges && !gitStatus.hasUntrackedFiles && (!gitStatus.behind || gitStatus.behind === 0))) {
+    const commitCount = gitStatus.totalCommits || gitStatus.ahead || 0;
     return {
-      color: 'text-git-synced dark:text-git-synced-dark',
-      bgColor: 'bg-git-synced/20 dark:bg-git-synced-dark/20',
-      icon: <Check {...iconProps} />,
-      label: 'Synced',
-      description: 'Fully synced with main branch'
-    };
-  }
-  
-  // Special case: Ready to merge (ahead but clean)
-  if (gitStatus.isReadyToMerge) {
-    const commitCount = gitStatus.totalCommits || 0;
-    return {
-      color: 'text-git-merge dark:text-git-merge-dark',
-      bgColor: 'bg-git-merge/20 dark:bg-git-merge-dark/20',
+      color: 'text-green-600 dark:text-green-400',
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
       icon: <GitMerge {...iconProps} />,
       label: 'Ready to Merge',
-      description: `${commitCount} commit${commitCount !== 1 ? 's' : ''} ready to push to main`
+      description: `${commitCount} commit${commitCount !== 1 ? 's' : ''} ready to merge`
     };
   }
   
-  switch (gitStatus.state) {
-    case 'clean':
-      // This is clean but has commits - show it needs to be merged
-      if (gitStatus.totalCommits && gitStatus.totalCommits > 0) {
-        return {
-          color: 'text-git-ahead dark:text-git-ahead-dark',
-          bgColor: 'bg-git-ahead/20 dark:bg-git-ahead-dark/20',
-          icon: <CircleArrowUp {...iconProps} />,
-          label: 'Clean with Commits',
-          description: `${gitStatus.totalCommits} commit${gitStatus.totalCommits !== 1 ? 's' : ''} to merge`
-        };
-      }
-      // Truly clean with no commits
-      return {
-        color: 'text-git-unknown dark:text-git-unknown-dark',
-        bgColor: 'bg-git-unknown/20 dark:bg-git-unknown-dark/20',
-        icon: <Check {...iconProps} />,
-        label: 'Clean',
-        description: 'No uncommitted changes'
-      };
-    
-    case 'modified':
-      return {
-        color: 'text-git-active dark:text-git-active-dark',
-        bgColor: 'bg-git-active/20 dark:bg-git-active-dark/20',
-        icon: <Edit {...iconProps} />,
-        label: 'Active Changes',
-        description: gitStatus.ahead && gitStatus.ahead > 0 
-          ? `${gitStatus.ahead} commit${gitStatus.ahead !== 1 ? 's' : ''} + ${gitStatus.filesChanged || 0} uncommitted file${gitStatus.filesChanged !== 1 ? 's' : ''}`
-          : `${gitStatus.filesChanged || 0} uncommitted file${gitStatus.filesChanged !== 1 ? 's' : ''}`
-      };
-    
-    case 'untracked':
-      return {
-        color: 'text-git-untracked dark:text-git-untracked-dark',
-        bgColor: 'bg-git-untracked/20 dark:bg-git-untracked-dark/20',
-        icon: <FileText {...iconProps} />,
-        label: 'Untracked',
-        description: 'Contains untracked files'
-      };
-    
-    case 'ahead':
-      return {
-        color: 'text-git-ahead dark:text-git-ahead-dark',
-        bgColor: 'bg-git-ahead/20 dark:bg-git-ahead-dark/20',
-        icon: <CircleArrowUp {...iconProps} />,
-        label: 'Ahead',
-        description: `${gitStatus.ahead || 0} commit${gitStatus.ahead !== 1 ? 's' : ''} ahead of main`
-      };
-    
-    case 'behind':
-      return {
-        color: 'text-git-behind dark:text-git-behind-dark',
-        bgColor: 'bg-git-behind/20 dark:bg-git-behind-dark/20',
-        icon: <CircleArrowDown {...iconProps} />,
-        label: 'Behind',
-        description: `${gitStatus.behind || 0} commit${gitStatus.behind !== 1 ? 's' : ''} behind main`
-      };
-    
-    case 'diverged':
-      return {
-        color: 'text-git-diverged dark:text-git-diverged-dark',
-        bgColor: 'bg-git-diverged/20 dark:bg-git-diverged-dark/20',
-        icon: <GitBranch {...iconProps} />,
-        label: 'Diverged',
-        description: `${gitStatus.ahead || 0} ahead, ${gitStatus.behind || 0} behind main`
-      };
-    
-    case 'conflict':
-      return {
-        color: 'text-git-conflict dark:text-git-conflict-dark',
-        bgColor: 'bg-git-conflict/20 dark:bg-git-conflict-dark/20',
-        icon: <AlertTriangle {...iconProps} />,
-        label: 'Conflict',
-        description: 'Has merge conflicts - resolve before continuing'
-      };
-    
-    case 'unknown':
-    default:
-      return {
-        color: 'text-git-unknown dark:text-git-unknown-dark',
-        bgColor: 'bg-git-unknown/20 dark:bg-git-unknown-dark/20',
-        icon: <HelpCircle {...iconProps} />,
-        label: 'Unknown',
-        description: 'Unable to determine git status'
-      };
+  // 2. Conflict Risk (HIGH PRIORITY) - Has commits but also behind main
+  if (gitStatus.ahead && gitStatus.ahead > 0 && gitStatus.behind && gitStatus.behind > 0) {
+    return {
+      color: 'text-amber-600 dark:text-amber-400',
+      bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+      icon: <AlertTriangle {...iconProps} />,
+      label: 'Conflict Risk',
+      description: `${gitStatus.ahead} ahead, ${gitStatus.behind} behind - potential conflicts`
+    };
   }
+  
+  // SPECIAL CASES: Keep these distinct
+  
+  // Active merge conflicts
+  if (gitStatus.state === 'conflict') {
+    return {
+      color: 'text-red-600 dark:text-red-400',
+      bgColor: 'bg-red-100 dark:bg-red-900/30',
+      icon: <AlertTriangle {...iconProps} />,
+      label: 'Conflicts',
+      description: 'Has merge conflicts - resolve before continuing'
+    };
+  }
+  
+  // Uncommitted changes (includes both modified and untracked)
+  if (gitStatus.hasUncommittedChanges || gitStatus.hasUntrackedFiles || gitStatus.state === 'modified' || gitStatus.state === 'untracked') {
+    const ahead = gitStatus.ahead || 0;
+    const filesChanged = gitStatus.filesChanged || 0;
+    const hasFiles = filesChanged > 0 || gitStatus.hasUntrackedFiles;
+    
+    let description = '';
+    if (ahead > 0 && hasFiles) {
+      description = `${ahead} commit${ahead !== 1 ? 's' : ''} + uncommitted changes`;
+    } else if (hasFiles) {
+      description = gitStatus.hasUntrackedFiles ? 'Untracked files' : `${filesChanged} uncommitted file${filesChanged !== 1 ? 's' : ''}`;
+    } else {
+      description = 'Uncommitted changes';
+    }
+    
+    return {
+      color: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      icon: <Edit {...iconProps} />,
+      label: 'Uncommitted',
+      description: description
+    };
+  }
+  
+  // LOW PRIORITY: Branches you care little about
+  
+  // Behind only (no commits ahead)
+  if (gitStatus.behind && gitStatus.behind > 0 && (!gitStatus.ahead || gitStatus.ahead === 0)) {
+    return {
+      color: 'text-gray-500 dark:text-gray-400',
+      bgColor: 'bg-gray-100 dark:bg-gray-800/30',
+      icon: <CircleArrowDown {...iconProps} />,
+      label: 'Behind Only',
+      description: `${gitStatus.behind} commit${gitStatus.behind !== 1 ? 's' : ''} behind main`
+    };
+  }
+  
+  // Up to date (fully synced)
+  const isFullySynced = isGitStatusFullySynced(gitStatus);
+  if (isFullySynced) {
+    return {
+      color: 'text-gray-500 dark:text-gray-400',
+      bgColor: 'bg-gray-100 dark:bg-gray-800/30',
+      icon: <Check {...iconProps} />,
+      label: 'Up to Date',
+      description: 'No changes - safe to remove'
+    };
+  }
+  
+  // Fallback for unknown states
+  return {
+    color: 'text-gray-500 dark:text-gray-400',
+    bgColor: 'bg-gray-100 dark:bg-gray-800/30',
+    icon: <HelpCircle {...iconProps} />,
+    label: 'Unknown',
+    description: 'Unable to determine git status'
+  };
 }
 
 const GitStatusIndicator: React.FC<GitStatusIndicatorProps> = React.memo(({ gitStatus, size = 'small', sessionId, onClick, isLoading }) => {

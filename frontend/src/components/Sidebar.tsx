@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings } from './Settings';
 import { DraggableProjectTreeView } from './DraggableProjectTreeView';
-import { Info, Clock, Check, Edit, FileText, CircleArrowUp, CircleArrowDown, AlertTriangle, HelpCircle, GitMerge, GitBranch } from 'lucide-react';
+import { Info, Clock, Check, Edit, CircleArrowDown, AlertTriangle, GitMerge } from 'lucide-react';
 import crystalLogo from '../assets/crystal-logo.svg';
 
 interface SidebarProps {
@@ -243,83 +243,82 @@ export function Sidebar({ onHelpClick, onAboutClick, onPromptHistoryClick, width
                   <p className="text-gray-600 dark:text-gray-400 text-xs mb-4">Click any indicator to view detailed changes in the View Diff tab</p>
                   
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-gray-300 dark:border-gray-600">
-                        <Check className="w-3.5 h-3.5" strokeWidth={2} />
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Fully synced with main - safe to remove</span>
+                    {/* HIGH PRIORITY */}
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">HIGH PRIORITY</p>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-gray-300 dark:border-gray-600">
+                            <GitMerge className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="font-bold">3</span>
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Ready to Merge</strong> - Changes ready to merge cleanly</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-gray-300 dark:border-gray-600">
+                            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="font-bold">2</span>
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Conflict Risk</strong> - Behind main, potential conflicts</span>
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-gray-300 dark:border-gray-600">
-                        <GitMerge className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="font-bold">3</span>
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Ready to merge (commits ahead of main)</span>
+                    {/* SPECIAL CASES */}
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">SPECIAL CASES</p>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-gray-300 dark:border-gray-600">
+                            <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Conflicts</strong> - Active merge conflicts need resolution</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600">
+                            <Edit className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="font-bold">2</span>
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Uncommitted</strong> - Work in progress</span>
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 border-gray-300 dark:border-gray-600">
-                        <Edit className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="font-bold">2</span>
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Active changes (uncommitted files)</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600">
-                        <CircleArrowUp className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="font-bold">1</span>
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Ahead of main (commits to push)</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-gray-300 dark:border-gray-600">
-                        <FileText className="w-3.5 h-3.5" strokeWidth={2} />
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Untracked files present</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-gray-300 dark:border-gray-600">
-                        <CircleArrowDown className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="font-bold">2</span>
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Behind main (needs pull)</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-gray-300 dark:border-gray-600">
-                        <GitBranch className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="font-bold">2</span>
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Diverged from main</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-gray-300 dark:border-gray-600">
-                        <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Merge conflicts - resolve before continuing</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-2 rounded">
-                      <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600">
-                        <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                      </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">Unknown status</span>
+                    {/* LOW PRIORITY */}
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">LOW PRIORITY</p>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center gap-0.5 w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-gray-100 dark:bg-gray-800/30 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600">
+                            <CircleArrowDown className="w-3.5 h-3.5" strokeWidth={2} />
+                            <span className="font-bold">2</span>
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Behind Only</strong> - No unique changes</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-2 rounded">
+                          <span className="inline-flex items-center justify-center w-[5.5ch] px-1.5 py-0.5 text-xs rounded-md border bg-gray-100 dark:bg-gray-800/30 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600">
+                            <Check className="w-3.5 h-3.5" strokeWidth={2} />
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300"><strong>Up to Date</strong> - Safe to remove</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="font-medium text-blue-900 dark:text-blue-200 text-xs mb-2">Features</p>
+                    <p className="font-medium text-blue-900 dark:text-blue-200 text-xs mb-2">Tips</p>
                     <ul className="list-disc list-inside space-y-1 text-xs text-blue-800 dark:text-blue-300">
+                      <li>Focus on <strong>High Priority</strong> branches first</li>
                       <li>Numbers show commit count or file changes</li>
                       <li>Star (★) indicates counts above 9</li>
-                      <li>Hover for detailed tooltips with stats</li>
-                      <li>Real-time updates as you work</li>
-                      <li>Multiple states can be shown together</li>
+                      <li>Gray indicators are low priority - often safe to remove</li>
+                      <li>Click any indicator to view detailed diff</li>
                     </ul>
                   </div>
                 </div>
