@@ -477,24 +477,33 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
 
   // Git rebase operations
   ipcMain.handle('sessions:rebase-main-into-worktree', async (_event, sessionId: string) => {
+    console.log(`[IPC:git] Starting rebase-main-into-worktree for session ${sessionId}`);
     try {
       const session = await sessionManager.getSession(sessionId);
       if (!session) {
+        console.log(`[IPC:git] Session ${sessionId} not found`);
         return { success: false, error: 'Session not found' };
       }
 
       if (!session.worktreePath) {
+        console.log(`[IPC:git] Session ${sessionId} has no worktree path`);
         return { success: false, error: 'Session has no worktree path' };
       }
 
       // Get the project to find the main branch
       const project = sessionManager.getProjectForSession(sessionId);
       if (!project) {
+        console.log(`[IPC:git] Project not found for session ${sessionId}`);
         return { success: false, error: 'Project not found for session' };
       }
 
+      console.log(`[IPC:git] Getting main branch for project at ${project.path}`);
       // Get the main branch from the project directory's current branch
-      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
+      const mainBranch = await Promise.race([
+        worktreeManager.getProjectMainBranch(project.path),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('getProjectMainBranch timeout')), 30000))
+      ]) as string;
+      console.log(`[IPC:git] Main branch: ${mainBranch}`);
 
       // Add message to session output about starting the rebase
       const timestamp = new Date().toLocaleTimeString();
@@ -506,7 +515,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         timestamp: new Date()
       });
 
-      await worktreeManager.rebaseMainIntoWorktree(session.worktreePath, mainBranch);
+      console.log(`[IPC:git] Starting rebase operation for session ${sessionId}`);
+      await Promise.race([
+        worktreeManager.rebaseMainIntoWorktree(session.worktreePath, mainBranch),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('rebaseMainIntoWorktree timeout')), 120000))
+      ]);
+      console.log(`[IPC:git] Rebase operation completed for session ${sessionId}`);
 
       // Add success message to session output
       const successMessage = `\x1b[32m✓ Successfully rebased ${mainBranch} into worktree\x1b[0m\r\n\r\n`;
@@ -516,22 +530,34 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         timestamp: new Date()
       });
 
+      console.log(`[IPC:git] Refreshing git status for session ${sessionId}`);
       // Refresh git status for this session after rebasing from main
-      await refreshGitStatusForSession(sessionId);
+      // Don't let this block the response - run it in background
+      refreshGitStatusForSession(sessionId).catch(error => {
+        console.error(`[IPC:git] Failed to refresh git status for session ${sessionId}:`, error);
+      });
 
+      console.log(`[IPC:git] Rebase operation successful for session ${sessionId}`);
       return { success: true, data: { message: `Successfully rebased ${mainBranch} into worktree` } };
     } catch (error: any) {
-      console.error('Failed to rebase main into worktree:', error);
+      console.error(`[IPC:git] Failed to rebase main into worktree for session ${sessionId}:`, error);
 
       // Add error message to session output
       const errorMessage = `\x1b[31m✗ Rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
                           (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
                           `\r\n`;
-      sessionManager.addSessionOutput(sessionId, {
-        type: 'stderr',
-        data: errorMessage,
-        timestamp: new Date()
-      });
+      
+      // Don't let this block the error response either
+      try {
+        sessionManager.addSessionOutput(sessionId, {
+          type: 'stderr',
+          data: errorMessage,
+          timestamp: new Date()
+        });
+      } catch (outputError) {
+        console.error(`[IPC:git] Failed to add error output to session ${sessionId}:`, outputError);
+      }
+
       // Pass detailed git error information to frontend
       return {
         success: false,
@@ -640,24 +666,33 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
   });
 
   ipcMain.handle('sessions:squash-and-rebase-to-main', async (_event, sessionId: string, commitMessage: string) => {
+    console.log(`[IPC:git] Starting squash-and-rebase-to-main for session ${sessionId}`);
     try {
       const session = await sessionManager.getSession(sessionId);
       if (!session) {
+        console.log(`[IPC:git] Session ${sessionId} not found`);
         return { success: false, error: 'Session not found' };
       }
 
       if (!session.worktreePath) {
+        console.log(`[IPC:git] Session ${sessionId} has no worktree path`);
         return { success: false, error: 'Session has no worktree path' };
       }
 
       // Get the project to find the main branch and project path
       const project = sessionManager.getProjectForSession(sessionId);
       if (!project) {
+        console.log(`[IPC:git] Project not found for session ${sessionId}`);
         return { success: false, error: 'Project not found for session' };
       }
 
+      console.log(`[IPC:git] Getting main branch for project at ${project.path}`);
       // Get the effective main branch (override or auto-detected)
-      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
+      const mainBranch = await Promise.race([
+        worktreeManager.getProjectMainBranch(project.path),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('getProjectMainBranch timeout')), 30000))
+      ]) as string;
+      console.log(`[IPC:git] Main branch: ${mainBranch}`);
 
       // Add message to session output about starting the squash and rebase
       const timestamp = new Date().toLocaleTimeString();
@@ -670,7 +705,12 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         timestamp: new Date()
       });
 
-      await worktreeManager.squashAndRebaseWorktreeToMain(project.path, session.worktreePath, mainBranch, commitMessage);
+      console.log(`[IPC:git] Starting squash and rebase operation for session ${sessionId}`);
+      await Promise.race([
+        worktreeManager.squashAndRebaseWorktreeToMain(project.path, session.worktreePath, mainBranch, commitMessage),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('squashAndRebaseWorktreeToMain timeout')), 180000))
+      ]);
+      console.log(`[IPC:git] Squash and rebase operation completed for session ${sessionId}`);
 
       // Add success message to session output
       const successMessage = `\x1b[32m✓ Successfully squashed and rebased worktree to ${mainBranch}\x1b[0m\r\n\r\n`;
@@ -680,24 +720,36 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         timestamp: new Date()
       });
 
+      console.log(`[IPC:git] Refreshing git status for project ${session.projectId}`);
       // Refresh git status for ALL sessions in the project since main was updated
+      // Don't let this block the response - run it in background
       if (session.projectId !== undefined) {
-        await refreshGitStatusForProject(session.projectId);
+        refreshGitStatusForProject(session.projectId).catch(error => {
+          console.error(`[IPC:git] Failed to refresh git status for project ${session.projectId}:`, error);
+        });
       }
       
+      console.log(`[IPC:git] Squash and rebase operation successful for session ${sessionId}`);
       return { success: true, data: { message: `Successfully squashed and rebased worktree to ${mainBranch}` } };
     } catch (error: any) {
-      console.error('Failed to squash and rebase worktree to main:', error);
+      console.error(`[IPC:git] Failed to squash and rebase worktree to main for session ${sessionId}:`, error);
 
       // Add error message to session output
       const errorMessage = `\x1b[31m✗ Squash and rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
                           (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
                           `\r\n`;
-      sessionManager.addSessionOutput(sessionId, {
-        type: 'stderr',
-        data: errorMessage,
-        timestamp: new Date()
-      });
+      
+      // Don't let this block the error response either
+      try {
+        sessionManager.addSessionOutput(sessionId, {
+          type: 'stderr',
+          data: errorMessage,
+          timestamp: new Date()
+        });
+      } catch (outputError) {
+        console.error(`[IPC:git] Failed to add error output to session ${sessionId}:`, outputError);
+      }
+
       // Pass detailed git error information to frontend
       return {
         success: false,

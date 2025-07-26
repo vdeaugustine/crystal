@@ -1315,10 +1315,14 @@ export const useSessionView = (
   
   const handleRebaseMainIntoWorktree = async () => {
     if (!activeSession) return;
+    console.log(`[handleRebaseMainIntoWorktree] Starting rebase for session ${activeSession.id}`);
     setIsMerging(true);
     setMergeError(null);
     try {
+      console.log(`[handleRebaseMainIntoWorktree] Calling API.sessions.rebaseMainIntoWorktree`);
       const response = await API.sessions.rebaseMainIntoWorktree(activeSession.id);
+      console.log(`[handleRebaseMainIntoWorktree] API call completed`, response);
+      
       if (!response.success) {
         if ((response as any).gitError) {
           const gitError = (response as any).gitError;
@@ -1335,12 +1339,20 @@ export const useSessionView = (
           setMergeError(response.error || 'Failed to rebase main into worktree');
         }
       } else {
-        const changesResponse = await API.sessions.hasChangesToRebase(activeSession.id);
-        if (changesResponse.success) setHasChangesToRebase(changesResponse.data);
+        console.log(`[handleRebaseMainIntoWorktree] Rebase successful, checking for changes to rebase`);
+        // Run this in the background and don't let it block the finally block
+        API.sessions.hasChangesToRebase(activeSession.id).then(changesResponse => {
+          console.log(`[handleRebaseMainIntoWorktree] hasChangesToRebase completed`, changesResponse);
+          if (changesResponse.success) setHasChangesToRebase(changesResponse.data);
+        }).catch(error => {
+          console.error(`[handleRebaseMainIntoWorktree] hasChangesToRebase failed`, error);
+        });
       }
     } catch (error) {
+      console.error(`[handleRebaseMainIntoWorktree] Error in try block`, error);
       setMergeError(error instanceof Error ? error.message : 'Failed to rebase main into worktree');
     } finally {
+      console.log(`[handleRebaseMainIntoWorktree] Finally block executing, setting isMerging to false`);
       setIsMerging(false);
     }
   };
@@ -1390,13 +1402,16 @@ export const useSessionView = (
   
   const performSquashWithCommitMessage = async (message: string) => {
     if (!activeSession) return;
+    console.log(`[performSquashWithCommitMessage] Starting ${shouldSquash ? 'squash and rebase' : 'rebase'} for session ${activeSession.id}`);
     setIsMerging(true);
     setMergeError(null);
     setShowCommitMessageDialog(false);
     try {
+      console.log(`[performSquashWithCommitMessage] Calling API with shouldSquash: ${shouldSquash}`);
       const response = shouldSquash
         ? await API.sessions.squashAndRebaseToMain(activeSession.id, message)
         : await API.sessions.rebaseToMain(activeSession.id);
+      console.log(`[performSquashWithCommitMessage] API call completed`, response);
 
       if (!response.success) {
         if ((response as any).gitError) {
@@ -1414,12 +1429,20 @@ export const useSessionView = (
           setMergeError(response.error || `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
         }
       } else {
-        const changesResponse = await API.sessions.hasChangesToRebase(activeSession.id);
-        if (changesResponse.success) setHasChangesToRebase(changesResponse.data);
+        console.log(`[performSquashWithCommitMessage] Operation successful, checking for changes to rebase`);
+        // Run this in the background and don't let it block the finally block
+        API.sessions.hasChangesToRebase(activeSession.id).then(changesResponse => {
+          console.log(`[performSquashWithCommitMessage] hasChangesToRebase completed`, changesResponse);
+          if (changesResponse.success) setHasChangesToRebase(changesResponse.data);
+        }).catch(error => {
+          console.error(`[performSquashWithCommitMessage] hasChangesToRebase failed`, error);
+        });
       }
     } catch (error) {
+      console.error(`[performSquashWithCommitMessage] Error in try block`, error);
       setMergeError(error instanceof Error ? error.message : `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
     } finally {
+      console.log(`[performSquashWithCommitMessage] Finally block executing, setting isMerging to false`);
       setIsMerging(false);
     }
   };
