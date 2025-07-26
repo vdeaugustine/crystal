@@ -1151,7 +1151,11 @@ export const useSessionView = (
   }, [debugState, forceResetLoadingState]);
 
   const handleSendInput = async (attachedImages?: any[]) => {
-    if (!input.trim() || !activeSession) return;
+    console.log('[useSessionView] handleSendInput called', { input, activeSession: activeSession?.id, hasActiveSession: !!activeSession });
+    if (!input.trim() || !activeSession) {
+      console.log('[useSessionView] handleSendInput early return', { inputTrimmed: !input.trim(), noActiveSession: !activeSession });
+      return;
+    }
     
     let finalInput = ultrathink ? `${input}\nultrathink` : input;
     

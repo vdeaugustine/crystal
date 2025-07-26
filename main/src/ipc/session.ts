@@ -300,7 +300,28 @@ export function registerSessionHandlers(ipcMain: IpcMain, services: AppServices)
         console.log(`[IPC] Added structured commit instructions to input`);
       }
 
-      claudeCodeManager.sendInput(sessionId, finalInput);
+      // Check if Claude Code is running for this session
+      const isClaudeRunning = claudeCodeManager.isSessionRunning(sessionId);
+      
+      if (!isClaudeRunning) {
+        console.log(`[IPC] Claude Code not running for session ${sessionId}, starting it now...`);
+        
+        // Get session details
+        const session = await sessionManager.getSession(sessionId);
+        if (!session) {
+          return { success: false, error: 'Session not found' };
+        }
+        
+        // Start Claude Code with the input as the initial prompt
+        await claudeCodeManager.startSession(sessionId, session.worktreePath, finalInput, session.permissionMode);
+        
+        // Update session status to running
+        await sessionManager.updateSession(sessionId, { status: 'running' });
+      } else {
+        // Claude Code is already running, just send the input
+        claudeCodeManager.sendInput(sessionId, finalInput);
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('Failed to send input:', error);

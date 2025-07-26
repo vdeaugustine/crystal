@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ProjectDashboard } from './ProjectDashboard';
 import { FileEditor } from './FileEditor';
+import { SessionInputWithImages } from './session/SessionInputWithImages';
 import { API } from '../utils/api';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSessionStore } from '../stores/sessionStore';
+import { Session } from '../types/session';
+import { useSessionView } from '../hooks/useSessionView';
 import '@xterm/xterm/css/xterm.css';
 
-export type ProjectViewMode = 'dashboard' | 'files' | 'terminal';
+export type ProjectViewMode = 'dashboard' | 'output' | 'files' | 'terminal';
 
 interface ProjectViewProps {
   projectId: number;
@@ -16,6 +19,7 @@ interface ProjectViewProps {
   onGitPull: () => void;
   onGitPush: () => void;
   isMerging: boolean;
+  onViewModeChange?: (mode: ProjectViewMode) => void;
 }
 
 interface ProjectViewTabsProps {
@@ -26,6 +30,7 @@ interface ProjectViewTabsProps {
 const ProjectViewTabs: React.FC<ProjectViewTabsProps> = ({ viewMode, setViewMode }) => {
   const tabs: { mode: ProjectViewMode; label: string }[] = [
     { mode: 'dashboard', label: 'Dashboard' },
+    { mode: 'output', label: 'Output' },
     { mode: 'files', label: 'File Tree' },
     { mode: 'terminal', label: 'Terminal' },
   ];
@@ -56,19 +61,68 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
   projectName, 
   onGitPull, 
   onGitPush, 
-  isMerging 
+  isMerging,
+  onViewModeChange 
 }) => {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ProjectViewMode>('dashboard');
   const [mainRepoSessionId, setMainRepoSessionId] = useState<string | null>(null);
+  const [mainRepoSession, setMainRepoSession] = useState<Session | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [isStravuConnected, setIsStravuConnected] = useState(false);
+  
+  // Notify parent component when view mode changes
+  useEffect(() => {
+    if (onViewModeChange) {
+      onViewModeChange(viewMode);
+    }
+  }, [viewMode, onViewModeChange]);
+  
+  // Set main repo session as active when output tab is selected
+  useEffect(() => {
+    if (viewMode === 'output' && mainRepoSession) {
+      useSessionStore.getState().setActiveSession(mainRepoSession.id);
+    }
+  }, [viewMode, mainRepoSession]);
+  
+  // Wrapped git operations that switch to output tab
+  const handleGitPull = useCallback(() => {
+    setViewMode('output');
+    onGitPull();
+  }, [onGitPull]);
+  
+  const handleGitPush = useCallback(() => {
+    setViewMode('output');
+    onGitPush();
+  }, [onGitPush]);
+  
+  // Handle terminal command
+  const handleTerminalCommand = useCallback(() => {
+    if (!mainRepoSessionId) return;
+    setViewMode('terminal');
+  }, [mainRepoSessionId]);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const outputTerminalRef = useRef<HTMLDivElement>(null);
+  const scriptTerminalRef = useRef<HTMLDivElement>(null);
   
   // Terminal state
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<FitAddon | null>(null);
   const [scriptOutput, setScriptOutput] = useState<string[]>([]);
   const lastProcessedOutputLength = useRef(0);
+  
+  // Use the same hook as SessionView for output handling
+  const hook = useSessionView(mainRepoSession || undefined, outputTerminalRef, scriptTerminalRef);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[ProjectView] Session state:', { 
+      mainRepoSessionId, 
+      mainRepoSession: mainRepoSession?.id,
+      viewMode,
+      activeSessionInStore: useSessionStore.getState().activeSessionId
+    });
+  }, [mainRepoSessionId, mainRepoSession, viewMode]);
 
   // Terminal initialization function
   const initTerminal = useCallback(() => {
@@ -130,6 +184,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     };
   }, [terminalRef, mainRepoSessionId, theme]);
 
+  // Remove output terminal initialization - now handled by useSessionView
+
   // Get or create main repo session for file operations
   useEffect(() => {
     const getMainRepoSession = async () => {
@@ -138,6 +194,19 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         const response = await API.sessions.getOrCreateMainRepoSession(projectId);
         if (response.success && response.data) {
           setMainRepoSessionId(response.data.id);
+          setMainRepoSession(response.data);
+          
+          // Subscribe to session updates
+          const sessions = useSessionStore.getState().sessions;
+          const mainSession = sessions.find(s => s.id === response.data.id);
+          if (mainSession) {
+            setMainRepoSession(mainSession);
+          }
+          
+          // Set as active session if currently on output tab
+          if (viewMode === 'output') {
+            useSessionStore.getState().setActiveSession(response.data.id);
+          }
         }
       } catch (error) {
         console.error('Failed to get main repo session:', error);
@@ -147,7 +216,21 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     };
 
     getMainRepoSession();
-  }, [projectId]);
+  }, [projectId, viewMode]);
+  
+  // Subscribe to session updates
+  useEffect(() => {
+    if (!mainRepoSessionId) return;
+    
+    const unsubscribe = useSessionStore.subscribe((state) => {
+      const session = state.sessions.find(s => s.id === mainRepoSessionId);
+      if (session) {
+        setMainRepoSession(session);
+      }
+    });
+    
+    return unsubscribe;
+  }, [mainRepoSessionId]);
 
   // Initialize terminal when switching to terminal view
   useEffect(() => {
@@ -165,6 +248,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     }
   }, [viewMode, mainRepoSessionId, initTerminal]);
 
+  // Output loading is now handled by useSessionView hook
+
   // Subscribe to script output for this session
   useEffect(() => {
     if (!mainRepoSessionId) return;
@@ -180,6 +265,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
     return unsubscribe;
   }, [mainRepoSessionId]);
+
+  // Session output updates are now handled by useSessionView hook
 
   // Write script output to terminal
   useEffect(() => {
@@ -202,6 +289,27 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
     }
   }, [scriptOutput, mainRepoSessionId]);
 
+  // Output terminal updates are now handled by useSessionView hook
+  
+  // Elapsed time tracking is now handled by useSessionView hook
+  
+  // Check Stravu connection status
+  useEffect(() => {
+    const checkStravuConnection = async () => {
+      try {
+        const response = await API.stravu.getConnectionStatus();
+        setIsStravuConnected(response.success && response.data.status === 'connected');
+      } catch (err) {
+        setIsStravuConnected(false);
+      }
+    };
+    checkStravuConnection();
+    const interval = setInterval(checkStravuConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // formatElapsedTime is now provided by useSessionView hook
+
   // Add clear terminal function
   const handleClearTerminal = useCallback(() => {
     if (terminalInstance.current) {
@@ -210,6 +318,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       setScriptOutput([]);
     }
   }, []);
+
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
@@ -226,7 +335,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
               <div className="flex flex-wrap items-center gap-2 relative z-20">
                 <div className="group relative">
                   <button 
-                    onClick={onGitPull} 
+                    onClick={handleGitPull} 
                     disabled={isMerging} 
                     className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
                       isMerging 
@@ -242,7 +351,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                 </div>
                 <div className="group relative">
                   <button 
-                    onClick={onGitPush} 
+                    onClick={handleGitPush} 
                     disabled={isMerging} 
                     className={`px-3 py-1.5 rounded-full border transition-all flex items-center space-x-2 ${
                       isMerging 
@@ -327,8 +436,65 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
               <div ref={terminalRef} className="flex-1" />
             )}
           </div>
+          
+          {/* Output View */}
+          <div className={`h-full ${viewMode === 'output' ? 'flex flex-col' : 'hidden'} bg-gray-50 dark:bg-black relative`}>
+            {hook.isLoadingOutput && (
+              <div className="absolute top-4 left-4 text-gray-600 dark:text-gray-400 z-10">Loading output...</div>
+            )}
+            <div 
+              ref={outputTerminalRef} 
+              className="flex-1 min-h-0"
+            />
+            {mainRepoSession && (mainRepoSession.status === 'running' || mainRepoSession.status === 'initializing') && (
+              <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 flex-shrink-0">
+                <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot"></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-typing-dot" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {mainRepoSession.status === 'initializing' ? 'Starting Claude Code...' : 'Claude is working...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                      {mainRepoSession.status === 'initializing' ? '⚡' : hook.formatElapsedTime(hook.elapsedTime)}
+                    </div>
+                    <button onClick={hook.handleStopSession} className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+      
+      {viewMode === 'output' && mainRepoSession && (
+        <SessionInputWithImages
+          activeSession={mainRepoSession}
+          viewMode="output"
+          input={hook.input}
+          setInput={hook.setInput}
+          textareaRef={hook.textareaRef}
+          handleTerminalCommand={handleTerminalCommand}
+          handleSendInput={hook.handleSendInput}
+          handleContinueConversation={hook.handleContinueConversation}
+          isStravuConnected={isStravuConnected}
+          setShowStravuSearch={hook.setShowStravuSearch}
+          ultrathink={hook.ultrathink}
+          setUltrathink={hook.setUltrathink}
+          handleToggleAutoCommit={hook.handleToggleAutoCommit}
+          gitCommands={hook.gitCommands}
+          handleCompactContext={hook.handleCompactContext}
+          contextCompacted={hook.contextCompacted}
+          hasConversationHistory={hook.hasConversationHistory}
+        />
+      )}
     </div>
   );
 };
