@@ -133,7 +133,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       convertEol: true,
       rows: 30,
       cols: 80,
-      scrollback: 2000,
+      scrollback: 100000,
       fastScrollModifier: 'ctrl',
       theme: theme === 'dark' ? {
         background: '#1a1a1a',
