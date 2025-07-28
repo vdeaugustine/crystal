@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, memo, useMemo } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useNavigationStore } from '../stores/navigationStore';
-import { JsonMessageView } from './JsonMessageView';
 import { EmptyState } from './EmptyState';
 import CombinedDiffView from './CombinedDiffView';
 import { StravuFileSearch } from './StravuFileSearch';
@@ -18,7 +17,6 @@ import { API } from '../utils/api';
 import { RichOutputWithSidebar } from './session/RichOutputWithSidebar';
 import { RichOutputSettings } from './session/RichOutputView';
 import { RichOutputSettingsPanel } from './session/RichOutputSettingsPanel';
-import { ProjectDashboard } from './ProjectDashboard';
 
 export const SessionView = memo(() => {
   const activeSessionId = useSessionStore((state) => state.activeSessionId);
@@ -225,20 +223,11 @@ export const SessionView = memo(() => {
           {hook.isLoadingOutput && (
             <div className="absolute top-4 left-4 text-text-secondary z-10">Loading output...</div>
           )}
-          <div className={`h-full ${hook.viewMode === 'messages' ? 'block' : 'hidden'}`}>
-            <JsonMessageView messages={activeSession.jsonMessages || []} />
-          </div>
           <div className={`h-full ${hook.viewMode === 'richOutput' ? 'block' : 'hidden'}`}>
             <RichOutputWithSidebar 
               sessionId={activeSession.id}
               settings={richOutputSettings}
               onSettingsChange={handleRichOutputSettingsChange}
-            />
-          </div>
-          <div className={`h-full ${hook.viewMode === 'dashboard' ? 'block' : 'hidden'}`}>
-            <ProjectDashboard 
-              projectId={activeSession.projectId || 0}
-              projectName={sessionProject?.name || 'Unknown Project'}
             />
           </div>
           <div className={`h-full ${hook.viewMode === 'changes' ? 'block' : 'hidden'} overflow-hidden`}>
@@ -327,6 +316,7 @@ export const SessionView = memo(() => {
           handleCompactContext={hook.handleCompactContext}
           hasConversationHistory={hook.hasConversationHistory}
           contextCompacted={hook.contextCompacted}
+          handleCancelRequest={hook.handleStopSession}
         />
       )}
 

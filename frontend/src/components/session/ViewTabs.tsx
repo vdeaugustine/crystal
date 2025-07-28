@@ -1,24 +1,33 @@
 import React from 'react';
 import { ViewMode } from '../../hooks/useSessionView';
 import { cn } from '../../utils/cn';
-import { MessageSquare, GitCompare, Terminal, FileEdit, LayoutDashboard, Eye, Settings } from 'lucide-react';
+import { GitCompare, Terminal, FileEdit, Eye, Settings, GitBranch, MoreVertical } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Dropdown } from '../ui/Dropdown';
 
 interface ViewTabsProps {
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
   unreadActivity: {
-    messages: boolean;
     changes: boolean;
     terminal: boolean;
     editor: boolean;
-    dashboard: boolean;
     richOutput: boolean;
   };
   setUnreadActivity: (activity: any) => void;
-  jsonMessagesCount: number;
   isTerminalRunning: boolean;
   onSettingsClick?: () => void;
   showSettings?: boolean;
+  branchActions?: Array<{
+    id: string;
+    label: string;
+    icon: any;
+    onClick: () => void;
+    disabled: boolean;
+    variant: 'default' | 'success' | 'danger';
+    description: string;
+  }>;
+  isMerging?: boolean;
 }
 
 export const ViewTabs: React.FC<ViewTabsProps> = ({
@@ -26,10 +35,11 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
   setViewMode,
   unreadActivity,
   setUnreadActivity,
-  jsonMessagesCount,
   isTerminalRunning,
   onSettingsClick,
   showSettings,
+  branchActions,
+  isMerging,
 }) => {
   const tabs: { 
     mode: ViewMode; 
@@ -44,13 +54,6 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
       label: 'Output', 
       icon: <Eye className="w-4 h-4" />,
       activity: unreadActivity.richOutput 
-    },
-    { 
-      mode: 'messages', 
-      label: 'Messages', 
-      icon: <MessageSquare className="w-4 h-4" />,
-      count: jsonMessagesCount, 
-      activity: unreadActivity.messages 
     },
     { 
       mode: 'changes', 
@@ -70,12 +73,6 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
       label: 'Editor', 
       icon: <FileEdit className="w-4 h-4" />,
       activity: unreadActivity.editor 
-    },
-    { 
-      mode: 'dashboard', 
-      label: 'Dashboard', 
-      icon: <LayoutDashboard className="w-4 h-4" />,
-      activity: unreadActivity.dashboard 
     },
   ];
 
@@ -137,12 +134,35 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
         </button>
       ))}
       
+      {/* Branch Actions button - positioned after tabs */}
+      {branchActions && branchActions.length > 0 && (
+        <div className="ml-auto flex items-center gap-2">
+          <Dropdown
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-2 px-3 py-2"
+                disabled={isMerging}
+              >
+                <GitBranch className="w-4 h-4" />
+                <span>Branch Actions</span>
+                <MoreVertical className="w-3 h-3" />
+              </Button>
+            }
+            items={branchActions}
+            position="bottom-right"
+          />
+        </div>
+      )}
+      
       {/* Settings button - only show for Rich Output view */}
       {viewMode === 'richOutput' && onSettingsClick && (
         <button
           onClick={onSettingsClick}
           className={cn(
-            "ml-auto mr-2 px-3 py-2 rounded-md transition-all flex items-center gap-2",
+            branchActions && branchActions.length > 0 ? "mr-2" : "ml-auto mr-2",
+            "px-3 py-2 rounded-md transition-all flex items-center gap-2",
             "text-text-secondary hover:text-text-primary text-sm",
             showSettings ? [
               "bg-surface-hover text-text-primary",

@@ -9,7 +9,7 @@ import { Session, GitCommands, GitErrorDetails } from '../types/session';
 import { getTerminalTheme, getScriptTerminalTheme } from '../utils/terminalTheme';
 import { createVisibilityAwareInterval } from '../utils/performanceUtils';
 
-export type ViewMode = 'richOutput' | 'messages' | 'changes' | 'terminal' | 'editor' | 'dashboard';
+export type ViewMode = 'richOutput' | 'changes' | 'terminal' | 'editor';
 
 export const useSessionView = (
   activeSession: Session | undefined,
@@ -28,11 +28,9 @@ export const useSessionView = (
   // States
   const [viewMode, setViewMode] = useState<ViewMode>('richOutput');
   const [unreadActivity, setUnreadActivity] = useState({
-    messages: false,
     changes: false,
     terminal: false,
     editor: false,
-    dashboard: false,
     richOutput: false,
   });
   const [isEditingName, setIsEditingName] = useState(false);
@@ -211,9 +209,7 @@ export const useSessionView = (
       console.log(`[loadOutputContent] Setting outputs in store for session ${sessionId}, count: ${outputs.length}`);
       useSessionStore.getState().setSessionOutputs(sessionId, outputs);
       
-      // Verify the outputs were set
-      const verifySession = useSessionStore.getState().getActiveSession();
-      console.log(`[loadOutputContent] After setSessionOutputs - activeSession output: ${verifySession?.output?.length}, jsonMessages: ${verifySession?.jsonMessages?.length}`);
+      // Outputs have been set
       
       setOutputLoadState('loaded');
       
@@ -333,11 +329,9 @@ export const useSessionView = (
     
     // Reset unread activity indicators
     setUnreadActivity({
-      messages: false,
       changes: false,
       terminal: false,
       editor: false,
-      dashboard: false,
       richOutput: false,
     });
     
@@ -392,7 +386,6 @@ export const useSessionView = (
     const hasMessages = activeSession.jsonMessages && activeSession.jsonMessages.length > 0;
     const isNewSession = activeSession.status === 'initializing' || (activeSession.status === 'running' && !hasOutput && !hasMessages);
     
-    console.log(`[useSessionView] Session ${activeSession.id} - hasOutput: ${hasOutput}, hasMessages: ${hasMessages}, isNewSession: ${isNewSession}`);
     
     if (isNewSession) {
       setIsWaitingForFirstOutput(true);
@@ -419,7 +412,6 @@ export const useSessionView = (
     }
     
     if (messageCount === 0 && outputCount === 0) {
-      console.log(`[useSessionView] No messages or output to format for session ${activeSession.id}`);
       return;
     }
 
@@ -474,10 +466,8 @@ export const useSessionView = (
       return;
     }
     
-    const hasOutput = (activeSession.output?.length || 0) > 0;
-    const hasMessages = (activeSession.jsonMessages?.length || 0) > 0;
+    // Check if session has output data
     
-    console.log(`[Output Load Effect] Session ${activeSession.id} - hasOutput: ${hasOutput}, hasMessages: ${hasMessages}, status: ${activeSession.status}`);
     
     // Check for stuck loading state and force reset if needed
     if (loadingRef.current && outputLoadState === 'idle') {
@@ -615,37 +605,7 @@ export const useSessionView = (
     }
   }, [theme, activeSession]);
 
-  useEffect(() => {
-    console.log(`[useSessionView] Terminal initialization effect - viewMode: ${viewMode}, terminalRef.current: ${!!terminalRef.current}`);
-    if (false && terminalRef.current) { // Disabled - output view removed
-      initTerminal(terminalRef, terminalInstance, fitAddon, false);
-      
-      // After terminal is initialized, trigger a check for loading output
-      if (activeSession && !terminalInstance.current) {
-        // Check less frequently and with a maximum number of attempts
-        let attempts = 0;
-        const maxAttempts = 50; // 5 seconds maximum wait
-        const checkInterval = setInterval(() => {
-          attempts++;
-          if (terminalInstance.current) {
-            console.log(`[useSessionView] Terminal initialized, checking if output needs to be loaded`);
-            clearInterval(checkInterval);
-            // Force a re-evaluation of whether to load output
-            if (activeSession && activeSession.status !== 'initializing') {
-              loadOutputContent(activeSession.id);
-            }
-          } else if (attempts >= maxAttempts) {
-            console.log(`[useSessionView] Terminal initialization timed out, loading output anyway`);
-            clearInterval(checkInterval);
-            // Try to load output even without terminal
-            if (activeSession && activeSession.status !== 'initializing') {
-              loadOutputContent(activeSession.id);
-            }
-          }
-        }, 100);
-      }
-    }
-  }, [viewMode, terminalRef, initTerminal, activeSession, loadOutputContent]);  
+  // Terminal output view has been removed - no terminal initialization needed  
   // Pre-initialize script terminal when session becomes active
   useEffect(() => {
     if (activeSession && scriptTerminalRef.current && !scriptTerminalInstance.current) {
@@ -954,16 +914,7 @@ export const useSessionView = (
     return () => observer.disconnect();
   }, [terminalRef, viewMode]);
 
-  // Trigger terminal resize when session status changes (for padding adjustment)
-  useEffect(() => {
-    if (false && fitAddon.current && activeSession) { // Output view removed
-      // Small delay to ensure DOM updates have completed
-      const timer = setTimeout(() => {
-        fitAddon.current?.fit();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeSession?.status, viewMode]);
+  // Terminal output view has been removed - no resize needed
 
   useEffect(() => {
     // Add a small delay to ensure CSS has propagated
@@ -1011,9 +962,6 @@ export const useSessionView = (
     if (!activeSession) return;
     const currentMessageCount = activeSession.jsonMessages?.length || 0;
     if (currentMessageCount > previousMessageCountRef.current) {
-      if (viewMode !== 'messages') {
-        setUnreadActivity(prev => ({ ...prev, messages: true }));
-      }
       if (viewMode !== 'richOutput') {
         setUnreadActivity(prev => ({ ...prev, richOutput: true }));
       }
@@ -1042,7 +990,7 @@ export const useSessionView = (
   }, [activeSession?.status, activeSession?.runStartedAt, activeSessionId]);
 
   useEffect(() => {
-    setUnreadActivity({ messages: false, changes: false, terminal: false, editor: false, dashboard: false, richOutput: false });
+    setUnreadActivity({ changes: false, terminal: false, editor: false, richOutput: false });
   }, [activeSessionId]);
 
 
@@ -1431,16 +1379,13 @@ export const useSessionView = (
   
   const performSquashWithCommitMessage = async (message: string) => {
     if (!activeSession) return;
-    console.log(`[performSquashWithCommitMessage] Starting ${shouldSquash ? 'squash and rebase' : 'rebase'} for session ${activeSession.id}`);
     setIsMerging(true);
     setMergeError(null);
     setShowCommitMessageDialog(false);
     try {
-      console.log(`[performSquashWithCommitMessage] Calling API with shouldSquash: ${shouldSquash}`);
       const response = shouldSquash
         ? await API.sessions.squashAndRebaseToMain(activeSession.id, message)
         : await API.sessions.rebaseToMain(activeSession.id);
-      console.log(`[performSquashWithCommitMessage] API call completed`, response);
 
       if (!response.success) {
         if ((response as any).gitError) {
@@ -1458,10 +1403,8 @@ export const useSessionView = (
           setMergeError(response.error || `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
         }
       } else {
-        console.log(`[performSquashWithCommitMessage] Operation successful, checking for changes to rebase`);
         // Run this in the background and don't let it block the finally block
         API.sessions.hasChangesToRebase(activeSession.id).then(changesResponse => {
-          console.log(`[performSquashWithCommitMessage] hasChangesToRebase completed`, changesResponse);
           if (changesResponse.success) setHasChangesToRebase(changesResponse.data);
         }).catch(error => {
           console.error(`[performSquashWithCommitMessage] hasChangesToRebase failed`, error);
@@ -1471,7 +1414,6 @@ export const useSessionView = (
       console.error(`[performSquashWithCommitMessage] Error in try block`, error);
       setMergeError(error instanceof Error ? error.message : `Failed to ${shouldSquash ? 'squash and ' : ''}rebase to main`);
     } finally {
-      console.log(`[performSquashWithCommitMessage] Finally block executing, setting isMerging to false`);
       setIsMerging(false);
     }
   };

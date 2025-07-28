@@ -4,9 +4,7 @@ import { StatusIndicator } from '../StatusIndicator';
 import { ViewTabs } from './ViewTabs';
 import { ViewMode } from '../../hooks/useSessionView';
 import { CommitModeIndicator } from '../CommitModeIndicator';
-import { Button } from '../ui/Button';
-import { Dropdown } from '../ui/Dropdown';
-import { MoreVertical, GitBranch, Code2, Download, Upload, GitMerge } from 'lucide-react';
+import { Code2, Download, Upload, GitMerge } from 'lucide-react';
 
 interface SessionHeaderProps {
   activeSession: Session;
@@ -30,11 +28,9 @@ interface SessionHeaderProps {
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
   unreadActivity: {
-    messages: boolean;
     changes: boolean;
     terminal: boolean;
     editor: boolean;
-    dashboard: boolean;
     richOutput: boolean;
   };
   setUnreadActivity: (activity: any) => void;
@@ -160,24 +156,6 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
             </div>
           </div>
 
-          {/* Cluster 3: Session Actions (right-aligned) */}
-          <div className="flex items-center gap-2">
-            <Dropdown
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <GitBranch className="w-4 h-4" />
-                  <span>Branch Actions</span>
-                  <MoreVertical className="w-3 h-3" />
-                </Button>
-              }
-              items={branchActions}
-              position="bottom-right"
-            />
-          </div>
         </div>
 
         {/* Error Messages */}
@@ -195,10 +173,11 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
           setViewMode={setViewMode}
           unreadActivity={unreadActivity}
           setUnreadActivity={setUnreadActivity}
-          jsonMessagesCount={activeSession.jsonMessages?.length || 0}
           isTerminalRunning={activeSession.isRunning || false}
           onSettingsClick={onSettingsClick}
           showSettings={showSettings}
+          branchActions={branchActions}
+          isMerging={isMerging}
         />
       </div>
     </div>
