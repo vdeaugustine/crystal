@@ -232,9 +232,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.log(`[IPC:git] Main branch: ${mainBranch}`);
 
       // Add message to session output about starting the rebase
-      const timestamp = new Date().toLocaleTimeString();
-      const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                          `\x1b[1m\x1b[94mRebasing from ${mainBranch}...\x1b[0m\r\n\r\n`;
+      const startMessage = `🔄 GIT OPERATION\nRebasing from ${mainBranch}...`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: startMessage,
@@ -249,7 +247,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.log(`[IPC:git] Rebase operation completed for session ${sessionId}`);
 
       // Add success message to session output
-      const successMessage = `\x1b[32m✓ Successfully rebased ${mainBranch} into worktree\x1b[0m\r\n\r\n`;
+      const successMessage = `✓ Successfully rebased ${mainBranch} into worktree`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: successMessage,
@@ -269,9 +267,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.error(`[IPC:git] Failed to rebase main into worktree for session ${sessionId}:`, error);
 
       // Add error message to session output
-      const errorMessage = `\x1b[31m✗ Rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
-                          (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
-                          `\r\n`;
+      const errorMessage = `✗ Rebase failed: ${error.message || 'Unknown error'}` +
+                          (error.gitOutput ? `\n\nGit output:\n${error.gitOutput}` : '');
       
       // Don't let this block the error response either
       try {
@@ -323,9 +320,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
         await worktreeManager.abortRebase(session.worktreePath);
 
         // Add message to session output about aborting the rebase
-        const timestamp = new Date().toLocaleTimeString();
-        const abortMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                            `\x1b[1m\x1b[94mAborted rebase successfully\x1b[0m\r\n\r\n`;
+        const abortMessage = `🔄 GIT OPERATION\nAborted rebase successfully`;
         sessionManager.addSessionOutput(sessionId, {
           type: 'stdout',
           data: abortMessage,
@@ -421,10 +416,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.log(`[IPC:git] Main branch: ${mainBranch}`);
 
       // Add message to session output about starting the squash and rebase
-      const timestamp = new Date().toLocaleTimeString();
-      const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                          `\x1b[1m\x1b[94mSquashing commits and rebasing to ${mainBranch}...\x1b[0m\r\n` +
-                          `\x1b[90mCommit message: ${commitMessage.split('\n')[0]}${commitMessage.includes('\n') ? '...' : ''}\x1b[0m\r\n\r\n`;
+      const startMessage = `🔄 GIT OPERATION\nSquashing commits and rebasing to ${mainBranch}...\nCommit message: ${commitMessage.split('\n')[0]}${commitMessage.includes('\n') ? '...' : ''}`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: startMessage,
@@ -439,7 +431,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.log(`[IPC:git] Squash and rebase operation completed for session ${sessionId}`);
 
       // Add success message to session output
-      const successMessage = `\x1b[32m✓ Successfully squashed and rebased worktree to ${mainBranch}\x1b[0m\r\n\r\n`;
+      const successMessage = `✓ Successfully squashed and rebased worktree to ${mainBranch}`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: successMessage,
@@ -461,9 +453,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.error(`[IPC:git] Failed to squash and rebase worktree to main for session ${sessionId}:`, error);
 
       // Add error message to session output
-      const errorMessage = `\x1b[31m✗ Squash and rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
-                          (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
-                          `\r\n`;
+      const errorMessage = `✗ Squash and rebase failed: ${error.message || 'Unknown error'}` +
+                          (error.gitOutput ? `\n\nGit output:\n${error.gitOutput}` : '');
       
       // Don't let this block the error response either
       try {
@@ -512,9 +503,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
 
       // Add message to session output about starting the rebase
-      const timestamp = new Date().toLocaleTimeString();
-      const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                          `\x1b[1m\x1b[94mRebasing to ${mainBranch} (preserving all commits)...\x1b[0m\r\n\r\n`;
+      const startMessage = `🔄 GIT OPERATION\nRebasing to ${mainBranch} (preserving all commits)...`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: startMessage,
@@ -524,7 +513,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       await worktreeManager.rebaseWorktreeToMain(project.path, session.worktreePath, mainBranch);
 
       // Add success message to session output
-      const successMessage = `\x1b[32m✓ Successfully rebased worktree to ${mainBranch}\x1b[0m\r\n\r\n`;
+      const successMessage = `✓ Successfully rebased worktree to ${mainBranch}`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: successMessage,
@@ -536,9 +525,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.error('Failed to rebase worktree to main:', error);
 
       // Add error message to session output
-      const errorMessage = `\x1b[31m✗ Rebase failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
-                          (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
-                          `\r\n`;
+      const errorMessage = `✗ Rebase failed: ${error.message || 'Unknown error'}` +
+                          (error.gitOutput ? `\n\nGit output:\n${error.gitOutput}` : '');
       sessionManager.addSessionOutput(sessionId, {
         type: 'stderr',
         data: errorMessage,
@@ -572,9 +560,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       }
 
       // Add message to session output about starting the pull
-      const timestamp = new Date().toLocaleTimeString();
-      const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                          `\x1b[1m\x1b[94mPulling latest changes from remote...\x1b[0m\r\n\r\n`;
+      const startMessage = `🔄 GIT OPERATION\nPulling latest changes from remote...`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: startMessage,
@@ -585,9 +571,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const result = await worktreeManager.gitPull(session.worktreePath);
 
       // Add success message to session output
-      const successMessage = `\x1b[32m✓ Successfully pulled latest changes\x1b[0m\r\n` +
-                            (result.output ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${result.output}\r\n` : '') +
-                            `\r\n`;
+      const successMessage = `✓ Successfully pulled latest changes` +
+                            (result.output ? `\n\nGit output:\n${result.output}` : '');
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: successMessage,
@@ -608,9 +593,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.error('Failed to pull from remote:', error);
 
       // Add error message to session output
-      const errorMessage = `\x1b[31m✗ Pull failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
-                          (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
-                          `\r\n`;
+      const errorMessage = `✗ Pull failed: ${error.message || 'Unknown error'}` +
+                          (error.gitOutput ? `\n\nGit output:\n${error.gitOutput}` : '');
       sessionManager.addSessionOutput(sessionId, {
         type: 'stderr',
         data: errorMessage,
@@ -653,9 +637,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       }
 
       // Add message to session output about starting the push
-      const timestamp = new Date().toLocaleTimeString();
-      const startMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔄 GIT OPERATION \x1b[0m\r\n` +
-                          `\x1b[1m\x1b[94mPushing changes to remote...\x1b[0m\r\n\r\n`;
+      const startMessage = `🔄 GIT OPERATION\nPushing changes to remote...`;
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: startMessage,
@@ -666,9 +648,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const result = await worktreeManager.gitPush(session.worktreePath);
 
       // Add success message to session output
-      const successMessage = `\x1b[32m✓ Successfully pushed changes to remote\x1b[0m\r\n` +
-                            (result.output ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${result.output}\r\n` : '') +
-                            `\r\n`;
+      const successMessage = `✓ Successfully pushed changes to remote` +
+                            (result.output ? `\n\nGit output:\n${result.output}` : '');
       sessionManager.addSessionOutput(sessionId, {
         type: 'stdout',
         data: successMessage,
@@ -689,9 +670,8 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       console.error('Failed to push to remote:', error);
 
       // Add error message to session output
-      const errorMessage = `\x1b[31m✗ Push failed: ${error.message || 'Unknown error'}\x1b[0m\r\n` +
-                          (error.gitOutput ? `\r\n\x1b[90mGit output:\x1b[0m\r\n${error.gitOutput}\r\n` : '') +
-                          `\r\n`;
+      const errorMessage = `✗ Push failed: ${error.message || 'Unknown error'}` +
+                          (error.gitOutput ? `\n\nGit output:\n${error.gitOutput}` : '');
       sessionManager.addSessionOutput(sessionId, {
         type: 'stderr',
         data: errorMessage,
