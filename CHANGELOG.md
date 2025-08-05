@@ -1,6 +1,46 @@
 
 All notable changes to Crystal will be documented in this file.
 
+## [0.2.0] - 2025-08-05
+
+### Major Features
+- **Rich Output Panel**: Complete redesign of the output viewing experience with improved formatting and display
+- **Comprehensive Theme System**: New theming system with improved dark mode and UI consistency
+- **Context Compaction**: Manual context compaction feature to manage conversation length and improve performance
+- **AWS Bedrock Support**: Added support for AWS Bedrock models with shorthand model passing
+
+### Enhanced
+- **Terminal Improvements**: Increased terminal scrollback to 100,000 lines for better history retention
+- **Git Operations**: Enhanced git operations display in rich output view with better visibility
+- **Performance Optimizations**: 
+  - Reduced UI blocking when creating multiple sessions
+  - Optimized git status loading to prevent UI freezing
+  - Stopped constant polling of git status for inactive sessions
+- **UI/UX Improvements**:
+  - Fixed jarring loading flash in rich output view
+  - Improved auto-scroll behavior - only scrolls when at bottom of output panel
+  - Better project selection handling
+  - Cleaner commits panel UI
+  - Improved project dashboard loading
+
+### Fixed
+- **Git Operations**:
+  - Fixed git diff display issues
+  - Fixed rebase buttons functionality
+  - Resolved git branch actions labeling
+- **UI Bug Fixes**:
+  - Fixed duplicate right-click context menus
+  - Fixed "Open IDE" button not working
+  - Fixed archive callback functionality
+  - Resolved diff view display issues
+- **Linux Compatibility**: Forced GTK 3 on Linux to resolve Electron 36 compatibility issues
+- **Database**: Complete database migration system overhaul for better reliability
+
+### Internal/Development
+- **Documentation**: Cleaned up markdown files and reorganized documentation structure
+- **Code Quality**: Multiple refactoring improvements and duplicate package cleanup
+- **Model Updates**: Always use latest versions of Claude Opus, Sonnet, and Haiku models
+
 ## [0.1.17] - 2025-07-23
 
 ### Added
