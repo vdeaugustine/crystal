@@ -34,16 +34,60 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
 
   ipcMain.handle('sessions:get-executions', async (_event, sessionId: string) => {
     try {
-      // Get execution diffs from the database
-      const executionDiffs = databaseService.getExecutionDiffs(sessionId);
-      
-      console.log(`[IPC:git] Getting execution diffs for session ${sessionId}`);
-      console.log(`[IPC:git] Found ${executionDiffs.length} execution diffs`);
-      if (executionDiffs.length > 0) {
-        console.log(`[IPC:git] First execution diff:`, executionDiffs[0]);
+      const session = await sessionManager.getSession(sessionId);
+      if (!session || !session.worktreePath) {
+        return { success: false, error: 'Session or worktree path not found' };
       }
+
+      // Get project and main branch
+      const project = sessionManager.getProjectForSession(sessionId);
+      if (!project?.path) {
+        throw new Error('Project path not found for session');
+      }
+      const mainBranch = await worktreeManager.getProjectMainBranch(project.path);
       
-      return { success: true, data: executionDiffs };
+      // Get git commit history
+      const commits = gitDiffManager.getCommitHistory(session.worktreePath, 50, mainBranch);
+      
+      console.log(`[IPC:git] Getting git commits for session ${sessionId}`);
+      console.log(`[IPC:git] Found ${commits.length} commits`);
+
+      // Transform git commits to execution format expected by frontend
+      const executions = commits.map((commit, index) => ({
+        id: index + 1, // 1-based index for commits
+        session_id: sessionId,
+        execution_sequence: index + 1,
+        commit_hash: commit.hash,
+        commit_message: commit.message,
+        timestamp: commit.date.toISOString(),
+        stats_additions: commit.stats.additions,
+        stats_deletions: commit.stats.deletions,
+        stats_files_changed: commit.stats.filesChanged,
+        author: commit.author
+      }));
+
+      // Check for uncommitted changes
+      const hasUncommittedChanges = gitDiffManager.hasChanges(session.worktreePath);
+      if (hasUncommittedChanges) {
+        // Get stats for uncommitted changes
+        const uncommittedDiff = await gitDiffManager.captureWorkingDirectoryDiff(session.worktreePath);
+        
+        // Add uncommitted changes as execution with id 0
+        executions.unshift({
+          id: 0,
+          session_id: sessionId,
+          execution_sequence: 0,
+          commit_hash: 'UNCOMMITTED',
+          commit_message: 'Uncommitted changes',
+          timestamp: new Date().toISOString(),
+          stats_additions: uncommittedDiff.stats.additions,
+          stats_deletions: uncommittedDiff.stats.deletions,
+          stats_files_changed: uncommittedDiff.stats.filesChanged,
+          author: 'You'
+        });
+      }
+
+      return { success: true, data: executions };
     } catch (error) {
       console.error('Failed to get executions:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to get executions';
@@ -932,13 +976,14 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
       const executionDiffs = commits.map((commit, index) => ({
         id: index + 1,
         session_id: sessionId,
-        prompt_text: commit.message,
-        execution_sequence: commits.length - index,
+        commit_message: commit.message,
+        execution_sequence: index + 1,
         stats_additions: commit.additions || 0,
         stats_deletions: commit.deletions || 0,
         stats_files_changed: commit.filesChanged || 0,
-        after_commit_hash: commit.hash,
-        timestamp: commit.date
+        commit_hash: commit.hash,
+        timestamp: commit.date,
+        author: commit.author || 'Unknown'
       }));
 
       return { success: true, data: executionDiffs };
