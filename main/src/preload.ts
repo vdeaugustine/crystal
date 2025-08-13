@@ -144,6 +144,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Image operations
     saveImages: (sessionId: string, images: Array<{ name: string; dataUrl: string; type: string }>): Promise<string[]> => ipcRenderer.invoke('sessions:save-images', sessionId, images),
     
+    // Log operations
+    getLogs: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:get-logs', sessionId),
+    clearLogs: (sessionId: string): Promise<IPCResponse> => ipcRenderer.invoke('sessions:clear-logs', sessionId),
+    addLog: (sessionId: string, entry: any): Promise<IPCResponse> => ipcRenderer.invoke('sessions:add-log', sessionId, entry),
   },
 
   // Project management
@@ -279,6 +283,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const wrappedCallback = (_event: any, output: any) => callback(output);
       ipcRenderer.on('session:output', wrappedCallback);
       return () => ipcRenderer.removeListener('session:output', wrappedCallback);
+    },
+    onSessionLog: (callback: (data: any) => void) => {
+      const wrappedCallback = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('session-log', wrappedCallback);
+      return () => ipcRenderer.removeListener('session-log', wrappedCallback);
     },
     onSessionOutputAvailable: (callback: (info: any) => void) => {
       const wrappedCallback = (_event: any, info: any) => callback(info);

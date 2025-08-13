@@ -8,6 +8,7 @@ import type { Session as DbSession, CreateSessionData, UpdateSessionData, Conver
 import { getShellPath } from '../utils/shellPath';
 import { TerminalSessionManager } from './terminalSessionManager';
 import { formatForDisplay } from '../utils/timestampUtils';
+import { addSessionLog } from '../ipc/logs';
 import * as os from 'os';
 
 export class SessionManager extends EventEmitter {
@@ -23,9 +24,11 @@ export class SessionManager extends EventEmitter {
     this.setMaxListeners(50);
     this.terminalSessionManager = new TerminalSessionManager();
     
-    // Forward terminal output events
+    // Forward terminal output events to the terminal display
     this.terminalSessionManager.on('terminal-output', ({ sessionId, data, type }) => {
-      this.addScriptOutput(sessionId, data, type);
+      // Terminal PTY output should go to the terminal, not logs
+      // Emit the output event that will be displayed in the terminal
+      this.emit('script-output', { sessionId, data, type });
     });
     
     // Forward zombie process detection events
@@ -174,6 +177,9 @@ export class SessionManager extends EventEmitter {
   createSessionWithId(id: string, name: string, worktreePath: string, prompt: string, worktreeName: string, permissionMode?: 'approve' | 'ignore', projectId?: number, isMainRepo?: boolean, autoCommit?: boolean, folderId?: string, model?: string, baseCommit?: string, baseBranch?: string, commitMode?: 'structured' | 'checkpoint' | 'disabled', commitModeSettings?: string): Session {
     console.log(`[SessionManager] Creating session with ID ${id}: ${name}`);
     
+    // Add log entry for session creation
+    addSessionLog(id, 'info', `Creating session: ${name}`, 'SessionManager');
+    
     let targetProject;
     
     if (projectId) {
@@ -276,6 +282,14 @@ export class SessionManager extends EventEmitter {
 
   updateSession(id: string, update: SessionUpdate): void {
     console.log(`[SessionManager] updateSession called for ${id} with update:`, update);
+    
+    // Add log entry for important status changes
+    if (update.status) {
+      addSessionLog(id, 'info', `Session status changed to: ${update.status}`, 'SessionManager');
+    }
+    if (update.error) {
+      addSessionLog(id, 'error', `Session error: ${update.error}`, 'SessionManager');
+    }
     
     const dbUpdate: UpdateSessionData = {};
     
@@ -665,24 +679,32 @@ export class SessionManager extends EventEmitter {
       }
     });
 
-    // Handle output
+    // Handle output - send to logs instead of terminal
     this.runningScriptProcess.stdout?.on('data', (data: Buffer) => {
       const output = data.toString();
-      this.emit('script-output', { sessionId, type: 'stdout', data: output });
+      // Split by lines and add each as a log entry
+      const lines = output.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        addSessionLog(sessionId, 'info', line, 'Application');
+      });
+      // Still emit for any legacy handlers, but we'll remove this later
+      this.emit('script-output-log', { sessionId, type: 'stdout', data: output });
     });
 
     this.runningScriptProcess.stderr?.on('data', (data: Buffer) => {
       const output = data.toString();
-      this.emit('script-output', { sessionId, type: 'stderr', data: output });
+      // Split by lines and add each as a log entry
+      const lines = output.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        addSessionLog(sessionId, 'error', line, 'Application');
+      });
+      // Still emit for any legacy handlers, but we'll remove this later
+      this.emit('script-output-log', { sessionId, type: 'stderr', data: output });
     });
 
     // Handle process exit
     this.runningScriptProcess.on('exit', (code) => {
-      this.emit('script-output', { 
-        sessionId, 
-        type: 'stdout', 
-        data: `\nProcess exited with code: ${code}\n` 
-      });
+      addSessionLog(sessionId, 'info', `Process exited with code: ${code}`, 'Application');
       
       this.setSessionRunning(sessionId, false);
       this.currentRunningSessionId = null;
@@ -690,11 +712,7 @@ export class SessionManager extends EventEmitter {
     });
 
     this.runningScriptProcess.on('error', (error) => {
-      this.emit('script-output', { 
-        sessionId, 
-        type: 'stderr', 
-        data: `Error: ${error.message}\n` 
-      });
+      addSessionLog(sessionId, 'error', `Error: ${error.message}`, 'Application');
       
       this.setSessionRunning(sessionId, false);
       this.currentRunningSessionId = null;
@@ -706,34 +724,21 @@ export class SessionManager extends EventEmitter {
     // Get enhanced shell PATH
     const shellPath = getShellPath();
     
-    // Add build start message to script output (terminal tab)
+    // Add build start message to logs
     const timestamp = new Date().toLocaleTimeString();
-    const buildStartMessage = `\r\n\x1b[36m[${timestamp}]\x1b[0m \x1b[1m\x1b[44m\x1b[37m 🔨 BUILD SCRIPT RUNNING \x1b[0m\r\n`;
-    this.emit('script-output', { sessionId, type: 'stdout', data: buildStartMessage });
+    addSessionLog(sessionId, 'info', `🔨 BUILD SCRIPT RUNNING at ${timestamp}`, 'Build');
     
-    // Show PATH information for debugging in terminal
-    this.emit('script-output', { 
-      sessionId, 
-      type: 'stdout', 
-      data: `\x1b[1m\x1b[33mUsing PATH:\x1b[0m ${shellPath.split(':').slice(0, 5).join(':')}\x1b[2m...\x1b[0m\n` 
-    });
+    // Show PATH information for debugging in logs
+    addSessionLog(sessionId, 'debug', `Using PATH: ${shellPath.split(':').slice(0, 5).join(':')}...`, 'Build');
     
     // Check if yarn is available
     try {
       const { stdout: yarnPath } = await this.execWithShellPath('which yarn', { cwd: workingDirectory });
       if (yarnPath.trim()) {
-        this.emit('script-output', { 
-          sessionId, 
-          type: 'stdout', 
-          data: `\x1b[1m\x1b[32myarn found at:\x1b[0m ${yarnPath.trim()}\n` 
-        });
+        addSessionLog(sessionId, 'debug', `yarn found at: ${yarnPath.trim()}`, 'Build');
       }
     } catch {
-      this.emit('script-output', { 
-        sessionId, 
-        type: 'stdout', 
-        data: `\x1b[1m\x1b[31myarn not found in PATH\x1b[0m\n` 
-      });
+      addSessionLog(sessionId, 'warn', `yarn not found in PATH`, 'Build');
     }
     
     let allOutput = '';
@@ -744,34 +749,35 @@ export class SessionManager extends EventEmitter {
       if (command.trim()) {
         console.log(`[SessionManager] Executing build command: ${command}`);
         
-        // Add command to script output (terminal tab)
-        this.emit('script-output', { 
-          sessionId, 
-          type: 'stdout', 
-          data: `\x1b[1m\x1b[34m$ ${command}\x1b[0m\n` 
-        });
+        // Add command to logs
+        addSessionLog(sessionId, 'info', `$ ${command}`, 'Build');
         
         try {
           const { stdout, stderr } = await this.execWithShellPath(command, { cwd: workingDirectory });
           
           if (stdout) {
             allOutput += stdout;
-            this.emit('script-output', { sessionId, type: 'stdout', data: stdout });
+            // Split stdout by lines and add to logs
+            const lines = stdout.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+              addSessionLog(sessionId, 'info', line, 'Build');
+            });
           }
           if (stderr) {
             allOutput += stderr;
-            this.emit('script-output', { sessionId, type: 'stderr', data: stderr });
+            // Split stderr by lines and add to logs
+            const lines = stderr.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+              addSessionLog(sessionId, 'warn', line, 'Build');
+            });
           }
         } catch (cmdError: any) {
           console.error(`[SessionManager] Build command failed: ${command}`, cmdError);
           const errorMessage = cmdError.stderr || cmdError.stdout || cmdError.message || String(cmdError);
           allOutput += errorMessage;
           
-          this.emit('script-output', { 
-            sessionId, 
-            type: 'stderr', 
-            data: `\x1b[1m\x1b[31mCommand failed:\x1b[0m ${command}\n${errorMessage}\n` 
-          });
+          addSessionLog(sessionId, 'error', `Command failed: ${command}`, 'Build');
+          addSessionLog(sessionId, 'error', errorMessage, 'Build');
           
           overallSuccess = false;
           // Continue with next command instead of stopping entirely
@@ -779,13 +785,13 @@ export class SessionManager extends EventEmitter {
       }
     }
     
-    // Add completion message to script output (terminal tab)
+    // Add completion message to logs
     const buildEndTimestamp = new Date().toLocaleTimeString();
-    const buildEndMessage = overallSuccess
-      ? `\r\n\x1b[36m[${buildEndTimestamp}]\x1b[0m \x1b[1m\x1b[42m\x1b[30m ✅ BUILD COMPLETED \x1b[0m\r\n\r\n`
-      : `\r\n\x1b[36m[${buildEndTimestamp}]\x1b[0m \x1b[1m\x1b[41m\x1b[37m ❌ BUILD FAILED \x1b[0m\r\n\r\n`;
-    
-    this.emit('script-output', { sessionId, type: 'stdout', data: buildEndMessage });
+    if (overallSuccess) {
+      addSessionLog(sessionId, 'info', `✅ BUILD COMPLETED at ${buildEndTimestamp}`, 'Build');
+    } else {
+      addSessionLog(sessionId, 'error', `❌ BUILD FAILED at ${buildEndTimestamp}`, 'Build');
+    }
     
     return { success: overallSuccess, output: allOutput };
   }
@@ -806,11 +812,11 @@ export class SessionManager extends EventEmitter {
   }
 
   addScriptOutput(sessionId: string, data: string, type: 'stdout' | 'stderr' = 'stdout'): void {
-    // Emit script output event that will be handled by the frontend
-    this.emit('script-output', { 
-      sessionId, 
-      type, 
-      data 
+    // Send output to logs instead of terminal
+    const lines = data.split('\n').filter(line => line.trim());
+    lines.forEach(line => {
+      const level = type === 'stderr' ? 'error' : 'info';
+      addSessionLog(sessionId, level, line, 'Terminal');
     });
   }
 
@@ -893,20 +899,8 @@ export class SessionManager extends EventEmitter {
           const descendantPids = this.getAllDescendantPids(process.pid);
           console.log(`Found ${descendantPids.length} descendant processes: ${descendantPids.join(', ')}`);
           
-          // Emit detailed termination info to terminal
-          this.emit('script-output', { 
-            sessionId, 
-            type: 'stdout', 
-            data: `\n[Terminating process ${process.pid}]\n` 
-          });
-          
-          if (descendantPids.length > 0) {
-            this.emit('script-output', { 
-              sessionId, 
-              type: 'stdout', 
-              data: `[Found ${descendantPids.length} child process${descendantPids.length > 1 ? 'es' : ''}: ${descendantPids.join(', ')}]\n` 
-            });
-          }
+          // Add a simple log entry for stopping the script
+          addSessionLog(sessionId, 'info', `Stopping application process...`, 'Application');
           
           const platform = os.platform();
           
@@ -1155,6 +1149,9 @@ export class SessionManager extends EventEmitter {
   }
 
   async runTerminalCommand(sessionId: string, command: string): Promise<void> {
+    // Add log entry for terminal command
+    addSessionLog(sessionId, 'info', `Running terminal command: ${command}`, 'Terminal');
+    
     const session = this.activeSessions.get(sessionId);
     if (!session) {
       // Check if session exists in database and is archived
