@@ -413,12 +413,12 @@ export function setupEventListeners(services: AppServices, getMainWindow: () => 
     }
   });
 
-  // Listen to script output events (for terminal PTY output)
-  sessionManager.on('script-output', (output) => {
+  // Listen to terminal output events (independent terminal, not run scripts)
+  sessionManager.on('terminal-output', (output) => {
     // Broadcast terminal output to renderer
     const mw = getMainWindow();
     if (mw) {
-      mw.webContents.send('script:output', output);
+      mw.webContents.send('terminal:output', output);
     }
   });
 

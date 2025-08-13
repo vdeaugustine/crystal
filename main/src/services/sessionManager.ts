@@ -26,9 +26,9 @@ export class SessionManager extends EventEmitter {
     
     // Forward terminal output events to the terminal display
     this.terminalSessionManager.on('terminal-output', ({ sessionId, data, type }) => {
-      // Terminal PTY output should go to the terminal, not logs
-      // Emit the output event that will be displayed in the terminal
-      this.emit('script-output', { sessionId, data, type });
+      // Terminal PTY output goes directly to the terminal view
+      // Terminal is now independent and not used for run scripts
+      this.emit('terminal-output', { sessionId, data, type });
     });
     
     // Forward zombie process detection events
@@ -687,8 +687,7 @@ export class SessionManager extends EventEmitter {
       lines.forEach(line => {
         addSessionLog(sessionId, 'info', line, 'Application');
       });
-      // Still emit for any legacy handlers, but we'll remove this later
-      this.emit('script-output-log', { sessionId, type: 'stdout', data: output });
+      // Log output is now handled via addSessionLog above
     });
 
     this.runningScriptProcess.stderr?.on('data', (data: Buffer) => {
@@ -698,8 +697,7 @@ export class SessionManager extends EventEmitter {
       lines.forEach(line => {
         addSessionLog(sessionId, 'error', line, 'Application');
       });
-      // Still emit for any legacy handlers, but we'll remove this later
-      this.emit('script-output-log', { sessionId, type: 'stderr', data: output });
+      // Log output is now handled via addSessionLog above
     });
 
     // Handle process exit
@@ -906,20 +904,12 @@ export class SessionManager extends EventEmitter {
           
           if (platform === 'win32') {
             // On Windows, use taskkill to terminate the process tree
-            this.emit('script-output', { 
-              sessionId, 
-              type: 'stdout', 
-              data: `[Using taskkill to terminate process tree ${process.pid}]\n` 
-            });
+            addSessionLog(sessionId, 'info', `[Using taskkill to terminate process tree ${process.pid}]`, 'System');
             
             exec(`taskkill /F /T /PID ${process.pid}`, (error) => {
               if (error) {
                 console.warn(`Error killing Windows process tree: ${error.message}`);
-                this.emit('script-output', { 
-                  sessionId, 
-                  type: 'stderr', 
-                  data: `[Error terminating process tree: ${error.message}]\n` 
-                });
+                addSessionLog(sessionId, 'error', `[Error terminating process tree: ${error.message}]`, 'System');
                 
                 // Fallback: kill individual processes
                 try {
@@ -946,11 +936,7 @@ export class SessionManager extends EventEmitter {
                     
                     // Report after all attempts
                     if (processedCount === descendantPids.length) {
-                      this.emit('script-output', { 
-                        sessionId, 
-                        type: 'stdout', 
-                        data: `[Terminated ${killedCount} processes using fallback method]\n` 
-                      });
+                      addSessionLog(sessionId, 'info', `[Terminated ${killedCount} processes using fallback method]`, 'System');
                       this.finishStopScript(sessionId);
                       resolve();
                     }
@@ -958,11 +944,7 @@ export class SessionManager extends EventEmitter {
                 });
               } else {
                 console.log(`Successfully killed Windows process tree ${process.pid}`);
-                this.emit('script-output', { 
-                  sessionId, 
-                  type: 'stdout', 
-                  data: `[Successfully terminated process tree]\n` 
-                });
+                addSessionLog(sessionId, 'info', '[Successfully terminated process tree]', 'System');
                 this.finishStopScript(sessionId);
                 resolve();
               }
@@ -970,11 +952,7 @@ export class SessionManager extends EventEmitter {
           } else {
             // On Unix-like systems (macOS, Linux)
             // First, try SIGTERM for graceful shutdown
-            this.emit('script-output', { 
-              sessionId, 
-              type: 'stdout', 
-              data: `[Sending SIGTERM to process ${process.pid} and its group]\n` 
-            });
+            addSessionLog(sessionId, 'info', `[Sending SIGTERM to process ${process.pid} and its group]`, 'System');
             
             try {
               process.kill('SIGTERM');
@@ -990,52 +968,28 @@ export class SessionManager extends EventEmitter {
             });
             
             // Give processes a chance to clean up gracefully
-            this.emit('script-output', { 
-              sessionId, 
-              type: 'stdout', 
-              data: '[Waiting 10 seconds for graceful shutdown...]\n' 
-            });
+            addSessionLog(sessionId, 'info', '[Waiting 10 seconds for graceful shutdown...]', 'System');
             
             // Use a shorter timeout for faster cleanup
             setTimeout(() => {
-              this.emit('script-output', { 
-                sessionId, 
-                type: 'stdout', 
-                data: '\n[Grace period expired, using forceful termination]\n' 
-              });
+              addSessionLog(sessionId, 'info', '\n[Grace period expired, using forceful termination]', 'System');
               
               // Now forcefully kill the main process
               try {
                 process.kill('SIGKILL');
-                this.emit('script-output', { 
-                  sessionId, 
-                  type: 'stdout', 
-                  data: `[Sent SIGKILL to process ${process.pid}]\n` 
-                });
+                addSessionLog(sessionId, 'info', `[Sent SIGKILL to process ${process.pid}]`, 'System');
               } catch (error) {
                 // Process might already be dead
-                this.emit('script-output', { 
-                  sessionId, 
-                  type: 'stdout', 
-                  data: `[Process ${process.pid} already terminated]\n` 
-                });
+                addSessionLog(sessionId, 'info', `[Process ${process.pid} already terminated]`, 'System');
               }
               
               // Kill the process group with SIGKILL
               exec(`kill -9 -${process.pid}`, (error) => {
                 if (error) {
                   console.warn(`Error sending SIGKILL to process group: ${error.message}`);
-                  this.emit('script-output', { 
-                    sessionId, 
-                    type: 'stderr', 
-                    data: `[Warning: Could not kill process group: ${error.message}]\n` 
-                  });
+                  addSessionLog(sessionId, 'warn', `[Warning: Could not kill process group: ${error.message}]`, 'System');
                 } else {
-                  this.emit('script-output', { 
-                    sessionId, 
-                    type: 'stdout', 
-                    data: `[Sent SIGKILL to process group ${process.pid}]\n` 
-                  });
+                  addSessionLog(sessionId, 'info', `[Sent SIGKILL to process group ${process.pid}]`, 'System');
                 }
               });
               
@@ -1056,18 +1010,10 @@ export class SessionManager extends EventEmitter {
                   // Report results after processing all descendants
                   if (killedCount + alreadyDeadCount === descendantPids.length) {
                     if (killedCount > 0) {
-                      this.emit('script-output', { 
-                        sessionId, 
-                        type: 'stdout', 
-                        data: `[Forcefully terminated ${killedCount} child process${killedCount > 1 ? 'es' : ''}]\n` 
-                      });
+                      addSessionLog(sessionId, 'info', `[Forcefully terminated ${killedCount} child process${killedCount > 1 ? 'es' : ''}]`, 'System');
                     }
                     if (alreadyDeadCount > 0) {
-                      this.emit('script-output', { 
-                        sessionId, 
-                        type: 'stdout', 
-                        data: `[${alreadyDeadCount} process${alreadyDeadCount > 1 ? 'es' : ''} had already terminated gracefully]\n` 
-                      });
+                      addSessionLog(sessionId, 'info', `[${alreadyDeadCount} process${alreadyDeadCount > 1 ? 'es' : ''} had already terminated gracefully]`, 'System');
                     }
                   }
                 });
@@ -1083,22 +1029,10 @@ export class SessionManager extends EventEmitter {
                 if (process.pid) {
                   const remainingPids = this.getAllDescendantPids(process.pid);
                   if (remainingPids.length > 0) {
-                    this.emit('script-output', { 
-                      sessionId, 
-                      type: 'stderr', 
-                      data: `\n[WARNING: ${remainingPids.length} zombie process${remainingPids.length > 1 ? 'es' : ''} could not be terminated: ${remainingPids.join(', ')}]\n` 
-                    });
-                    this.emit('script-output', { 
-                      sessionId, 
-                      type: 'stderr', 
-                      data: `[Please manually kill these processes using: kill -9 ${remainingPids.join(' ')}]\n` 
-                    });
+                    addSessionLog(sessionId, 'warn', `[WARNING: ${remainingPids.length} zombie process${remainingPids.length > 1 ? 'es' : ''} could not be terminated: ${remainingPids.join(', ')}]`, 'System');
+                    addSessionLog(sessionId, 'error', `[Please manually kill these processes using: kill -9 ${remainingPids.join(' ')}]`, 'System');
                   } else {
-                    this.emit('script-output', { 
-                      sessionId, 
-                      type: 'stdout', 
-                      data: '\n[All processes terminated successfully]\n' 
-                    });
+                    addSessionLog(sessionId, 'info', '\n[All processes terminated successfully]', 'System');
                   }
                 }
                 this.finishStopScript(sessionId);
@@ -1124,11 +1058,7 @@ export class SessionManager extends EventEmitter {
     this.setSessionRunning(sessionId, false);
     
     // Emit a final message to indicate the script was stopped
-    this.emit('script-output', { 
-      sessionId, 
-      type: 'stdout', 
-      data: '\n[Script stopped by user]\n' 
-    });
+    addSessionLog(sessionId, 'info', '\n[Script stopped by user]', 'System');
   }
 
   private setSessionRunning(sessionId: string, isRunning: boolean): void {

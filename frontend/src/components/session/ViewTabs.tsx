@@ -66,7 +66,7 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({
       mode: 'terminal', 
       label: 'Terminal', 
       icon: <Terminal className="w-4 h-4" />,
-      activity: unreadActivity.terminal, 
+      activity: false, // Terminal is independent - no unread indicators
       status: isTerminalRunning 
     },
     { 

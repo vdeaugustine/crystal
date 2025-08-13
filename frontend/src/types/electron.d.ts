@@ -218,7 +218,7 @@ interface ElectronAPI {
     onFolderUpdated: (callback: (folder: any) => void) => () => void;
     onFolderDeleted: (callback: (folderId: string) => void) => () => void;
     
-    onScriptOutput: (callback: (output: any) => void) => () => void;
+    onTerminalOutput: (callback: (output: any) => void) => () => void;
     onMainLog: (callback: (level: string, message: string) => void) => () => void;
     onVersionUpdateAvailable: (callback: (versionInfo: any) => void) => () => void;
     

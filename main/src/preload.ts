@@ -319,10 +319,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('folder:deleted', wrappedCallback);
     },
     
-    onScriptOutput: (callback: (output: any) => void) => {
+    onTerminalOutput: (callback: (output: any) => void) => {
       const wrappedCallback = (_event: any, output: any) => callback(output);
-      ipcRenderer.on('script:output', wrappedCallback);
-      return () => ipcRenderer.removeListener('script:output', wrappedCallback);
+      ipcRenderer.on('terminal:output', wrappedCallback);
+      return () => ipcRenderer.removeListener('terminal:output', wrappedCallback);
     },
 
     // Generic event cleanup

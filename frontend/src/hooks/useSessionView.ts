@@ -305,13 +305,12 @@ export const useSessionView = (
       return;
     }
     const unsubscribe = useSessionStore.subscribe((state) => {
-      const sessionScriptOutput = state.scriptOutput[activeSession.id] || [];
-      setScriptOutput(sessionScriptOutput);
-      if (viewMode !== 'terminal' && sessionScriptOutput.length > 0) {
-        setUnreadActivity(prev => ({ ...prev, terminal: true }));
-      }
+      const sessionTerminalOutput = state.terminalOutput[activeSession.id] || [];
+      setScriptOutput(sessionTerminalOutput);
+      // Terminal is now independent - no automatic unread indicators
+      // Users explicitly interact with the terminal, so they know when there's output
     });
-    setScriptOutput(useSessionStore.getState().scriptOutput[activeSession.id] || []);
+    setScriptOutput(useSessionStore.getState().terminalOutput[activeSession.id] || []);
     return unsubscribe;
   }, [activeSession?.id, viewMode]);
 
@@ -608,22 +607,8 @@ export const useSessionView = (
   }, [theme, activeSession]);
 
   // Terminal output view has been removed - no terminal initialization needed  
-  // Pre-initialize script terminal when session becomes active
-  useEffect(() => {
-    if (activeSession && scriptTerminalRef.current && !scriptTerminalInstance.current) {
-      console.log('[Terminal] Pre-initializing script terminal for session', activeSession.id);
-      initTerminal(scriptTerminalRef, scriptTerminalInstance, scriptFitAddon, true);
-      
-      // Also pre-create the backend PTY session
-      API.sessions.preCreateTerminal(activeSession.id).then(response => {
-        if (response.success) {
-          console.log('[Terminal] Backend PTY pre-created for session', activeSession.id);
-        }
-      }).catch(error => {
-        console.error('[Terminal] Failed to pre-create backend PTY:', error);
-      });
-    }
-  }, [activeSession?.id, scriptTerminalRef, initTerminal]);
+  // Terminal is now created on-demand when user clicks the terminal tab
+  // No pre-initialization to avoid unnecessary terminal output and activity indicators
 
   useEffect(() => {
     if (viewMode === 'terminal') {
@@ -636,9 +621,9 @@ export const useSessionView = (
       if (activeSession) {
         // Use setTimeout to ensure terminal is fully initialized
         setTimeout(() => {
-          const currentScriptOutput = useSessionStore.getState().scriptOutput[activeSession.id] || [];
-          if (scriptTerminalInstance.current && currentScriptOutput.length > 0 && lastProcessedScriptOutputLength.current === 0) {
-            const existingOutput = currentScriptOutput.join('');
+          const currentTerminalOutput = useSessionStore.getState().terminalOutput[activeSession.id] || [];
+          if (scriptTerminalInstance.current && currentTerminalOutput.length > 0 && lastProcessedScriptOutputLength.current === 0) {
+            const existingOutput = currentTerminalOutput.join('');
             console.log('[Terminal] Writing existing output to newly initialized terminal', existingOutput.length, 'chars');
             scriptTerminalInstance.current.write(existingOutput);
             lastProcessedScriptOutputLength.current = existingOutput.length;
@@ -705,9 +690,9 @@ export const useSessionView = (
   
   useEffect(() => {
     if (!scriptTerminalInstance.current || viewMode !== 'terminal' || !activeSession) return;
-    const currentScriptOutput = useSessionStore.getState().scriptOutput[activeSession.id] || [];
-    if (lastProcessedScriptOutputLength.current === 0 && currentScriptOutput.length > 0) {
-      const existingOutput = currentScriptOutput.join('');
+    const currentTerminalOutput = useSessionStore.getState().terminalOutput[activeSession.id] || [];
+    if (lastProcessedScriptOutputLength.current === 0 && currentTerminalOutput.length > 0) {
+      const existingOutput = currentTerminalOutput.join('');
       scriptTerminalInstance.current.write(existingOutput);
       lastProcessedScriptOutputLength.current = existingOutput.length;
     }
@@ -1532,7 +1517,7 @@ export const useSessionView = (
       
       // Also clear the stored script output for this session
       if (activeSession) {
-        useSessionStore.getState().clearScriptOutput(activeSession.id);
+        useSessionStore.getState().clearTerminalOutput(activeSession.id);
         lastProcessedScriptOutputLength.current = 0;
       }
     }
