@@ -72,11 +72,11 @@ export const LogView: React.FC<LogViewProps> = ({ sessionId, isVisible }) => {
     loadLogs();
   }, [sessionId, isVisible]);
 
-  // Subscribe to new log entries
+  // Subscribe to new log entries and clear events
   useEffect(() => {
     if (!sessionId) return;
 
-    const unsubscribe = window.electronAPI?.events?.onSessionLog?.((data: {
+    const unsubscribeLog = window.electronAPI?.events?.onSessionLog?.((data: {
       sessionId: string;
       entry: LogEntry;
     }) => {
@@ -85,8 +85,18 @@ export const LogView: React.FC<LogViewProps> = ({ sessionId, isVisible }) => {
       }
     });
 
+    const unsubscribeClear = window.electronAPI?.events?.onSessionLogsCleared?.((data: {
+      sessionId: string;
+    }) => {
+      if (data.sessionId === sessionId) {
+        setLogs([]);
+        lastLogCount.current = 0;
+      }
+    });
+
     return () => {
-      unsubscribe?.();
+      unsubscribeLog?.();
+      unsubscribeClear?.();
     };
   }, [sessionId]);
 
