@@ -107,8 +107,9 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isLoadingRef = useRef(false);
   const userMessageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const wasAtBottomRef = useRef(false);
+  const wasAtBottomRef = useRef(true); // Start as true to scroll to bottom on first load
   const loadMessagesRef = useRef<(() => Promise<void>) | null>(null);
+  const isFirstLoadRef = useRef(true); // Track if this is the first load
 
   // Save local settings to localStorage when they change
   useEffect(() => {
@@ -568,6 +569,9 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
   // Initial load
   useEffect(() => {
     if (!sessionId) return;
+    // Reset first load flag when session changes
+    isFirstLoadRef.current = true;
+    wasAtBottomRef.current = true; // Also reset to true for new sessions
     loadMessages();
   }, [sessionId, loadMessages]);
 
@@ -606,13 +610,17 @@ export const RichOutputView = React.forwardRef<{ scrollToPrompt: (promptIndex: n
   // Auto-scroll to bottom when messages change or view loads
   useEffect(() => {
     if (messagesEndRef.current && !loading) {
-      // Scroll if we were at the bottom before the update
-      if (wasAtBottomRef.current) {
+      // Always scroll to bottom on first load, or if we were at the bottom before the update
+      if (isFirstLoadRef.current || wasAtBottomRef.current) {
         // Use requestAnimationFrame to ensure DOM has updated
         requestAnimationFrame(() => {
           // Use instant scrolling for better responsiveness during active output
           // Smooth scrolling can be too slow and cause users to miss content
           messagesEndRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+          // Mark first load as complete
+          if (isFirstLoadRef.current) {
+            isFirstLoadRef.current = false;
+          }
           // Don't set wasAtBottomRef here - let the scroll event handler determine actual position
         });
       }
