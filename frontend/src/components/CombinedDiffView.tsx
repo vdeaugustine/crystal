@@ -526,7 +526,7 @@ const CombinedDiffView: React.FC<CombinedDiffViewProps> = memo(({
           <div className="w-1/3 border-r border-border-primary bg-surface-secondary overflow-hidden flex flex-col">
             {/* File list - show only when we have a diff */}
             {filesFromDiff.length > 0 && (
-              <div className="h-1/3 border-b border-border-primary overflow-hidden">
+              <div className="h-1/3 border-b border-border-primary overflow-y-auto">
                 <FileList
                   files={filesFromDiff}
                   onFileClick={handleFileClick}
