@@ -103,11 +103,11 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
 
   useEffect(() => {
     // Fetch Git status for this session (non-blocking)
-    const fetchGitStatus = async () => {
+    const fetchGitStatus = async (isInitialLoad = false) => {
       try {
         setGitStatusLoading(true);
-        // Use non-blocking fetch (true as second parameter)
-        const response = await window.electronAPI.invoke('sessions:get-git-status', session.id, true);
+        // Use non-blocking fetch with initial load flag for staggered loading
+        const response = await window.electronAPI.invoke('sessions:get-git-status', session.id, true, isInitialLoad);
         if (response.success) {
           // If we got cached status, use it immediately
           if (response.gitStatus) {
@@ -129,7 +129,7 @@ export const SessionListItem = memo(function SessionListItem({ session, isNested
 
     // Initial fetch only if we don't already have git status
     if (!session.archived && session.status !== 'error' && !gitStatus) {
-      fetchGitStatus();
+      fetchGitStatus(true); // Pass true for initial load
     }
 
     // Listen for git status updates

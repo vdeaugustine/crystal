@@ -57,11 +57,16 @@ export class GitStatusManager extends EventEmitter {
   
   // Concurrent operation limiting
   private activeOperations = 0;
-  private readonly MAX_CONCURRENT_OPERATIONS = 3;
+  private readonly MAX_CONCURRENT_OPERATIONS = 5; // Increased from 3 for better throughput
   private operationQueue: Array<() => Promise<void>> = [];
   
   // Cancellation support
   private abortControllers: Map<string, AbortController> = new Map();
+  
+  // Initial load management
+  private isInitialLoadInProgress = false;
+  private initialLoadQueue: string[] = [];
+  private readonly INITIAL_LOAD_DELAY_MS = 100; // Stagger initial loads by 100ms
 
   constructor(
     private sessionManager: SessionManager,
@@ -236,6 +241,13 @@ export class GitStatusManager extends EventEmitter {
   }
 
   /**
+   * Get cached status without fetching
+   */
+  private getCachedStatus(sessionId: string): { status: GitStatus; lastChecked: number } | null {
+    return this.cache[sessionId] || null;
+  }
+
+  /**
    * Get git status for a specific session (with caching)
    */
   async getGitStatus(sessionId: string): Promise<GitStatus | null> {
@@ -290,6 +302,72 @@ export class GitStatusManager extends EventEmitter {
 
       this.refreshDebounceTimers.set(sessionId, timer);
     });
+  }
+
+  /**
+   * Queue a session for initial git status loading with staggered execution
+   * This prevents UI lock when many sessions load at once
+   */
+  async queueInitialLoad(sessionId: string): Promise<GitStatus | null> {
+    // Check cache first
+    const cached = this.getCachedStatus(sessionId);
+    if (cached && Date.now() - cached.lastChecked < this.CACHE_TTL_MS) {
+      return cached.status;
+    }
+
+    // Add to initial load queue if not already there
+    if (!this.initialLoadQueue.includes(sessionId)) {
+      this.initialLoadQueue.push(sessionId);
+    }
+
+    // Start processing queue if not already running
+    if (!this.isInitialLoadInProgress) {
+      this.processInitialLoadQueue();
+    }
+
+    // Return cached status immediately (UI will update when fresh data arrives via events)
+    return cached?.status || null;
+  }
+
+  /**
+   * Process the initial load queue with staggering to prevent UI lock
+   */
+  private async processInitialLoadQueue(): Promise<void> {
+    if (this.isInitialLoadInProgress || this.initialLoadQueue.length === 0) {
+      return;
+    }
+
+    this.isInitialLoadInProgress = true;
+    
+    while (this.initialLoadQueue.length > 0) {
+      // Take a batch of sessions to process
+      const batchSize = Math.min(this.MAX_CONCURRENT_OPERATIONS, this.initialLoadQueue.length);
+      const batch = this.initialLoadQueue.splice(0, batchSize);
+      
+      // Process batch concurrently
+      const promises = batch.map(sessionId => 
+        this.executeWithLimit(async () => {
+          try {
+            const status = await this.fetchGitStatus(sessionId);
+            if (status) {
+              this.updateCache(sessionId, status);
+              this.emitThrottled(sessionId, 'updated', status);
+            }
+          } catch (error) {
+            this.logger?.error(`[GitStatus] Error fetching status for session ${sessionId}:`, error as Error);
+          }
+        })
+      );
+      
+      await Promise.allSettled(promises);
+      
+      // Small delay between batches to keep UI responsive
+      if (this.initialLoadQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, this.INITIAL_LOAD_DELAY_MS));
+      }
+    }
+    
+    this.isInitialLoadInProgress = false;
   }
 
   /**

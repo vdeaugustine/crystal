@@ -1068,7 +1068,7 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
     }
   });
 
-  ipcMain.handle('sessions:get-git-status', async (_event, sessionId: string, nonBlocking?: boolean) => {
+  ipcMain.handle('sessions:get-git-status', async (_event, sessionId: string, nonBlocking?: boolean, isInitialLoad?: boolean) => {
     try {
       const session = await sessionManager.getSession(sessionId);
       if (!session || !session.worktreePath) {
@@ -1077,6 +1077,16 @@ export function registerGitHandlers(ipcMain: IpcMain, services: AppServices): vo
 
       if (session.archived) {
         return { success: false, error: 'Cannot get git status for archived session' };
+      }
+
+      // For initial loads, use the queued approach to prevent UI lock
+      if (isInitialLoad) {
+        const cachedStatus = await gitStatusManager.queueInitialLoad(sessionId);
+        return { 
+          success: true, 
+          gitStatus: cachedStatus,
+          backgroundRefresh: true 
+        };
       }
 
       // If nonBlocking is true, start refresh in background and return immediately
